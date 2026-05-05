@@ -5,6 +5,12 @@ import "./index.css";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
 
+type RivalInfo = {
+  nome: string;
+  valor: number;
+  label: string;
+} | null;
+
 type RawPlayer = {
   jogador?: string;
   player?: string;
@@ -19,6 +25,8 @@ type RawPlayer = {
   titulo?: string;
   title?: string;
   bio?: string;
+  rivalFrequente?: RivalInfo;
+  carrasco?: RivalInfo;
 };
 
 type RawDeck = {
@@ -49,6 +57,8 @@ type Player = {
   photoUrl: string;
   title: string;
   bio: string;
+  rivalFrequente: RivalInfo;
+  carrasco: RivalInfo;
 };
 
 type Deck = {
@@ -91,6 +101,8 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       photoUrl: item.fotoUrl || item.photoUrl || "",
       title: item.titulo || item.title || "",
       bio: item.bio || "",
+      rivalFrequente: item.rivalFrequente || null,
+    carrasco: item.carrasco || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -163,7 +175,12 @@ function LeaderboardCard({
       </div>
 
       <div className="card-info">
-        <h3>{item.name}</h3>
+        <h3 className="name-with-title">
+          {isPlayer && (item as Player).title ? (
+            <span className="inline-title">{(item as Player).title}</span>
+          ) : null}
+          <span>{item.name}</span>
+        </h3>
 
         <div className="stats">
           <StatPill>{formatPercent(item.winrate)} WR</StatPill>
@@ -172,8 +189,6 @@ function LeaderboardCard({
           </StatPill>
           <StatPill>{item.wins} vitórias</StatPill>
         </div>
-
-        {isPlayer && (item as Player).title ? <p>{(item as Player).title}</p> : null}
 
         {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
           <p>{[(item as Deck).commander, (item as Deck).colors].filter(Boolean).join(" • ")}</p>
@@ -285,6 +300,32 @@ function ProfileModal({
             <strong>{item.wins}</strong>
           </div>
         </div>
+
+        {isPlayer ? (
+          <div className="rival-grid">
+            {(item as Player).rivalFrequente ? (
+              <div className="rival-card">
+                <span>Rival frequente</span>
+                <strong>{(item as Player).rivalFrequente?.nome}</strong>
+                <p>
+                  {(item as Player).rivalFrequente?.valor}{" "}
+                  {(item as Player).rivalFrequente?.label}
+                </p>
+              </div>
+            ) : null}
+
+            {(item as Player).carrasco ? (
+              <div className="rival-card">
+                <span>Carrasco</span>
+                <strong>{(item as Player).carrasco?.nome}</strong>
+                <p>
+                  {(item as Player).carrasco?.valor}{" "}
+                  {(item as Player).carrasco?.label}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {"bio" in item && item.bio ? (
           <div className="profile-section">

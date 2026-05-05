@@ -447,3 +447,63 @@ footer {
     max-width: 240px;
   }
 }
+
+.name-with-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-title {
+  display: inline-flex;
+  flex-shrink: 0;
+  max-width: 180px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fef3c7;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(250, 204, 21, 0.14);
+  border: 1px solid rgba(250, 204, 21, 0.22);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rival-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.rival-card {
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(127, 29, 29, 0.24);
+  border: 1px solid rgba(248, 113, 113, 0.18);
+}
+
+.rival-card span {
+  display: block;
+  color: #fecaca;
+  font-size: 13px;
+}
+
+.rival-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.rival-card p {
+  margin: 4px 0 0;
+  color: #d4d4d8;
+  font-size: 13px;
+}
+
+@media (min-width: 700px) {
+  .rival-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
