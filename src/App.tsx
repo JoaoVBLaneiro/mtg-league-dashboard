@@ -27,6 +27,7 @@ type RawPlayer = {
   bio?: string;
   rivalFrequente?: RivalInfo;
   carrasco?: RivalInfo;
+  maiorPato?: RivalInfo;
 };
 
 type RawDeck = {
@@ -47,6 +48,9 @@ type RawDeck = {
   colors?: string;
   bio?: string;
   decklistUrl?: string;
+  rivalFrequente?: RivalInfo;
+  carrasco?: RivalInfo;
+  maiorPato?: RivalInfo;
 };
 
 type Player = {
@@ -59,6 +63,7 @@ type Player = {
   bio: string;
   rivalFrequente: RivalInfo;
   carrasco: RivalInfo;
+  maiorPato: RivalInfo;
 };
 
 type Deck = {
@@ -71,6 +76,9 @@ type Deck = {
   colors: string;
   bio: string;
   decklistUrl: string;
+  rivalFrequente: RivalInfo;
+  carrasco: RivalInfo;
+  maiorPato: RivalInfo;
 };
 
 type PeriodKey = "geral" | "mes" | "semestre";
@@ -155,7 +163,8 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       title: item.titulo || item.title || "",
       bio: item.bio || "",
       rivalFrequente: item.rivalFrequente || null,
-    carrasco: item.carrasco || null,
+      carrasco: item.carrasco || null,
+      maiorPato: item.maiorPato || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -177,6 +186,9 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       colors: item.cores || item.colors || "",
       bio: item.bio || "",
       decklistUrl: item.decklistUrl || "",
+      rivalFrequente: item.rivalFrequente || null,
+      carrasco: item.carrasco || null,
+      maiorPato: item.maiorPato || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -306,12 +318,16 @@ function Section({
 function ProfileModal({
   selected,
   players,
+  decks,
   onSelectPlayer,
+  onSelectDeck,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
   players: Player[];
+  decks: Deck[];
   onSelectPlayer: (player: Player) => void;
+  onSelectDeck: (deck: Deck) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -326,6 +342,14 @@ function ProfileModal({
 
     if (player) {
       onSelectPlayer(player);
+    }
+  }
+
+  function openDeckByName(name: string) {
+    const deck = decks.find((deck) => deck.name === name);
+
+    if (deck) {
+      onSelectDeck(deck);
     }
   }
 
@@ -373,66 +397,106 @@ function ProfileModal({
           </div>
         </div>
 
-        <div className="profile-stats">
-          <div>
-            <span>Winrate</span>
-            <strong>{formatPercent(item.winrate)}</strong>
-          </div>
+        <div className="profile-stats profile-stats-pills">
+          <StatPill variant="winrate" value={item.winrate}>
+            {formatPercent(item.winrate)} WR
+          </StatPill>
 
-          <div>
-            <span>{isPlayer ? "Partidas" : "Aparições"}</span>
-            <strong>
-              {isPlayer ? (item as Player).games : (item as Deck).appearances}
-            </strong>
-          </div>
+          <StatPill variant="games">
+            {isPlayer ? (item as Player).games : (item as Deck).appearances}{" "}
+            {isPlayer ? "partidas" : "aparições"}
+          </StatPill>
 
-          <div>
-            <span>Vitórias</span>
-            <strong>{item.wins}</strong>
-          </div>
+          <StatPill variant="wins">
+            {item.wins} vitórias
+          </StatPill>
         </div>
 
-       {isPlayer ? (
-          <div className="rival-grid">
-            {(item as Player).rivalFrequente ? (
-              <div className="rival-card">
-                <span>Rival frequente</span>
+       {(() => {
+  const rivalData = isPlayer
+    ? {
+        rivalFrequente: (item as Player).rivalFrequente,
+        carrasco: (item as Player).carrasco,
+        maiorPato: (item as Player).maiorPato,
+      }
+    : {
+        rivalFrequente: (item as Deck).rivalFrequente,
+        carrasco: (item as Deck).carrasco,
+        maiorPato: (item as Deck).maiorPato,
+      };
 
-                <button
-                  className="rival-name-button"
-                  onClick={() =>
-                    openPlayerByName((item as Player).rivalFrequente!.nome)
-                  }
-                >
-                  {(item as Player).rivalFrequente?.nome}
-                </button>
+  function openRelatedProfile(name: string) {
+    if (isPlayer) {
+      openPlayerByName(name);
+    } else {
+      openDeckByName(name);
+    }
+  }
 
-                <p>
-                  {(item as Player).rivalFrequente?.valor}{" "}
-                  {(item as Player).rivalFrequente?.label}
-                </p>
-              </div>
-            ) : null}
+  if (
+    !rivalData.rivalFrequente &&
+    !rivalData.carrasco &&
+    !rivalData.maiorPato
+  ) {
+    return null;
+  }
 
-            {(item as Player).carrasco ? (
-              <div className="rival-card">
-                <span>Carrasco</span>
+  return (
+    <div className="rival-grid">
+      {rivalData.rivalFrequente ? (
+        <div className="rival-card">
+          <span>Rival frequente</span>
 
-                <button
-                  className="rival-name-button"
-                  onClick={() => openPlayerByName((item as Player).carrasco!.nome)}
-                >
-                  {(item as Player).carrasco?.nome}
-                </button>
+          <button
+            className="rival-name-button"
+            onClick={() => openRelatedProfile(rivalData.rivalFrequente!.nome)}
+          >
+            {rivalData.rivalFrequente.nome}
+          </button>
 
-                <p>
-                  {(item as Player).carrasco?.valor}{" "}
-                  {(item as Player).carrasco?.label}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+          <p>
+            {rivalData.rivalFrequente.valor}{" "}
+            {rivalData.rivalFrequente.label}
+          </p>
+        </div>
+      ) : null}
+
+      {rivalData.carrasco ? (
+        <div className="rival-card">
+          <span>Carrasco</span>
+
+          <button
+            className="rival-name-button"
+            onClick={() => openRelatedProfile(rivalData.carrasco!.nome)}
+          >
+            {rivalData.carrasco.nome}
+          </button>
+
+          <p>
+            {rivalData.carrasco.valor} {rivalData.carrasco.label}
+          </p>
+        </div>
+      ) : null}
+
+      {rivalData.maiorPato ? (
+        <div className="rival-card duck-card">
+          <span>Maior pato</span>
+
+          <button
+            className="rival-name-button"
+            onClick={() => openRelatedProfile(rivalData.maiorPato!.nome)}
+          >
+            {rivalData.maiorPato.nome}
+          </button>
+
+          <p>
+            {rivalData.maiorPato.valor} {rivalData.maiorPato.label}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+})()}
 
         {"bio" in item && item.bio ? (
           <div className="profile-section">
@@ -785,8 +849,12 @@ export default function App() {
       <ProfileModal
         selected={selectedProfile}
         players={players}
+        decks={decks}
         onSelectPlayer={(player) =>
           setSelectedProfile({ type: "player", item: player })
+        }
+        onSelectDeck={(deck) =>
+          setSelectedProfile({ type: "deck", item: deck })
         }
         onClose={() => setSelectedProfile(null)}
       />
