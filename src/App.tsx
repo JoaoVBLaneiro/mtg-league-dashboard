@@ -176,10 +176,11 @@ function LeaderboardCard({
 
       <div className="card-info">
         <h3 className="name-with-title">
+          <span className="player-name">{item.name}</span>
+
           {isPlayer && (item as Player).title ? (
             <span className="inline-title">{(item as Player).title}</span>
           ) : null}
-          <span>{item.name}</span>
         </h3>
 
         <div className="stats">
@@ -226,9 +227,13 @@ function Section({
 
 function ProfileModal({
   selected,
+  players,
+  onSelectPlayer,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
+  players: Player[];
+  onSelectPlayer: (player: Player) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -237,6 +242,14 @@ function ProfileModal({
   const item = selected.item;
 
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
+
+  function openPlayerByName(name: string) {
+    const player = players.find((player) => player.name === name);
+
+    if (player) {
+      onSelectPlayer(player);
+    }
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -301,12 +314,21 @@ function ProfileModal({
           </div>
         </div>
 
-        {isPlayer ? (
+       {isPlayer ? (
           <div className="rival-grid">
             {(item as Player).rivalFrequente ? (
               <div className="rival-card">
                 <span>Rival frequente</span>
-                <strong>{(item as Player).rivalFrequente?.nome}</strong>
+
+                <button
+                  className="rival-name-button"
+                  onClick={() =>
+                    openPlayerByName((item as Player).rivalFrequente!.nome)
+                  }
+                >
+                  {(item as Player).rivalFrequente?.nome}
+                </button>
+
                 <p>
                   {(item as Player).rivalFrequente?.valor}{" "}
                   {(item as Player).rivalFrequente?.label}
@@ -317,7 +339,14 @@ function ProfileModal({
             {(item as Player).carrasco ? (
               <div className="rival-card">
                 <span>Carrasco</span>
-                <strong>{(item as Player).carrasco?.nome}</strong>
+
+                <button
+                  className="rival-name-button"
+                  onClick={() => openPlayerByName((item as Player).carrasco!.nome)}
+                >
+                  {(item as Player).carrasco?.nome}
+                </button>
+
                 <p>
                   {(item as Player).carrasco?.valor}{" "}
                   {(item as Player).carrasco?.label}
@@ -408,7 +437,7 @@ export default function App() {
               Liga Commander
             </div>
 
-            <h1>MTG Leaderboard</h1>
+            <h1>Leaderboard - Formato Pina</h1>
 
             <p>
               Ranking automático por winrate. Em caso de empate, vence quem tem
@@ -475,9 +504,13 @@ export default function App() {
       </div>
 
       <ProfileModal
-  selected={selectedProfile}
-  onClose={() => setSelectedProfile(null)}
-/>
+        selected={selectedProfile}
+        players={players}
+        onSelectPlayer={(player) =>
+          setSelectedProfile({ type: "player", item: player })
+        }
+        onClose={() => setSelectedProfile(null)}
+      />
     </main>
   );
 }
