@@ -21,8 +21,28 @@ button {
   padding: 24px 16px;
 }
 
+@media (min-width: 900px) {
+  .page {
+    padding: 36px 28px;
+  }
+
+  .container {
+    max-width: 1280px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .page {
+    padding: 48px 40px;
+  }
+
+  .container {
+    max-width: 1440px;
+  }
+}
+
 .container {
-  max-width: 1000px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -31,9 +51,9 @@ button {
   flex-direction: column;
   gap: 24px;
   justify-content: space-between;
-  padding: 28px;
+  padding: 36px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
+  border-radius: 32px;
   background: rgba(255, 255, 255, 0.09);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
@@ -54,16 +74,16 @@ button {
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(36px, 8vw, 64px);
+  font-size: clamp(48px, 7vw, 82px);
   line-height: 0.95;
   letter-spacing: -0.06em;
 }
 
 .hero p {
-  max-width: 640px;
-  margin: 14px 0 0;
+  max-width: 840px;
+  margin: 18px 0 0;
   color: #d4d4d8;
-  font-size: 15px;
+  font-size: 20px;
 }
 
 .refresh-button {
@@ -118,7 +138,7 @@ button {
 
 .section h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 34px;
 }
 
 .section p {
@@ -135,9 +155,9 @@ button {
 .leaderboard-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 24px;
+  gap: 22px;
+  padding: 24px;
+  border-radius: 28px;
   background: rgba(9, 9, 11, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
@@ -148,11 +168,11 @@ button {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
+  width: 68px;
+  height: 68px;
+  border-radius: 22px;
   background: rgba(255, 255, 255, 0.1);
-  font-size: 18px;
+  font-size: 26px;
   font-weight: 800;
 }
 
@@ -163,15 +183,15 @@ button {
 }
 
 .player-avatar {
-  width: 60px;
-  height: 60px;
-  border-radius: 18px;
+  width: 78px;
+  height: 78px;
+  border-radius: 22px;
 }
 
 .deck-avatar {
-  width: 48px;
-  height: 68px;
-  border-radius: 8px;
+  width: 62px;
+  height: 88px;
+  border-radius: 10px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
@@ -222,12 +242,37 @@ button {
 .stat-pill {
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
+  padding: 8px 14px;
   border-radius: 999px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #e4e4e7;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-pill-winrate {
+  color: var(--pill-color);
+  border-color: color-mix(in srgb, var(--pill-color) 70%, transparent);
+}
+
+.stat-pill-wins {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.65);
+}
+
+.stat-pill-games {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.65);
+}
+
+.stat-pill-default {
+  color: #e4e4e7;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .error-box {
@@ -462,15 +507,15 @@ footer {
 }
 
 .player-name {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 900;
   color: #ffffff;
   white-space: nowrap;
 }
 
 .inline-title {
   color: #a1a1aa;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -585,3 +630,34 @@ footer {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+.leaderboards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+@media (min-width: 1200px) {
+  .leaderboards-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .leaderboards-grid .section {
+    margin-top: 36px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .leaderboards-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  .leaderboards-grid .section {
+    margin-top: 36px;
+  }
+}
+

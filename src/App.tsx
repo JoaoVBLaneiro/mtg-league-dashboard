@@ -101,6 +101,42 @@ function formatPercent(value: number | string | undefined) {
   return `${(number * 100).toFixed(1)}%`;
 }
 
+function getWinrateColor(value: number | string | undefined) {
+  const percent = Math.max(0, Math.min(100, Number(value || 0) * 100));
+
+  const stops = [
+    { percent: 0, color: [239, 68, 68] },    // vermelho
+    { percent: 25, color: [249, 115, 22] },  // laranja
+    { percent: 50, color: [234, 179, 8] },   // amarelo
+    { percent: 75, color: [34, 197, 94] },   // verde
+    { percent: 100, color: [56, 189, 248] }, // azul
+  ];
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const current = stops[i];
+    const next = stops[i + 1];
+
+    if (percent >= current.percent && percent <= next.percent) {
+      const progress =
+        (percent - current.percent) / (next.percent - current.percent);
+
+      const r = Math.round(
+        current.color[0] + (next.color[0] - current.color[0]) * progress
+      );
+      const g = Math.round(
+        current.color[1] + (next.color[1] - current.color[1]) * progress
+      );
+      const b = Math.round(
+        current.color[2] + (next.color[2] - current.color[2]) * progress
+      );
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  }
+
+  return "rgb(56, 189, 248)";
+}
+
 function medalFor(index: number) {
   if (index === 0) return "🥇";
   if (index === 1) return "🥈";
@@ -150,8 +186,27 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
     });
 }
 
-function StatPill({ children }: { children: React.ReactNode }) {
-  return <span className="stat-pill">{children}</span>;
+function StatPill({
+  children,
+  variant = "default",
+  value,
+}: {
+  children: React.ReactNode;
+  variant?: "default" | "winrate" | "wins" | "games";
+  value?: number | string;
+}) {
+  const dynamicStyle =
+    variant === "winrate"
+      ? ({
+          "--pill-color": getWinrateColor(value),
+        } as React.CSSProperties)
+      : undefined;
+
+  return (
+    <span className={`stat-pill stat-pill-${variant}`} style={dynamicStyle}>
+      {children}
+    </span>
+  );
 }
 
 function LeaderboardCard({
@@ -201,11 +256,17 @@ function LeaderboardCard({
         </h3>
 
         <div className="stats">
-          <StatPill>{formatPercent(item.winrate)} WR</StatPill>
-          <StatPill>
+          <StatPill variant="winrate" value={item.winrate}>
+            {formatPercent(item.winrate)} WR
+          </StatPill>
+
+          <StatPill variant="games">
             {gamesValue} {gamesLabel}
           </StatPill>
-          <StatPill>{item.wins} vitórias</StatPill>
+
+          <StatPill variant="wins">
+            {item.wins} vitórias
+          </StatPill>
         </div>
 
         {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
@@ -440,6 +501,119 @@ function PeriodTabs({
   );
 }
 
+function useIdlePageAutoScroll({
+  enabled = true,
+  idleDelay = 13000,
+  scrollSpeed = 0.5,
+  edgePause = 3000,
+  resetKey,
+}: {
+  enabled?: boolean;
+  idleDelay?: number;
+  scrollSpeed?: number;
+  edgePause?: number;
+  resetKey?: string;
+}) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let idleTimer: number | undefined;
+    let animationFrame: number | undefined;
+    let direction: 1 | -1 = 1;
+    let pausedUntil = 0;
+    let isAutoScrolling = false;
+
+    function clearAnimation() {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = undefined;
+      }
+    }
+
+    function getMaxScroll() {
+      return Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      ) - window.innerHeight;
+    }
+
+    function startAutoScroll() {
+      isAutoScrolling = true;
+      clearAnimation();
+      animationFrame = requestAnimationFrame(step);
+    }
+
+    function pauseAndRestartLater() {
+      isAutoScrolling = false;
+      clearAnimation();
+
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+
+      idleTimer = window.setTimeout(startAutoScroll, idleDelay);
+    }
+
+    function step(timestamp: number) {
+      if (!isAutoScrolling) return;
+
+      const maxScroll = getMaxScroll();
+
+      if (maxScroll <= 2) {
+        animationFrame = requestAnimationFrame(step);
+        return;
+      }
+
+      if (timestamp < pausedUntil) {
+        animationFrame = requestAnimationFrame(step);
+        return;
+      }
+
+      const currentScroll = window.scrollY;
+
+      if (direction === 1 && currentScroll >= maxScroll - 2) {
+        direction = -1;
+        pausedUntil = timestamp + edgePause;
+      } else if (direction === -1 && currentScroll <= 2) {
+        direction = 1;
+        pausedUntil = timestamp + edgePause;
+      } else {
+        window.scrollBy(0, direction * scrollSpeed);
+      }
+
+      animationFrame = requestAnimationFrame(step);
+    }
+
+    const userEvents = [
+      "mousemove",
+      "mousedown",
+      "wheel",
+      "touchstart",
+      "keydown",
+    ];
+
+    userEvents.forEach((eventName) => {
+      window.addEventListener(eventName, pauseAndRestartLater, {
+        passive: true,
+      });
+    });
+
+    pauseAndRestartLater();
+
+    return () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+
+      clearAnimation();
+
+      userEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, pauseAndRestartLater);
+      });
+    };
+  }, [enabled, idleDelay, scrollSpeed, edgePause, resetKey]);
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
@@ -470,6 +644,14 @@ export default function App() {
   const [selectedProfile, setSelectedProfile] = useState<
   { type: "player"; item: Player } | { type: "deck"; item: Deck } | null
   >(null);
+
+  useIdlePageAutoScroll({
+    enabled: selectedProfile === null,
+    idleDelay: 10000,
+    scrollSpeed: 0.55,
+    edgePause: 3000,
+    resetKey: activePeriod,
+  });
 
   async function loadData() {
     try {
@@ -503,7 +685,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const activeLeaderboard = data.leaderboards[activePeriod];
+  const activeLeaderboard =
+  data.leaderboards?.[activePeriod] ?? {
+    label: "Geral",
+    players: [],
+    decks: [],
+  };
 
   const players = useMemo(
     () => normalizePlayers(activeLeaderboard.players),
@@ -552,37 +739,39 @@ export default function App() {
           <div className="loading-box">Carregando dados da liga...</div>
         ) : (
           <>
-            <Section
-              icon={<Users size={22} />}
-              title={`Melhores jogadores - ${activeLeaderboard.label}`}
-              subtitle="Ordenado por winrate; desempate por número de partidas."
-            >
-              {players.map((player, index) => (
-                <LeaderboardCard
-                  key={player.name}
-                  item={player}
-                  index={index}
-                  type="player"
-                  onClick={() => setSelectedProfile({ type: "player", item: player })}
-                />
-              ))}
-            </Section>
+            <div className="leaderboards-grid">
+              <Section
+                icon={<Users size={22} />}
+                title={`Melhores jogadores - ${activeLeaderboard.label}`}
+                subtitle="Ordenado por winrate; desempate por número de partidas."
+              >
+                {players.map((player, index) => (
+                  <LeaderboardCard
+                    key={player.name}
+                    item={player}
+                    index={index}
+                    type="player"
+                    onClick={() => setSelectedProfile({ type: "player", item: player })}
+                  />
+                ))}
+              </Section>
 
-            <Section
-              icon={<Wand2 size={22} />}
-              title={`Melhores decks - ${activeLeaderboard.label}`}
-              subtitle="Ordenado por winrate; desempate por número de aparições."
-            >
-              {decks.map((deck, index) => (
-                <LeaderboardCard
-                  key={deck.name}
-                  item={deck}
-                  index={index}
-                  type="deck"
-                  onClick={() => setSelectedProfile({ type: "deck", item: deck })}
-                />
-              ))}
-            </Section>
+              <Section
+                icon={<Wand2 size={22} />}
+                title={`Melhores decks - ${activeLeaderboard.label}`}
+                subtitle="Ordenado por winrate; desempate por número de aparições."
+              >
+                {decks.map((deck, index) => (
+                  <LeaderboardCard
+                    key={deck.name}
+                    item={deck}
+                    index={index}
+                    type="deck"
+                    onClick={() => setSelectedProfile({ type: "deck", item: deck })}
+                  />
+                ))}
+              </Section>
+            </div>
           </>
         )}
 
