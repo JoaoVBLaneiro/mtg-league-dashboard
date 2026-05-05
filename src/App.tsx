@@ -73,6 +73,8 @@ type Deck = {
   decklistUrl: string;
 };
 
+type PeriodKey = "geral" | "mes" | "semestre";
+
 type DashboardData = {
   updatedAt: string | null;
   leaderboards: {
