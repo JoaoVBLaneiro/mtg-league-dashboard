@@ -74,9 +74,24 @@ type Deck = {
 };
 
 type DashboardData = {
-  players: RawPlayer[];
-  decks: RawDeck[];
   updatedAt: string | null;
+  leaderboards: {
+    geral: {
+      label: string;
+      players: RawPlayer[];
+      decks: RawDeck[];
+    };
+    mes: {
+      label: string;
+      players: RawPlayer[];
+      decks: RawDeck[];
+    };
+    semestre: {
+      label: string;
+      players: RawPlayer[];
+      decks: RawDeck[];
+    };
+  };
 };
 
 function formatPercent(value: number | string | undefined) {
@@ -378,12 +393,74 @@ function ProfileModal({
   );
 }
 
+function PeriodTabs({
+  activePeriod,
+  onChange,
+}: {
+  activePeriod: PeriodKey;
+  onChange: (period: PeriodKey) => void;
+}) {
+  const tabs: { key: PeriodKey; label: string; description: string }[] = [
+    {
+      key: "geral",
+      label: "Geral",
+      description: "Desde sempre",
+    },
+    {
+      key: "mes",
+      label: "Mês",
+      description: "Mês atual",
+    },
+    {
+      key: "semestre",
+      label: "Semestre",
+      description: "Semestre atual",
+    },
+  ];
+
+  return (
+    <div className="period-tabs">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          className={
+            activePeriod === tab.key
+              ? "period-tab period-tab-active"
+              : "period-tab"
+          }
+          onClick={() => onChange(tab.key)}
+        >
+          <strong>{tab.label}</strong>
+          <span>{tab.description}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
-    players: [],
-    decks: [],
     updatedAt: null,
+    leaderboards: {
+      geral: {
+        label: "Geral",
+        players: [],
+        decks: [],
+      },
+      mes: {
+        label: "Mês",
+        players: [],
+        decks: [],
+      },
+      semestre: {
+        label: "Semestre",
+        players: [],
+        decks: [],
+      },
+    },
   });
+
+  const [activePeriod, setActivePeriod] = useState<PeriodKey>("geral");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -424,8 +501,17 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const players = useMemo(() => normalizePlayers(data.players), [data.players]);
-  const decks = useMemo(() => normalizeDecks(data.decks), [data.decks]);
+  const activeLeaderboard = data.leaderboards[activePeriod];
+
+  const players = useMemo(
+    () => normalizePlayers(activeLeaderboard.players),
+    [activeLeaderboard.players]
+  );
+
+  const decks = useMemo(
+    () => normalizeDecks(activeLeaderboard.decks),
+    [activeLeaderboard.decks]
+  );
 
   return (
     <main className="page">
@@ -451,6 +537,8 @@ export default function App() {
           </button>
         </header>
 
+        <PeriodTabs activePeriod={activePeriod} onChange={setActivePeriod} />
+
         {error ? (
           <div className="error-box">
             <AlertTriangle size={20} />
@@ -464,7 +552,7 @@ export default function App() {
           <>
             <Section
               icon={<Users size={22} />}
-              title="Melhores jogadores"
+              title={`Melhores jogadores - ${activeLeaderboard.label}`}
               subtitle="Ordenado por winrate; desempate por número de partidas."
             >
               {players.map((player, index) => (
@@ -480,7 +568,7 @@ export default function App() {
 
             <Section
               icon={<Wand2 size={22} />}
-              title="Melhores decks"
+              title={`Melhores decks - ${activeLeaderboard.label}`}
               subtitle="Ordenado por winrate; desempate por número de aparições."
             >
               {decks.map((deck, index) => (

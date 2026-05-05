@@ -533,3 +533,55 @@ footer {
   color: #facc15;
   text-decoration: underline;
 }
+
+.period-tabs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.period-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.28);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.period-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.period-tab strong {
+  font-size: 15px;
+}
+
+.period-tab span {
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.period-tab-active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(250, 204, 21, 0.35);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.14) inset;
+}
+
+.period-tab-active strong {
+  color: #fef3c7;
+}
+
+@media (min-width: 700px) {
+  .period-tabs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
