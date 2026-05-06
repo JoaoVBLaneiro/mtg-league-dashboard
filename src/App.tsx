@@ -11,6 +11,44 @@ type RivalInfo = {
   label: string;
 } | null;
 
+type ViewKey = "ranking" | "activity";
+
+type ActivityBarItem = {
+  label: string;
+  value: number;
+};
+
+type ActivityEntityItem = {
+  name: string;
+  matches: number;
+};
+
+type RecentMatch = {
+  matchId: string;
+  date: string;
+  time: string;
+  players: string[];
+  winner: string;
+  decks: string[];
+  winningDeck: string;
+};
+
+type ActivityData = {
+  summary: {
+    totalMatches: number;
+    mostActiveDay: ActivityBarItem | null;
+    mostActiveHour: ActivityBarItem | null;
+    mostActivePlayer: ActivityEntityItem | null;
+    mostActiveDeck: ActivityEntityItem | null;
+  };
+  matchesByWeekday: ActivityBarItem[];
+  matchesByHour: ActivityBarItem[];
+  matchesByMonth: ActivityBarItem[];
+  playersActivity: ActivityEntityItem[];
+  decksActivity: ActivityEntityItem[];
+  recentMatches: RecentMatch[];
+};
+
 type RawPlayer = {
   jogador?: string;
   player?: string;
@@ -102,6 +140,7 @@ type DashboardData = {
       decks: RawDeck[];
     };
   };
+  activity: ActivityData;
 };
 
 function formatPercent(value: number | string | undefined) {
@@ -520,6 +559,46 @@ function ProfileModal({
   );
 }
 
+function MainTabs({
+  activeView,
+  onChange,
+}: {
+  activeView: ViewKey;
+  onChange: (view: ViewKey) => void;
+}) {
+  const tabs: { key: ViewKey; label: string; description: string }[] = [
+    {
+      key: "ranking",
+      label: "Ranking",
+      description: "Jogadores e decks",
+    },
+    {
+      key: "activity",
+      label: "Atividade",
+      description: "Dias, horários e histórico",
+    },
+  ];
+
+  return (
+    <div className="main-tabs">
+      {tabs.map((tab) => (
+        <button
+          key={tab.key}
+          className={
+            activeView === tab.key
+              ? "main-tab main-tab-active"
+              : "main-tab"
+          }
+          onClick={() => onChange(tab.key)}
+        >
+          <strong>{tab.label}</strong>
+          <span>{tab.description}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PeriodTabs({
   activePeriod,
   onChange,
@@ -678,6 +757,234 @@ function useIdlePageAutoScroll({
   }, [enabled, idleDelay, scrollSpeed, edgePause, resetKey]);
 }
 
+const emptyActivity: ActivityData = {
+  summary: {
+    totalMatches: 0,
+    mostActiveDay: null,
+    mostActiveHour: null,
+    mostActivePlayer: null,
+    mostActiveDeck: null,
+  },
+  matchesByWeekday: [],
+  matchesByHour: [],
+  matchesByMonth: [],
+  playersActivity: [],
+  decksActivity: [],
+  recentMatches: [],
+};
+
+function ActivitySummaryCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
+  return (
+    <div className="activity-summary-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {detail ? <p>{detail}</p> : null}
+    </div>
+  );
+}
+
+function BarList({
+  title,
+  items,
+  valueLabel = "partidas",
+}: {
+  title: string;
+  items: ActivityBarItem[];
+  valueLabel?: string;
+}) {
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+
+  return (
+    <div className="activity-panel">
+      <h3>{title}</h3>
+
+      <div className="bar-list">
+        {items.length === 0 ? (
+          <p className="empty-text">Sem dados suficientes.</p>
+        ) : (
+          items.map((item) => (
+            <div className="bar-row" key={item.label}>
+              <div className="bar-row-header">
+                <span>{item.label}</span>
+                <strong>
+                  {item.value} {valueLabel}
+                </strong>
+              </div>
+
+              <div className="bar-track">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${(item.value / maxValue) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EntityActivityList({
+  title,
+  items,
+}: {
+  title: string;
+  items: ActivityEntityItem[];
+}) {
+  const maxValue = Math.max(...items.map((item) => item.matches), 1);
+
+  return (
+    <div className="activity-panel">
+      <h3>{title}</h3>
+
+      <div className="bar-list">
+        {items.length === 0 ? (
+          <p className="empty-text">Sem dados suficientes.</p>
+        ) : (
+          items.slice(0, 10).map((item) => (
+            <div className="bar-row" key={item.name}>
+              <div className="bar-row-header">
+                <span>{item.name}</span>
+                <strong>{item.matches} partidas</strong>
+              </div>
+
+              <div className="bar-track">
+                <div
+                  className="bar-fill"
+                  style={{
+                    width: `${(item.matches / maxValue) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RecentMatches({
+  matches,
+}: {
+  matches: RecentMatch[];
+}) {
+  return (
+    <div className="activity-panel recent-matches-panel">
+      <h3>Últimas partidas</h3>
+
+      <div className="recent-matches-list">
+        {matches.length === 0 ? (
+          <p className="empty-text">Nenhuma partida registrada.</p>
+        ) : (
+          matches.map((match) => (
+            <div className="recent-match-card" key={match.matchId}>
+              <div className="recent-match-header">
+                <strong>
+                  {match.date} às {match.time}
+                </strong>
+                <span>#{match.matchId}</span>
+              </div>
+
+              <p>
+                <b>Jogadores:</b> {match.players.join(", ")}
+              </p>
+
+              <p>
+                <b>Vencedor:</b> {match.winner || "Não informado"}
+              </p>
+
+              <p>
+                <b>Deck vencedor:</b> {match.winningDeck || "Não informado"}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActivityView({ activity }: { activity: ActivityData }) {
+  const summary = activity.summary;
+
+  return (
+    <section className="activity-view">
+      <div className="activity-summary-grid">
+        <ActivitySummaryCard
+          label="Total de partidas"
+          value={summary.totalMatches}
+        />
+
+        <ActivitySummaryCard
+          label="Dia mais ativo"
+          value={summary.mostActiveDay?.label || "-"}
+          detail={
+            summary.mostActiveDay
+              ? `${summary.mostActiveDay.value} partidas`
+              : undefined
+          }
+        />
+
+        <ActivitySummaryCard
+          label="Horário mais ativo"
+          value={summary.mostActiveHour?.label || "-"}
+          detail={
+            summary.mostActiveHour
+              ? `${summary.mostActiveHour.value} partidas`
+              : undefined
+          }
+        />
+
+        <ActivitySummaryCard
+          label="Jogador mais ativo"
+          value={summary.mostActivePlayer?.name || "-"}
+          detail={
+            summary.mostActivePlayer
+              ? `${summary.mostActivePlayer.matches} partidas`
+              : undefined
+          }
+        />
+      </div>
+
+      <div className="activity-grid">
+        <BarList
+          title="Partidas por dia da semana"
+          items={activity.matchesByWeekday}
+        />
+
+        <BarList
+          title="Partidas por horário"
+          items={activity.matchesByHour}
+        />
+
+        <EntityActivityList
+          title="Jogadores mais ativos"
+          items={activity.playersActivity}
+        />
+
+        <EntityActivityList
+          title="Decks mais usados"
+          items={activity.decksActivity}
+        />
+      </div>
+
+      <RecentMatches matches={activity.recentMatches} />
+    </section>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
@@ -698,7 +1005,10 @@ export default function App() {
         decks: [],
       },
     },
+    activity: emptyActivity,
   });
+
+  const [activeView, setActiveView] = useState<ViewKey>("ranking");
 
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("geral");
 
@@ -790,7 +1100,11 @@ export default function App() {
           </button>
         </header>
 
-        <PeriodTabs activePeriod={activePeriod} onChange={setActivePeriod} />
+        <MainTabs activeView={activeView} onChange={setActiveView} />
+
+        {activeView === "ranking" ? (
+          <PeriodTabs activePeriod={activePeriod} onChange={setActivePeriod} />
+        ) : null}
 
         {error ? (
           <div className="error-box">
@@ -801,6 +1115,8 @@ export default function App() {
 
         {loading && !players.length && !decks.length ? (
           <div className="loading-box">Carregando dados da liga...</div>
+        ) : activeView === "activity" ? (
+          <ActivityView activity={data.activity || emptyActivity} />
         ) : (
           <>
             <div className="leaderboards-grid">
