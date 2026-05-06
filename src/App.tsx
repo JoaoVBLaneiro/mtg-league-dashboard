@@ -55,6 +55,16 @@ type ActivityData = {
   matches: ActivityMatch[];
 };
 
+type DeckMiniInfo = {
+  nome: string;
+  fotoUrl: string;
+  comandante: string;
+  cores: string;
+  decklistUrl: string;
+  valor: number | null;
+  label: string;
+} | null;
+
 type RawPlayer = {
   jogador?: string;
   player?: string;
@@ -72,6 +82,8 @@ type RawPlayer = {
   rivalFrequente?: RivalInfo;
   carrasco?: RivalInfo;
   maiorPato?: RivalInfo;
+  deckFavorito?: DeckMiniInfo;
+  melhorDeck?: DeckMiniInfo;
 };
 
 type RawDeck = {
@@ -95,6 +107,7 @@ type RawDeck = {
   rivalFrequente?: RivalInfo;
   carrasco?: RivalInfo;
   maiorPato?: RivalInfo;
+  melhorPiloto?: RivalInfo;
 };
 
 type Player = {
@@ -108,6 +121,8 @@ type Player = {
   rivalFrequente: RivalInfo;
   carrasco: RivalInfo;
   maiorPato: RivalInfo;
+  deckFavorito: DeckMiniInfo;
+  melhorDeck: DeckMiniInfo;
 };
 
 type Deck = {
@@ -123,6 +138,7 @@ type Deck = {
   rivalFrequente: RivalInfo;
   carrasco: RivalInfo;
   maiorPato: RivalInfo;
+  melhorPiloto: RivalInfo;
 };
 
 type PeriodKey = "geral" | "mes" | "semestre";
@@ -210,6 +226,8 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       rivalFrequente: item.rivalFrequente || null,
       carrasco: item.carrasco || null,
       maiorPato: item.maiorPato || null,
+      deckFavorito: item.deckFavorito || null,
+      melhorDeck: item.melhorDeck || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -234,6 +252,7 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       rivalFrequente: item.rivalFrequente || null,
       carrasco: item.carrasco || null,
       maiorPato: item.maiorPato || null,
+      melhorPiloto: item.melhorPiloto || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -457,6 +476,86 @@ function Section({
   );
 }
 
+function PlayerDeckMiniCard({
+  title,
+  deck,
+  onClick,
+}: {
+  title: string;
+  deck: DeckMiniInfo;
+  onClick: (deckName: string) => void;
+}) {
+  if (!deck) return null;
+
+  return (
+    <button
+      className="player-deck-mini-card"
+      onClick={() => onClick(deck.nome)}
+    >
+      <div className="player-deck-mini-image">
+        {deck.fotoUrl ? (
+          <img src={deck.fotoUrl} alt={deck.nome} />
+        ) : (
+          <div className="avatar-placeholder">
+            <Wand2 size={22} />
+          </div>
+        )}
+      </div>
+
+      <div className="player-deck-mini-info">
+        <span>{title}</span>
+        <strong>{deck.nome}</strong>
+
+        <p>
+          {deck.comandante ? <span>{deck.comandante}</span> : null}
+
+          {deck.cores ? (
+            <>
+              {deck.comandante ? <span> • </span> : null}
+              <ManaPips colors={deck.cores} />
+            </>
+          ) : null}
+        </p>
+
+        {typeof deck.valor === "number" && deck.label ? (
+          <small>
+            {deck.valor} {deck.label}
+          </small>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
+function DeckPilotMiniCard({
+  pilot,
+  onClick,
+}: {
+  pilot: RivalInfo;
+  onClick: (playerName: string) => void;
+}) {
+  if (!pilot) return null;
+
+  return (
+    <button
+      className="deck-pilot-mini-card"
+      onClick={() => onClick(pilot.nome)}
+    >
+      <div className="deck-pilot-mini-icon">
+        <Users size={22} />
+      </div>
+
+      <div className="deck-pilot-mini-info">
+        <span>Melhor piloto</span>
+        <strong>{pilot.nome}</strong>
+        <small>
+          {pilot.valor} {pilot.label}
+        </small>
+      </div>
+    </button>
+  );
+}
+
 function ProfileModal({
   selected,
   players,
@@ -559,6 +658,32 @@ function ProfileModal({
           <StatPill variant="wins">
             {item.wins} vitórias
           </StatPill>
+
+          {isPlayer &&
+            ((item as Player).deckFavorito || (item as Player).melhorDeck) ? (
+              <div className="player-deck-highlights">
+                <PlayerDeckMiniCard
+                  title="Deck favorito"
+                  deck={(item as Player).deckFavorito}
+                  onClick={openDeckByName}
+                />
+
+                <PlayerDeckMiniCard
+                  title="Melhor deck"
+                  deck={(item as Player).melhorDeck}
+                  onClick={openDeckByName}
+                />
+              </div>
+            ) : null}
+
+          {!isPlayer && (item as Deck).melhorPiloto ? (
+            <div className="deck-pilot-highlight">
+              <DeckPilotMiniCard
+                pilot={(item as Deck).melhorPiloto}
+                onClick={openPlayerByName}
+              />
+            </div>
+          ) : null}
         </div>
 
        {(() => {
@@ -1746,6 +1871,11 @@ export default function App() {
     window.matchMedia("(min-width: 900px)").matches
   );
 
+  const allDecks = useMemo(
+    () => normalizeDecks(data.leaderboards.geral.decks),
+    [data.leaderboards.geral.decks]
+  );
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 900px)");
 
@@ -1924,7 +2054,7 @@ export default function App() {
       <ProfileModal
         selected={selectedProfile}
         players={players}
-        decks={decks}
+        decks={allDecks}
         onSelectPlayer={(player) =>
           setSelectedProfile({ type: "player", item: player })
         }
