@@ -1000,3 +1000,133 @@ footer {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+.activity-filter-panel {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(9, 9, 11, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.activity-filter-panel h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.activity-filter-panel p {
+  margin: 6px 0 0;
+  color: #a1a1aa;
+  font-size: 14px;
+}
+
+.activity-period-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-period-tab {
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #d4d4d8;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.activity-period-tab-active {
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.custom-date-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.custom-date-filters label {
+  display: grid;
+  gap: 6px;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.custom-date-filters input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+}
+
+.activity-name-button,
+.inline-activity-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: left;
+}
+
+.activity-name-button:hover,
+.inline-activity-link:hover {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+@media (min-width: 700px) {
+  .custom-date-filters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.activity-filter-header {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.export-report-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.08);
+  color: #bae6fd;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.export-report-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.export-report-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+
+@media (min-width: 700px) {
+  .activity-filter-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

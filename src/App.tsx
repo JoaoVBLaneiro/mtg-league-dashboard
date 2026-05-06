@@ -13,6 +13,8 @@ type RivalInfo = {
 
 type ViewKey = "ranking" | "activity";
 
+type ActivityPeriodKey = "geral" | "semana" | "mes" | "semestre" | "custom";
+
 type ActivityBarItem = {
   label: string;
   value: number;
@@ -23,10 +25,13 @@ type ActivityEntityItem = {
   matches: number;
 };
 
-type RecentMatch = {
+type ActivityMatch = {
   matchId: string;
   date: string;
   time: string;
+  dateKey: string;
+  hour: number | null;
+  weekday: string;
   players: string[];
   winner: string;
   decks: string[];
@@ -46,7 +51,8 @@ type ActivityData = {
   matchesByMonth: ActivityBarItem[];
   playersActivity: ActivityEntityItem[];
   decksActivity: ActivityEntityItem[];
-  recentMatches: RecentMatch[];
+  recentMatches: ActivityMatch[];
+  matches: ActivityMatch[];
 };
 
 type RawPlayer = {
@@ -674,10 +680,12 @@ function useIdlePageAutoScroll({
     }
 
     function getMaxScroll() {
-      return Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight
-      ) - window.innerHeight;
+      return (
+        Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        ) - window.innerHeight
+      );
     }
 
     function startAutoScroll() {
@@ -771,6 +779,7 @@ const emptyActivity: ActivityData = {
   playersActivity: [],
   decksActivity: [],
   recentMatches: [],
+  matches: [],
 };
 
 function ActivitySummaryCard({
@@ -838,9 +847,11 @@ function BarList({
 function EntityActivityList({
   title,
   items,
+  onSelectEntity,
 }: {
   title: string;
   items: ActivityEntityItem[];
+  onSelectEntity: (name: string) => void;
 }) {
   const maxValue = Math.max(...items.map((item) => item.matches), 1);
 
@@ -855,7 +866,13 @@ function EntityActivityList({
           items.slice(0, 10).map((item) => (
             <div className="bar-row" key={item.name}>
               <div className="bar-row-header">
-                <span>{item.name}</span>
+                <button
+                  className="activity-name-button"
+                  onClick={() => onSelectEntity(item.name)}
+                >
+                  {item.name}
+                </button>
+
                 <strong>{item.matches} partidas</strong>
               </div>
 
@@ -877,8 +894,12 @@ function EntityActivityList({
 
 function RecentMatches({
   matches,
+  onSelectPlayer,
+  onSelectDeck,
 }: {
-  matches: RecentMatch[];
+  matches: ActivityMatch[];
+  onSelectPlayer: (name: string) => void;
+  onSelectDeck: (name: string) => void;
 }) {
   return (
     <div className="activity-panel recent-matches-panel">
@@ -898,15 +919,61 @@ function RecentMatches({
               </div>
 
               <p>
-                <b>Jogadores:</b> {match.players.join(", ")}
+                <b>Jogadores:</b>{" "}
+                {match.players.map((player, index) => (
+                  <span key={player}>
+                    <button
+                      className="inline-activity-link"
+                      onClick={() => onSelectPlayer(player)}
+                    >
+                      {player}
+                    </button>
+                    {index < match.players.length - 1 ? ", " : ""}
+                  </span>
+                ))}
               </p>
 
               <p>
-                <b>Vencedor:</b> {match.winner || "Não informado"}
+                <b>Vencedor:</b>{" "}
+                {match.winner ? (
+                  <button
+                    className="inline-activity-link"
+                    onClick={() => onSelectPlayer(match.winner)}
+                  >
+                    {match.winner}
+                  </button>
+                ) : (
+                  "Não informado"
+                )}
               </p>
 
               <p>
-                <b>Deck vencedor:</b> {match.winningDeck || "Não informado"}
+                <b>Decks:</b>{" "}
+                {match.decks.map((deck, index) => (
+                  <span key={deck}>
+                    <button
+                      className="inline-activity-link"
+                      onClick={() => onSelectDeck(deck)}
+                    >
+                      {deck}
+                    </button>
+                    {index < match.decks.length - 1 ? ", " : ""}
+                  </span>
+                ))}
+              </p>
+
+              <p>
+                <b>Deck vencedor:</b>{" "}
+                {match.winningDeck ? (
+                  <button
+                    className="inline-activity-link"
+                    onClick={() => onSelectDeck(match.winningDeck)}
+                  >
+                    {match.winningDeck}
+                  </button>
+                ) : (
+                  "Não informado"
+                )}
               </p>
             </div>
           ))
@@ -916,11 +983,534 @@ function RecentMatches({
   );
 }
 
-function ActivityView({ activity }: { activity: ActivityData }) {
-  const summary = activity.summary;
+function dateToKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentWeekStartKey() {
+  const date = new Date();
+  const day = date.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+
+  date.setDate(date.getDate() - diff);
+
+  return dateToKey(date);
+}
+
+function getCurrentMonthStartKey() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function getCurrentSemesterStartKey() {
+  const date = new Date();
+  const semesterMonth = date.getMonth() <= 5 ? "01" : "07";
+
+  return `${date.getFullYear()}-${semesterMonth}-01`;
+}
+
+function filterActivityMatches({
+  matches,
+  period,
+  customStart,
+  customEnd,
+}: {
+  matches: ActivityMatch[];
+  period: ActivityPeriodKey;
+  customStart: string;
+  customEnd: string;
+}) {
+  if (period === "geral") {
+    return matches;
+  }
+
+  let startKey = "";
+  let endKey = "";
+
+  if (period === "semana") {
+    startKey = getCurrentWeekStartKey();
+  }
+
+  if (period === "mes") {
+    startKey = getCurrentMonthStartKey();
+  }
+
+  if (period === "semestre") {
+    startKey = getCurrentSemesterStartKey();
+  }
+
+  if (period === "custom") {
+    startKey = customStart;
+    endKey = customEnd;
+  }
+
+  return matches.filter((match) => {
+    if (!match.dateKey) return false;
+
+    if (startKey && match.dateKey < startKey) return false;
+    if (endKey && match.dateKey > endKey) return false;
+
+    return true;
+  });
+}
+
+function getTopBarItem(items: ActivityBarItem[]) {
+  const sorted = items
+    .slice()
+    .sort((a, b) => {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.label.localeCompare(b.label);
+    });
+
+  if (!sorted.length || sorted[0].value === 0) {
+    return null;
+  }
+
+  return sorted[0];
+}
+
+function buildActivityFromMatches(matches: ActivityMatch[]): ActivityData {
+  const weekdays = [
+    "Domingo",
+    "Segunda",
+    "Terça",
+    "Quarta",
+    "Quinta",
+    "Sexta",
+    "Sábado",
+  ];
+
+  const matchesByWeekdayMap: Record<string, number> = {};
+  const matchesByHourMap: Record<string, number> = {};
+  const matchesByMonthMap: Record<string, number> = {};
+  const playersActivityMap: Record<string, number> = {};
+  const decksActivityMap: Record<string, number> = {};
+
+  weekdays.forEach((day) => {
+    matchesByWeekdayMap[day] = 0;
+  });
+
+  for (let hour = 0; hour < 24; hour++) {
+    matchesByHourMap[`${String(hour).padStart(2, "0")}h`] = 0;
+  }
+
+  matches.forEach((match) => {
+    if (match.dateKey) {
+      const [year, month, day] = match.dateKey.split("-");
+      const date = new Date(Number(year), Number(month) - 1, Number(day));
+      const weekday = weekdays[date.getDay()];
+      const monthLabel = `${month}/${year}`;
+
+      matchesByWeekdayMap[weekday]++;
+
+      if (!matchesByMonthMap[monthLabel]) {
+        matchesByMonthMap[monthLabel] = 0;
+      }
+
+      matchesByMonthMap[monthLabel]++;
+    }
+
+    if (typeof match.hour === "number") {
+      const hourLabel = `${String(match.hour).padStart(2, "0")}h`;
+      matchesByHourMap[hourLabel]++;
+    }
+
+    match.players.forEach((player) => {
+      playersActivityMap[player] = (playersActivityMap[player] || 0) + 1;
+    });
+
+    match.decks.forEach((deck) => {
+      decksActivityMap[deck] = (decksActivityMap[deck] || 0) + 1;
+    });
+  });
+
+  const matchesByWeekday = weekdays.map((day) => ({
+    label: day,
+    value: matchesByWeekdayMap[day] || 0,
+  }));
+
+  const matchesByHour = Object.keys(matchesByHourMap)
+    .map((hour) => ({
+      label: hour,
+      value: matchesByHourMap[hour],
+    }))
+    .filter((item) => item.value > 0);
+
+  const matchesByMonth = Object.keys(matchesByMonthMap).map((month) => ({
+    label: month,
+    value: matchesByMonthMap[month],
+  }));
+
+  const playersActivity = Object.keys(playersActivityMap)
+    .map((player) => ({
+      name: player,
+      matches: playersActivityMap[player],
+    }))
+    .sort((a, b) => {
+      if (b.matches !== a.matches) return b.matches - a.matches;
+      return a.name.localeCompare(b.name);
+    });
+
+  const decksActivity = Object.keys(decksActivityMap)
+    .map((deck) => ({
+      name: deck,
+      matches: decksActivityMap[deck],
+    }))
+    .sort((a, b) => {
+      if (b.matches !== a.matches) return b.matches - a.matches;
+      return a.name.localeCompare(b.name);
+    });
+
+  const recentMatches = matches
+    .slice()
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey) || b.time.localeCompare(a.time))
+    .slice(0, 10);
+
+  const mostActivePlayer = playersActivity.length ? playersActivity[0] : null;
+  const mostActiveDeck = decksActivity.length ? decksActivity[0] : null;
+
+  return {
+    summary: {
+      totalMatches: matches.length,
+      mostActiveDay: getTopBarItem(matchesByWeekday),
+      mostActiveHour: getTopBarItem(matchesByHour),
+      mostActivePlayer,
+      mostActiveDeck,
+    },
+    matchesByWeekday,
+    matchesByHour,
+    matchesByMonth,
+    playersActivity,
+    decksActivity,
+    recentMatches,
+    matches,
+  };
+}
+
+function csvEscape(value: unknown) {
+  const text = String(value ?? "");
+
+  if (text.includes(";") || text.includes("\n") || text.includes('"')) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+}
+
+function csvRow(values: unknown[]) {
+  return values.map(csvEscape).join(";");
+}
+
+function downloadTextFile({
+  filename,
+  content,
+  mimeType,
+}: {
+  filename: string;
+  content: string;
+  mimeType: string;
+}) {
+  const blob = new Blob(["\uFEFF" + content], {
+    type: `${mimeType};charset=utf-8`,
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function getActivityPeriodLabel({
+  period,
+  customStart,
+  customEnd,
+}: {
+  period: ActivityPeriodKey;
+  customStart: string;
+  customEnd: string;
+}) {
+  if (period === "geral") return "Geral";
+  if (period === "semana") return "Semana atual";
+  if (period === "mes") return "Mês atual";
+  if (period === "semestre") return "Semestre atual";
+
+  if (customStart && customEnd) {
+    return `${customStart} até ${customEnd}`;
+  }
+
+  if (customStart) {
+    return `A partir de ${customStart}`;
+  }
+
+  if (customEnd) {
+    return `Até ${customEnd}`;
+  }
+
+  return "Personalizado";
+}
+
+function buildActivityCsv({
+  activity,
+  periodLabel,
+}: {
+  activity: ActivityData;
+  periodLabel: string;
+}) {
+  const lines: string[] = [];
+
+  lines.push(csvRow(["Relatório de Atividade - MTG League"]));
+  lines.push(csvRow(["Período", periodLabel]));
+  lines.push(csvRow(["Gerado em", new Date().toLocaleString("pt-BR")]));
+  lines.push("");
+
+  lines.push(csvRow(["Resumo"]));
+  lines.push(csvRow(["Total de partidas", activity.summary.totalMatches]));
+  lines.push(csvRow([
+    "Dia mais ativo",
+    activity.summary.mostActiveDay?.label || "-",
+    activity.summary.mostActiveDay?.value || 0,
+  ]));
+  lines.push(csvRow([
+    "Horário mais ativo",
+    activity.summary.mostActiveHour?.label || "-",
+    activity.summary.mostActiveHour?.value || 0,
+  ]));
+  lines.push(csvRow([
+    "Jogador mais ativo",
+    activity.summary.mostActivePlayer?.name || "-",
+    activity.summary.mostActivePlayer?.matches || 0,
+  ]));
+  lines.push(csvRow([
+    "Deck mais usado",
+    activity.summary.mostActiveDeck?.name || "-",
+    activity.summary.mostActiveDeck?.matches || 0,
+  ]));
+  lines.push("");
+
+  lines.push(csvRow(["Partidas por dia da semana"]));
+  lines.push(csvRow(["Dia", "Partidas"]));
+  activity.matchesByWeekday.forEach((item) => {
+    lines.push(csvRow([item.label, item.value]));
+  });
+  lines.push("");
+
+  lines.push(csvRow(["Partidas por horário"]));
+  lines.push(csvRow(["Horário", "Partidas"]));
+  activity.matchesByHour.forEach((item) => {
+    lines.push(csvRow([item.label, item.value]));
+  });
+  lines.push("");
+
+  lines.push(csvRow(["Jogadores mais ativos"]));
+  lines.push(csvRow(["Jogador", "Partidas"]));
+  activity.playersActivity.forEach((item) => {
+    lines.push(csvRow([item.name, item.matches]));
+  });
+  lines.push("");
+
+  lines.push(csvRow(["Decks mais usados"]));
+  lines.push(csvRow(["Deck", "Partidas"]));
+  activity.decksActivity.forEach((item) => {
+    lines.push(csvRow([item.name, item.matches]));
+  });
+  lines.push("");
+
+  lines.push(csvRow(["Partidas no período"]));
+  lines.push(csvRow([
+    "ID",
+    "Data",
+    "Hora",
+    "Jogadores",
+    "Vencedor",
+    "Decks",
+    "Deck vencedor",
+  ]));
+
+  activity.matches.forEach((match) => {
+    lines.push(csvRow([
+      match.matchId,
+      match.date,
+      match.time,
+      match.players.join(", "),
+      match.winner || "Não informado",
+      match.decks.join(", "),
+      match.winningDeck || "Não informado",
+    ]));
+  });
+
+  return lines.join("\n");
+}
+
+function exportActivityCsv({
+  activity,
+  period,
+  customStart,
+  customEnd,
+}: {
+  activity: ActivityData;
+  period: ActivityPeriodKey;
+  customStart: string;
+  customEnd: string;
+}) {
+  const periodLabel = getActivityPeriodLabel({
+    period,
+    customStart,
+    customEnd,
+  });
+
+  const safePeriod = periodLabel
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const filename = `mtg-activity-report-${safePeriod || "geral"}.csv`;
+
+  const csv = buildActivityCsv({
+    activity,
+    periodLabel,
+  });
+
+  downloadTextFile({
+    filename,
+    content: csv,
+    mimeType: "text/csv",
+  });
+}
+
+function ActivityView({
+  activity,
+  players,
+  decks,
+  onSelectPlayer,
+  onSelectDeck,
+}: {
+  activity: ActivityData;
+  players: Player[];
+  decks: Deck[];
+  onSelectPlayer: (player: Player) => void;
+  onSelectDeck: (deck: Deck) => void;
+}) {
+  const [activityPeriod, setActivityPeriod] =
+    useState<ActivityPeriodKey>("geral");
+
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  function openPlayerByName(name: string) {
+    const player = players.find((player) => player.name === name);
+
+    if (player) {
+      onSelectPlayer(player);
+    }
+  }
+
+  function openDeckByName(name: string) {
+    const deck = decks.find((deck) => deck.name === name);
+
+    if (deck) {
+      onSelectDeck(deck);
+    }
+  }
+
+  const filteredActivity = useMemo(() => {
+    const sourceMatches = activity.matches || [];
+
+    const filteredMatches = filterActivityMatches({
+      matches: sourceMatches,
+      period: activityPeriod,
+      customStart,
+      customEnd,
+    });
+
+    return buildActivityFromMatches(filteredMatches);
+  }, [activity.matches, activityPeriod, customStart, customEnd]);
+
+  function handleExportActivity() {
+    exportActivityCsv({
+      activity: filteredActivity,
+      period: activityPeriod,
+      customStart,
+      customEnd,
+    });
+  }
+
+  const summary = filteredActivity.summary;
 
   return (
     <section className="activity-view">
+      <div className="activity-filter-panel">
+        <div className="activity-filter-header">
+          <div>
+            <h2>Atividade</h2>
+            <p>Analise partidas por período, dia, horário, jogadores e decks.</p>
+          </div>
+
+          <button
+            className="export-report-button"
+            onClick={handleExportActivity}
+            disabled={filteredActivity.summary.totalMatches === 0}
+          >
+            Exportar relatório
+          </button>
+        </div>
+
+        <div className="activity-period-tabs">
+          {[
+            ["geral", "Geral"],
+            ["semana", "Semana"],
+            ["mes", "Mês"],
+            ["semestre", "Semestre"],
+            ["custom", "Personalizado"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              className={
+                activityPeriod === key
+                  ? "activity-period-tab activity-period-tab-active"
+                  : "activity-period-tab"
+              }
+              onClick={() => setActivityPeriod(key as ActivityPeriodKey)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {activityPeriod === "custom" ? (
+          <div className="custom-date-filters">
+            <label>
+              Início
+              <input
+                type="date"
+                value={customStart}
+                onChange={(event) => setCustomStart(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Fim
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
+      </div>
+
       <div className="activity-summary-grid">
         <ActivitySummaryCard
           label="Total de partidas"
@@ -961,26 +1551,32 @@ function ActivityView({ activity }: { activity: ActivityData }) {
       <div className="activity-grid">
         <BarList
           title="Partidas por dia da semana"
-          items={activity.matchesByWeekday}
+          items={filteredActivity.matchesByWeekday}
         />
 
         <BarList
           title="Partidas por horário"
-          items={activity.matchesByHour}
+          items={filteredActivity.matchesByHour}
         />
 
         <EntityActivityList
           title="Jogadores mais ativos"
-          items={activity.playersActivity}
+          items={filteredActivity.playersActivity}
+          onSelectEntity={openPlayerByName}
         />
 
         <EntityActivityList
           title="Decks mais usados"
-          items={activity.decksActivity}
+          items={filteredActivity.decksActivity}
+          onSelectEntity={openDeckByName}
         />
       </div>
 
-      <RecentMatches matches={activity.recentMatches} />
+      <RecentMatches
+        matches={filteredActivity.recentMatches}
+        onSelectPlayer={openPlayerByName}
+        onSelectDeck={openDeckByName}
+      />
     </section>
   );
 }
@@ -1019,13 +1615,27 @@ export default function App() {
   { type: "player"; item: Player } | { type: "deck"; item: Deck } | null
   >(null);
 
-  useIdlePageAutoScroll({
-    enabled: selectedProfile === null,
-    idleDelay: 10000,
-    scrollSpeed: 0.55,
-    edgePause: 3000,
-    resetKey: activePeriod,
-  });
+  const [isLargeScreen, setIsLargeScreen] = useState(
+    window.matchMedia("(min-width: 900px)").matches
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 900px)");
+
+    function handleChange(event: MediaQueryListEvent) {
+      setIsLargeScreen(event.matches);
+    }
+
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeView, activePeriod]);
 
   async function loadData() {
     try {
@@ -1076,6 +1686,17 @@ export default function App() {
     [activeLeaderboard.decks]
   );
 
+  useIdlePageAutoScroll({
+    enabled:
+      activeView === "ranking" &&
+      selectedProfile === null &&
+      isLargeScreen,
+    idleDelay: 10000,
+    scrollSpeed: 0.55,
+    edgePause: 3000,
+    resetKey: `${activeView}-${activePeriod}-${players.length}-${decks.length}`,
+  });
+
   return (
     <main className="page">
       <div className="container">
@@ -1116,7 +1737,17 @@ export default function App() {
         {loading && !players.length && !decks.length ? (
           <div className="loading-box">Carregando dados da liga...</div>
         ) : activeView === "activity" ? (
-          <ActivityView activity={data.activity || emptyActivity} />
+          <ActivityView
+            activity={data.activity || emptyActivity}
+            players={players}
+            decks={decks}
+            onSelectPlayer={(player) =>
+              setSelectedProfile({ type: "player", item: player })
+            }
+            onSelectDeck={(deck) =>
+              setSelectedProfile({ type: "deck", item: deck })
+            }
+          />
         ) : (
           <>
             <div className="leaderboards-grid">
