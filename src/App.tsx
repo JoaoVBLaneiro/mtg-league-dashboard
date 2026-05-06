@@ -675,15 +675,6 @@ function ProfileModal({
                 />
               </div>
             ) : null}
-
-          {!isPlayer && (item as Deck).melhorPiloto ? (
-            <div className="deck-pilot-highlight">
-              <DeckPilotMiniCard
-                pilot={(item as Deck).melhorPiloto}
-                onClick={openPlayerByName}
-              />
-            </div>
-          ) : null}
         </div>
 
        {(() => {
@@ -717,6 +708,16 @@ function ProfileModal({
 
   return (
     <div className="rival-grid">
+
+      {!isPlayer && (item as Deck).melhorPiloto ? (
+            <div className="deck-pilot-highlight">
+              <DeckPilotMiniCard
+                pilot={(item as Deck).melhorPiloto}
+                onClick={openPlayerByName}
+              />
+            </div>
+          ) : null}
+
       {rivalData.rivalFrequente ? (
         <div className="rival-card">
           <span>Rival frequente</span>
