@@ -243,6 +243,92 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
     });
 }
 
+function normalizeDeckColors(colors: string | undefined): string[] {
+  if (!colors) return [];
+
+  const text = colors.trim().toLowerCase();
+
+  const namedMap: Record<string, string[]> = {
+    branco: ["W"],
+    white: ["W"],
+    azul: ["U"],
+    blue: ["U"],
+    preto: ["B"],
+    black: ["B"],
+    vermelho: ["R"],
+    red: ["R"],
+    verde: ["G"],
+    green: ["G"],
+    colorless: [],
+    incolor: [],
+    incoloro: [],
+    azorius: ["W", "U"],
+    dimir: ["U", "B"],
+    rakdos: ["B", "R"],
+    gruul: ["R", "G"],
+    selesnya: ["G", "W"],
+    orzhov: ["W", "B"],
+    izzet: ["U", "R"],
+    golgari: ["B", "G"],
+    boros: ["R", "W"],
+    simic: ["G", "U"],
+    esper: ["W", "U", "B"],
+    grixis: ["U", "B", "R"],
+    jund: ["B", "R", "G"],
+    naya: ["R", "G", "W"],
+    bant: ["G", "W", "U"],
+    abzan: ["W", "B", "G"],
+    jeskai: ["U", "R", "W"],
+    sultai: ["B", "G", "U"],
+    mardu: ["R", "W", "B"],
+    temur: ["G", "U", "R"],
+    glint: ["W", "U", "B", "R"],
+    dune: ["U", "B", "R", "G"],
+    ink: ["B", "R", "G", "W"],
+    witch: ["R", "G", "W", "U"],
+    yore: ["W", "U", "B", "R"],
+    wubrg: ["W", "U", "B", "R", "G"],
+    fivecolor: ["W", "U", "B", "R", "G"],
+    "five-color": ["W", "U", "B", "R", "G"],
+    "5c": ["W", "U", "B", "R", "G"],
+  };
+
+  if (namedMap[text]) {
+    return namedMap[text];
+  }
+
+  const compact = text.toUpperCase().replace(/[^WUBRG]/g, "");
+  if (compact) {
+    return [...new Set(compact.split(""))].filter((c): c is "W" | "U" | "B" | "R" | "G" =>
+      ["W", "U", "B", "R", "G"].includes(c)
+    );
+  }
+
+  return [];
+}
+
+function ManaPips({ colors }: { colors: string | undefined }) {
+  const parsedColors = normalizeDeckColors(colors);
+
+  if (!parsedColors.length) {
+    return null;
+  }
+
+  return (
+    <span className="mana-pips">
+      {parsedColors.map((color) => (
+        <img
+          key={color}
+          className="mana-pip"
+          src={`https://svgs.scryfall.io/card-symbols/${color}.svg`}
+          alt={color}
+          title={color}
+        />
+      ))}
+    </span>
+  );
+}
+
 function StatPill({
   children,
   variant = "default",
@@ -327,7 +413,18 @@ function LeaderboardCard({
         </div>
 
         {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
-          <p>{[(item as Deck).commander, (item as Deck).colors].filter(Boolean).join(" • ")}</p>
+          <p className="deck-meta">
+            {(item as Deck).commander ? (
+              <span>{(item as Deck).commander}</span>
+            ) : null}
+
+            {(item as Deck).colors ? (
+              <>
+                {(item as Deck).commander ? <span> • </span> : null}
+                <ManaPips colors={(item as Deck).colors} />
+              </>
+            ) : null}
+          </p>
         ) : null}
       </div>
     </motion.div>
@@ -433,10 +530,17 @@ function ProfileModal({
             ) : null}
 
             {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
-              <p className="profile-subtitle">
-                {[(item as Deck).commander, (item as Deck).colors]
-                  .filter(Boolean)
-                  .join(" • ")}
+              <p className="profile-subtitle deck-profile-subtitle">
+                {(item as Deck).commander ? (
+                  <span>{(item as Deck).commander}</span>
+                ) : null}
+
+                {(item as Deck).colors ? (
+                  <>
+                    {(item as Deck).commander ? <span> • </span> : null}
+                    <ManaPips colors={(item as Deck).colors} />
+                  </>
+                ) : null}
               </p>
             ) : null}
           </div>
@@ -652,8 +756,8 @@ function PeriodTabs({
 
 function useIdlePageAutoScroll({
   enabled = true,
-  idleDelay = 13000,
-  scrollSpeed = 0.5,
+  idleDelay = 10000,
+  scrollSpeed = 0.55,
   edgePause = 3000,
   resetKey,
 }: {
@@ -672,6 +776,25 @@ function useIdlePageAutoScroll({
     let pausedUntil = 0;
     let isAutoScrolling = false;
 
+    function getScroller() {
+      return document.scrollingElement || document.documentElement;
+    }
+
+    function getMaxScroll() {
+      const scroller = getScroller();
+      return scroller.scrollHeight - window.innerHeight;
+    }
+
+    function getCurrentScroll() {
+      const scroller = getScroller();
+      return scroller.scrollTop;
+    }
+
+    function setCurrentScroll(value: number) {
+      const scroller = getScroller();
+      scroller.scrollTop = value;
+    }
+
     function clearAnimation() {
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
@@ -679,16 +802,14 @@ function useIdlePageAutoScroll({
       }
     }
 
-    function getMaxScroll() {
-      return (
-        Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight
-        ) - window.innerHeight
-      );
-    }
-
     function startAutoScroll() {
+      const maxScroll = getMaxScroll();
+
+      if (maxScroll <= 2) {
+        isAutoScrolling = false;
+        return;
+      }
+
       isAutoScrolling = true;
       clearAnimation();
       animationFrame = requestAnimationFrame(step);
@@ -702,7 +823,9 @@ function useIdlePageAutoScroll({
         window.clearTimeout(idleTimer);
       }
 
-      idleTimer = window.setTimeout(startAutoScroll, idleDelay);
+      idleTimer = window.setTimeout(() => {
+        startAutoScroll();
+      }, idleDelay);
     }
 
     function step(timestamp: number) {
@@ -711,7 +834,7 @@ function useIdlePageAutoScroll({
       const maxScroll = getMaxScroll();
 
       if (maxScroll <= 2) {
-        animationFrame = requestAnimationFrame(step);
+        isAutoScrolling = false;
         return;
       }
 
@@ -720,7 +843,7 @@ function useIdlePageAutoScroll({
         return;
       }
 
-      const currentScroll = window.scrollY;
+      const currentScroll = getCurrentScroll();
 
       if (direction === 1 && currentScroll >= maxScroll - 2) {
         direction = -1;
@@ -729,14 +852,14 @@ function useIdlePageAutoScroll({
         direction = 1;
         pausedUntil = timestamp + edgePause;
       } else {
-        window.scrollBy(0, direction * scrollSpeed);
+        const nextScroll = currentScroll + direction * scrollSpeed;
+        setCurrentScroll(nextScroll);
       }
 
       animationFrame = requestAnimationFrame(step);
     }
 
     const userEvents = [
-      "mousemove",
       "mousedown",
       "wheel",
       "touchstart",
@@ -749,9 +872,13 @@ function useIdlePageAutoScroll({
       });
     });
 
-    pauseAndRestartLater();
+    const initialTimer = window.setTimeout(() => {
+      pauseAndRestartLater();
+    }, 300);
 
     return () => {
+      window.clearTimeout(initialTimer);
+
       if (idleTimer) {
         window.clearTimeout(idleTimer);
       }
@@ -1690,7 +1817,8 @@ export default function App() {
     enabled:
       activeView === "ranking" &&
       selectedProfile === null &&
-      isLargeScreen,
+      isLargeScreen &&
+      !loading,
     idleDelay: 10000,
     scrollSpeed: 0.55,
     edgePause: 3000,

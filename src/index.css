@@ -1130,3 +1130,33 @@ footer {
     justify-content: space-between;
   }
 }
+
+.mana-pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+
+.mana-pip {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.deck-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: #a1a1aa;
+  font-size: 13px;
+}
+
+.deck-profile-subtitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
