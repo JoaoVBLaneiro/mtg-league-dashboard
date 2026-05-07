@@ -55,6 +55,12 @@ type ActivityData = {
   matches: ActivityMatch[];
 };
 
+type KeyCard = {
+  nome: string;
+  imagemUrl: string;
+  scryfallUrl: string;
+};
+
 type DeckMiniInfo = {
   nome: string;
   fotoUrl: string;
@@ -111,6 +117,7 @@ type RawDeck = {
   carrasco?: RivalInfo;
   maiorPato?: RivalInfo;
   melhorPiloto?: RivalInfo;
+  cartasChave?: KeyCard[];
 };
 
 type Player = {
@@ -145,6 +152,7 @@ type Deck = {
   carrasco: RivalInfo;
   maiorPato: RivalInfo;
   melhorPiloto: RivalInfo;
+  cartasChave: KeyCard[];
 };
 
 type FblthpTransfer = {
@@ -285,6 +293,7 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       carrasco: item.carrasco || null,
       maiorPato: item.maiorPato || null,
       melhorPiloto: item.melhorPiloto || null,
+      cartasChave: item.cartasChave || [],
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -612,6 +621,58 @@ function DeckPilotMiniCard({
   );
 }
 
+function KeyCardsSection({ cards }: { cards: KeyCard[] }) {
+  const visibleCards = cards.filter((card) => card.nome);
+
+  if (!visibleCards.length) return null;
+
+  return (
+    <div className="profile-section key-cards-section">
+      <h3>Cartas Chave</h3>
+
+      <div className="key-cards-grid">
+        {visibleCards.map((card) => {
+          const content = (
+            <>
+              <div className="key-card-image">
+                {card.imagemUrl ? (
+                  <img src={card.imagemUrl} alt={card.nome} />
+                ) : (
+                  <div className="avatar-placeholder">
+                    <Wand2 size={22} />
+                  </div>
+                )}
+              </div>
+
+              <strong>{card.nome}</strong>
+            </>
+          );
+
+          if (card.scryfallUrl) {
+            return (
+              <a
+                key={card.nome}
+                className="key-card"
+                href={card.scryfallUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <div key={card.nome} className="key-card">
+              {content}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ProfileModal({
   selected,
   players,
@@ -856,6 +917,10 @@ function ProfileModal({
             <h3>Bio</h3>
             <p>{item.bio}</p>
           </div>
+        ) : null}
+
+        {!isPlayer && (item as Deck).cartasChave?.length ? (
+          <KeyCardsSection cards={(item as Deck).cartasChave} />
         ) : null}
 
         {!isPlayer && (item as Deck).decklistUrl ? (
