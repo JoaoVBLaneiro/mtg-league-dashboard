@@ -147,10 +147,33 @@ type Deck = {
   melhorPiloto: RivalInfo;
 };
 
+type FblthpTransfer = {
+  matchId: string;
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+  artIndex?: number;
+  artUrl?: string;
+  previousArtIndex?: number;
+  previousArtUrl?: string;
+};
+
+type FblthpState = {
+  currentHolder: string;
+  initialHolder: string;
+  currentArtIndex: number;
+  currentArtUrl: string;
+  arts: string[];
+  lastTransfer: FblthpTransfer | null;
+  history: FblthpTransfer[];
+};
+
 type PeriodKey = "geral" | "mes" | "semestre";
 
 type DashboardData = {
   updatedAt: string | null;
+  fblthp: FblthpState | null;
   leaderboards: {
     geral: {
       label: string;
@@ -385,11 +408,13 @@ function LeaderboardCard({
   index,
   type,
   onClick,
+  onFblthpClick,
 }: {
   item: Player | Deck;
   index: number;
   type: "player" | "deck";
   onClick: () => void;
+  onFblthpClick?: () => void;
 }) {
   const isPlayer = type === "player";
 
@@ -411,12 +436,20 @@ function LeaderboardCard({
     >
 
       {hasFblthp && fblthpArtUrl ? (
-        <img
-          className="fblthp-badge fblthp-badge-card"
-          src={fblthpArtUrl}
-          alt="Fblthp holder"
+        <button
+          className="fblthp-badge-button fblthp-badge-card-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onFblthpClick?.();
+          }}
           title="Este jogador está perdido com Fblthp"
-        />
+        >
+          <img
+            className="fblthp-badge"
+            src={fblthpArtUrl}
+            alt="Fblthp holder"
+          />
+        </button>
       ) : null}
 
       <div className="rank">{medalFor(index)}</div>
@@ -585,6 +618,7 @@ function ProfileModal({
   decks,
   onSelectPlayer,
   onSelectDeck,
+  onFblthpClick,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
@@ -592,6 +626,7 @@ function ProfileModal({
   decks: Deck[];
   onSelectPlayer: (player: Player) => void;
   onSelectDeck: (deck: Deck) => void;
+  onFblthpClick: () => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -634,13 +669,19 @@ function ProfileModal({
         </button>
 
         {hasFblthp && fblthpArtUrl ? (
-          <div className="fblthp-profile-badge">
+          <button
+            className="fblthp-profile-badge"
+            onClick={onFblthpClick}
+            title="Ver minigame do Fblthp"
+          >
             <img src={fblthpArtUrl} alt="Fblthp holder" />
             <span>
-              Tem Fblthp
-              {(item as Player).fblthpSince ? ` desde ${(item as Player).fblthpSince}` : ""}
+              Tem o Fblthp
+              {(item as Player).fblthpSince
+                ? ` desde ${(item as Player).fblthpSince}`
+                : ""}
             </span>
-          </div>
+          </button>
         ) : null}
 
         <div className="profile-header">
@@ -1871,9 +1912,137 @@ function ActivityView({
   );
 }
 
+function FblthpInfoModal({
+  fblthp,
+  onClose,
+}: {
+  fblthp: FblthpState | null;
+  onClose: () => void;
+}) {
+  if (!fblthp) return null;
+
+  const arts = fblthp.arts?.filter(Boolean) || [];
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="fblthp-info-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="fblthp-info-header">
+          <div className="fblthp-info-art-main">
+            {fblthp.currentArtUrl ? (
+              <img src={fblthp.currentArtUrl} alt="Fblthp atual" />
+            ) : null}
+          </div>
+
+          <div>
+            <span className="profile-type">Minigame</span>
+            <h2>O Fblthp está perdido!</h2>
+
+            <p>
+              Atualmente, o Fblthp está com{" "}
+              <strong>{fblthp.currentHolder || "ninguém"}</strong>.
+            </p>
+
+            {fblthp.lastTransfer ? (
+              <p className="fblthp-last-transfer">
+                Última troca: {fblthp.lastTransfer.from} perdeu para{" "}
+                {fblthp.lastTransfer.to} em {fblthp.lastTransfer.date}
+                {fblthp.lastTransfer.time
+                  ? ` às ${fblthp.lastTransfer.time}`
+                  : ""}
+                .
+              </p>
+            ) : (
+              <p className="fblthp-last-transfer">
+                O Fblthp começou com {fblthp.initialHolder}.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="fblthp-rules-card">
+          <h3>Como funciona?</h3>
+
+          <p>
+            O Fblthp começa com um jogador inicial. Sempre que esse jogador
+            participa de uma partida e perde, o vencedor da partida passa a
+            carregar o Fblthp.
+          </p>
+
+          <p>
+            Quando o Fblthp troca de dono, ele pode também trocar de arte. São
+            cinco artes possíveis, cada uma com a mesma chance de aparecer.
+          </p>
+
+          <p>
+            Se o dono atual não estiver na partida, nada acontece. Para pegar o
+            Fblthp, você precisa derrotar quem está com ele.
+          </p>
+        </div>
+
+        <div className="fblthp-arts-section">
+          <h3>Artes possíveis</h3>
+
+          <div className="fblthp-arts-grid">
+            {arts.map((artUrl, index) => (
+              <div
+                key={artUrl}
+                className={
+                  artUrl === fblthp.currentArtUrl
+                    ? "fblthp-art-option fblthp-art-option-active"
+                    : "fblthp-art-option"
+                }
+              >
+                <img src={artUrl} alt={`Arte ${index + 1} do Fblthp`} />
+                <span>{index + 1}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {fblthp.history?.length ? (
+          <div className="fblthp-history">
+            <h3>Histórico recente</h3>
+
+            <div className="fblthp-history-list">
+              {fblthp.history
+                .slice()
+                .reverse()
+                .slice(0, 5)
+                .map((transfer) => (
+                  <div
+                    className="fblthp-history-item"
+                    key={`${transfer.matchId}-${transfer.from}-${transfer.to}`}
+                  >
+                    <span>
+                      {transfer.from} → {transfer.to}
+                    </span>
+                    <small>
+                      {transfer.date}
+                      {transfer.time ? ` às ${transfer.time}` : ""}
+                    </small>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : null}
+      </motion.div>
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
+    fblthp: null,
     leaderboards: {
       geral: {
         label: "Geral",
@@ -1908,6 +2077,8 @@ export default function App() {
   const [isLargeScreen, setIsLargeScreen] = useState(
     window.matchMedia("(min-width: 900px)").matches
   );
+
+  const [showFblthpInfo, setShowFblthpInfo] = useState(false);
 
   const allDecks = useMemo(
     () => normalizeDecks(data.leaderboards.geral.decks),
@@ -2059,6 +2230,7 @@ export default function App() {
                     index={index}
                     type="player"
                     onClick={() => setSelectedProfile({ type: "player", item: player })}
+                    onFblthpClick={() => setShowFblthpInfo(true)}
                   />
                 ))}
               </Section>
@@ -2100,7 +2272,15 @@ export default function App() {
           setSelectedProfile({ type: "deck", item: deck })
         }
         onClose={() => setSelectedProfile(null)}
+        onFblthpClick={() => setShowFblthpInfo(true)}
       />
+
+      {showFblthpInfo ? (
+        <FblthpInfoModal
+          fblthp={data.fblthp}
+          onClose={() => setShowFblthpInfo(false)}
+        />
+      ) : null}
     </main>
   );
 }

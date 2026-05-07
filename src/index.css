@@ -1394,3 +1394,249 @@ footer {
     margin: 0 0 16px;
   }
 }
+
+.fblthp-badge-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.fblthp-badge-card-button {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  width: 42px;
+  height: 42px;
+  z-index: 2;
+  transform: rotate(8deg);
+}
+
+.fblthp-badge-card-button:hover {
+  transform: rotate(8deg) scale(1.12);
+}
+
+.fblthp-badge-card-button .fblthp-badge {
+  width: 100%;
+  height: 100%;
+}
+
+.fblthp-profile-badge {
+  position: absolute;
+  top: 16px;
+  right: 60px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(260px, calc(100% - 110px));
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.14);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.fblthp-profile-badge:hover {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(14, 165, 233, 0.22);
+}
+
+.fblthp-profile-badge img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.fblthp-profile-badge span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fblthp-info-modal {
+  position: relative;
+  width: min(780px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 30px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 38%),
+    linear-gradient(145deg, rgba(24, 24, 27, 0.98), rgba(9, 9, 11, 0.98));
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+}
+
+.fblthp-info-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: center;
+  padding-right: 44px;
+}
+
+.fblthp-info-art-main {
+  width: 110px;
+  height: 110px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.fblthp-info-art-main img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fblthp-info-header h2 {
+  margin: 0;
+  font-size: clamp(32px, 6vw, 52px);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.fblthp-info-header p {
+  margin: 12px 0 0;
+  color: #d4d4d8;
+  line-height: 1.5;
+}
+
+.fblthp-info-header strong {
+  color: #bae6fd;
+}
+
+.fblthp-last-transfer {
+  color: #a1a1aa !important;
+  font-size: 14px;
+}
+
+.fblthp-rules-card {
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fblthp-rules-card h3,
+.fblthp-arts-section h3,
+.fblthp-history h3 {
+  margin: 0 0 10px;
+}
+
+.fblthp-rules-card p {
+  margin: 10px 0 0;
+  color: #d4d4d8;
+  line-height: 1.6;
+}
+
+.fblthp-arts-section {
+  margin-top: 20px;
+}
+
+.fblthp-arts-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.fblthp-art-option {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.fblthp-art-option-active {
+  border-color: rgba(56, 189, 248, 0.85);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18) inset;
+}
+
+.fblthp-art-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fblthp-art-option span {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.fblthp-history {
+  margin-top: 22px;
+}
+
+.fblthp-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.fblthp-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fblthp-history-item span {
+  color: white;
+  font-weight: 800;
+}
+
+.fblthp-history-item small {
+  color: #a1a1aa;
+}
+
+@media (max-width: 520px) {
+  .fblthp-badge-card-button {
+    width: 34px;
+    height: 34px;
+    top: -8px;
+    right: -6px;
+  }
+
+  .fblthp-profile-badge {
+    position: static;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 16px;
+  }
+
+  .fblthp-info-header {
+    grid-template-columns: 1fr;
+    padding-right: 0;
+  }
+
+  .fblthp-info-art-main {
+    width: 92px;
+    height: 92px;
+  }
+
+  .fblthp-arts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
