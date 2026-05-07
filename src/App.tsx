@@ -84,6 +84,9 @@ type RawPlayer = {
   maiorPato?: RivalInfo;
   deckFavorito?: DeckMiniInfo;
   melhorDeck?: DeckMiniInfo;
+  hasFblthp?: boolean;
+  fblthpSince?: string;
+  fblthpArtUrl?: string;
 };
 
 type RawDeck = {
@@ -123,6 +126,9 @@ type Player = {
   maiorPato: RivalInfo;
   deckFavorito: DeckMiniInfo;
   melhorDeck: DeckMiniInfo;
+  hasFblthp: boolean;
+  fblthpSince: string;
+  fblthpArtUrl: string;
 };
 
 type Deck = {
@@ -228,6 +234,9 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       maiorPato: item.maiorPato || null,
       deckFavorito: item.deckFavorito || null,
       melhorDeck: item.melhorDeck || null,
+      hasFblthp: Boolean(item.hasFblthp),
+      fblthpSince: item.fblthpSince || "",
+      fblthpArtUrl: item.fblthpArtUrl || "",
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -384,6 +393,10 @@ function LeaderboardCard({
 }) {
   const isPlayer = type === "player";
 
+  const hasFblthp = isPlayer && (item as Player).hasFblthp;
+
+  const fblthpArtUrl = isPlayer ? (item as Player).fblthpArtUrl : "";
+
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
   const gamesLabel = isPlayer ? "partidas" : "aparições";
   const gamesValue = isPlayer ? (item as Player).games : (item as Deck).appearances;
@@ -396,6 +409,16 @@ function LeaderboardCard({
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
       className="leaderboard-card clickable"
     >
+
+      {hasFblthp && fblthpArtUrl ? (
+        <img
+          className="fblthp-badge fblthp-badge-card"
+          src={fblthpArtUrl}
+          alt="Fblthp holder"
+          title="Este jogador está perdido com Fblthp"
+        />
+      ) : null}
+
       <div className="rank">{medalFor(index)}</div>
 
       <div className={isPlayer ? "avatar player-avatar" : "avatar deck-avatar"}>
@@ -578,6 +601,10 @@ function ProfileModal({
 
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
 
+  const hasFblthp = isPlayer && (item as Player).hasFblthp;
+
+  const fblthpArtUrl = isPlayer ? (item as Player).fblthpArtUrl : "";
+
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
 
@@ -605,6 +632,16 @@ function ProfileModal({
         <button className="modal-close" onClick={onClose}>
           ×
         </button>
+
+        {hasFblthp && fblthpArtUrl ? (
+          <div className="fblthp-profile-badge">
+            <img src={fblthpArtUrl} alt="Fblthp holder" />
+            <span>
+              Tem Fblthp
+              {(item as Player).fblthpSince ? ` desde ${(item as Player).fblthpSince}` : ""}
+            </span>
+          </div>
+        ) : null}
 
         <div className="profile-header">
           <div className={isPlayer ? "profile-image player-profile-image" : "profile-image deck-profile-image"}>
