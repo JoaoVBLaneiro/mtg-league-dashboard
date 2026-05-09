@@ -1044,6 +1044,7 @@ function useIdlePageAutoScroll({
     let direction: 1 | -1 = 1;
     let pausedUntil = 0;
     let isAutoScrolling = false;
+    let virtualScroll = 0;
 
     function getScroller() {
       return document.scrollingElement || document.documentElement;
@@ -1051,17 +1052,19 @@ function useIdlePageAutoScroll({
 
     function getMaxScroll() {
       const scroller = getScroller();
-      return scroller.scrollHeight - window.innerHeight;
+      return Math.max(0, scroller.scrollHeight - window.innerHeight);
     }
 
     function getCurrentScroll() {
-      const scroller = getScroller();
-      return scroller.scrollTop;
+      return getScroller().scrollTop;
     }
 
     function setCurrentScroll(value: number) {
       const scroller = getScroller();
-      scroller.scrollTop = value;
+      const maxScroll = getMaxScroll();
+
+      virtualScroll = Math.max(0, Math.min(value, maxScroll));
+      scroller.scrollTop = virtualScroll;
     }
 
     function clearAnimation() {
@@ -1079,6 +1082,7 @@ function useIdlePageAutoScroll({
         return;
       }
 
+      virtualScroll = getCurrentScroll();
       isAutoScrolling = true;
       clearAnimation();
       animationFrame = requestAnimationFrame(step);
@@ -1101,6 +1105,7 @@ function useIdlePageAutoScroll({
       if (!isAutoScrolling) return;
 
       const maxScroll = getMaxScroll();
+      const currentScroll = getCurrentScroll();
 
       if (maxScroll <= 2) {
         isAutoScrolling = false;
@@ -1112,28 +1117,25 @@ function useIdlePageAutoScroll({
         return;
       }
 
-      const currentScroll = getCurrentScroll();
+      const topSnapDistance = 80;
+      const bottomSnapDistance = 8;
 
-      if (direction === 1 && currentScroll >= maxScroll - 2) {
+      if (direction === 1 && currentScroll >= maxScroll - bottomSnapDistance) {
+        setCurrentScroll(maxScroll);
         direction = -1;
         pausedUntil = timestamp + edgePause;
-      } else if (direction === -1 && currentScroll <= 2) {
+      } else if (direction === -1 && currentScroll <= topSnapDistance) {
+        setCurrentScroll(0);
         direction = 1;
         pausedUntil = timestamp + edgePause;
       } else {
-        const nextScroll = currentScroll + direction * scrollSpeed;
-        setCurrentScroll(nextScroll);
+        setCurrentScroll(currentScroll + direction * scrollSpeed);
       }
 
       animationFrame = requestAnimationFrame(step);
     }
 
-    const userEvents = [
-      "mousedown",
-      "wheel",
-      "touchstart",
-      "keydown",
-    ];
+    const userEvents = ["mousedown", "wheel", "touchstart", "keydown"];
 
     userEvents.forEach((eventName) => {
       window.addEventListener(eventName, pauseAndRestartLater, {
@@ -2132,6 +2134,8 @@ export default function App() {
 
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("geral");
 
+  const [showAllDecks, setShowAllDecks] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -2200,6 +2204,10 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    setShowAllDecks(false);
+  }, [activePeriod, activeView]);
+
   const activeLeaderboard =
   data.leaderboards?.[activePeriod] ?? {
     label: "Geral",
@@ -2217,6 +2225,14 @@ export default function App() {
     [activeLeaderboard.decks]
   );
 
+  const initialDeckLimit = Math.max(players.length - 1, 1);
+
+  const visibleDecks = showAllDecks
+  ? decks
+  : decks.slice(0, initialDeckLimit);
+
+  const hasMoreDecks = decks.length > visibleDecks.length;
+
   useIdlePageAutoScroll({
     enabled:
       activeView === "ranking" &&
@@ -2224,9 +2240,9 @@ export default function App() {
       isLargeScreen &&
       !loading,
     idleDelay: 10000,
-    scrollSpeed: 0.55,
+    scrollSpeed: 0.9,
     edgePause: 3000,
-    resetKey: `${activeView}-${activePeriod}-${players.length}-${decks.length}`,
+    resetKey: `${activeView}-${activePeriod}-${players.length}-${decks.length}-${visibleDecks.length}-${showAllDecks}`,
   });
 
   return (
@@ -2305,7 +2321,7 @@ export default function App() {
                 title={`Melhores decks - ${activeLeaderboard.label}`}
                 subtitle="Ordenado por winrate; desempate por número de aparições."
               >
-                {decks.map((deck, index) => (
+                {visibleDecks.map((deck, index) => (
                   <LeaderboardCard
                     key={deck.name}
                     item={deck}
@@ -2314,6 +2330,25 @@ export default function App() {
                     onClick={() => setSelectedProfile({ type: "deck", item: deck })}
                   />
                 ))}
+
+                {hasMoreDecks ? (
+                  <button
+                    className="show-more-decks-button"
+                    onClick={() => setShowAllDecks(true)}
+                  >
+                    Mostrar mais decks
+                    <span>
+                      {decks.length - visibleDecks.length} restantes
+                    </span>
+                  </button>
+                ) : showAllDecks && decks.length > initialDeckLimit ? (
+                  <button
+                    className="show-more-decks-button show-less-decks-button"
+                    onClick={() => setShowAllDecks(false)}
+                  >
+                    Mostrar menos
+                  </button>
+                ) : null}
               </Section>
             </div>
           </>

@@ -1718,3 +1718,52 @@ footer {
     font-size: 12px;
   }
 }
+
+.show-more-decks-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 74px;
+  padding: 16px;
+  border-radius: 24px;
+
+  border: 1px dashed rgba(167, 139, 250, 0.45);
+  background: rgba(167, 139, 250, 0.08);
+  color: #ddd6fe;
+
+  font-weight: 900;
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.show-more-decks-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.8);
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.show-more-decks-button span {
+  margin-top: 4px;
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.show-less-decks-button {
+  border-style: solid;
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.show-less-decks-button:hover {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(56, 189, 248, 0.14);
+}
