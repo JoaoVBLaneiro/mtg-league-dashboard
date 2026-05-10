@@ -1,78 +1,82 @@
-# MTG League Scoreboard
+# MTG League Dashboard — Formato Pina
 
-Dashboard público para acompanhar uma liga casual de Magic: The Gathering, com ranking automático de jogadores e decks baseado em respostas de um Google Forms.
+Dashboard web para acompanhar uma liga casual de Commander/MTG a partir de respostas de um Google Forms. O projeto gera leaderboards automáticas de jogadores e decks, perfis interativos, estatísticas de atividade, minigames e visualizações pensadas tanto para desktop quanto para um monitor aberto na sala do projeto.
 
-O projeto usa Google Forms, Google Sheets, Google Apps Script e React/Vite hospedado gratuitamente no GitHub Pages.
+## ✨ Principais recursos
 
-## Visão geral
+- **Leaderboard automática de jogadores e decks**
+  - Ordenação por Win Rate.
+  - Desempate por número de partidas/aparições.
+  - Abas de período: **Geral**, **Mês** e **Semestre**.
 
-O fluxo de dados funciona assim:
+- **Perfis de jogadores**
+  - Foto, título, bio e estatísticas.
+  - Ícone/símbolo do jogador via Keyrune.
+  - Deck favorito definido manualmente na planilha.
+  - Melhor deck calculado automaticamente por vitórias.
+  - Rival frequente, carrasco e maior pato.
+  - Ícone do Fblthp quando o jogador está com ele (minigame implementado).
+  - Clique no símbolo do jogador para ver todos os decks daquele autor.
 
-```text
-Google Forms
-↓
-Google Sheets
-↓
-Apps Script processa os dados
-↓
-API JSON pública
-↓
-React/Vite consome a API
-↓
-GitHub Pages exibe o dashboard
-```
+- **Perfis de decks**
+  - Arte do comandante/carta como imagem principal.
+  - Comandante, cores por mana pips e estatísticas.
+  - Autor do deck com ícone clicável.
+  - Origem do deck: deck fixo da salinha ou deck de fora.
+  - Clique no ícone de origem para listar todos os decks daquela origem.
+  - Melhor piloto calculado automaticamente.
+  - Cartas chave com arte, nome e link para o Scryfall.
+  - Link externo para decklist.
+  - Rival frequente, carrasco e maior pato também para decks.
 
-## Funcionalidades
+- **Aba de atividade**
+  - Total de partidas no período.
+  - Dia da semana mais ativo.
+  - Horário mais ativo.
+  - Jogadores mais ativos.
+  - Decks mais usados.
+  - Últimas partidas registradas.
+  - Filtros por período: geral, semana, mês, semestre e intervalo personalizado.
+  - Exportação do relatório em `.csv`.
 
-- Leaderboard de jogadores.
-- Leaderboard de decks.
-- Ordenação por winrate.
-- Desempate por número de partidas/aparições.
-- Perfis individuais de jogadores.
-- Fotos, títulos e bios para jogadores.
-- Perfis individuais de decks.
-- Imagem do comandante, cores, bio e link da decklist.
-- Cálculo de rival frequente.
-- Cálculo de carrasco/nêmesis.
-- Atualização automática dos dados a partir do Google Sheets.
-- Hospedagem gratuita via GitHub Pages.
+- **Minigame do Fblthp**
+  - O Fblthp começa com um jogador inicial.
+  - Se o dono atual participa de uma partida e perde, o vencedor passa a carregar o Fblthp.
+  - Ao trocar de dono, o Fblthp pode trocar de arte entre 5 opções.
+  - Clique no ícone do Fblthp para abrir o modal explicativo do minigame.
 
-## Critério de ranking
+- **Modo monitor / idle auto-scroll**
+  - Em telas grandes, a página pode rolar automaticamente quando ninguém estiver mexendo.
+  - Ao chegar no final, ela pausa e volta para o topo.
+  - Pensado para ficar aberto em uma TV/monitor da sala.
 
-Os jogadores são ordenados por:
+- **Responsivo**
+  - Layout adaptado para desktop, monitor grande e mobile.
+  - Cards ajustados para evitar overflow em telas pequenas.
 
-1. Maior winrate.
-2. Maior número de partidas.
-3. Maior número de vitórias.
-4. Nome em ordem alfabética.
+---
 
-Os decks são ordenados por:
+## 🧱 Tecnologias utilizadas
 
-1. Maior winrate.
-2. Maior número de aparições.
-3. Maior número de vitórias.
-4. Nome em ordem alfabética.
+- [React](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Vite](https://vitejs.dev/)
+- [Framer Motion](https://www.framer.com/motion/)
+- [Lucide React](https://lucide.dev/)
+- [Google Apps Script](https://developers.google.com/apps-script)
+- [Google Sheets](https://www.google.com/sheets/about/)
+- [GitHub Pages](https://pages.github.com/)
+- [Keyrune](https://keyrune.andrewgioia.com/)
+- [Scryfall](https://scryfall.com/)
 
-## Tecnologias usadas
+---
 
-- React
-- TypeScript
-- Vite
-- CSS
-- Framer Motion
-- Lucide React
-- Google Sheets
-- Google Apps Script
-- GitHub Pages
+## 📁 Estrutura geral do projeto
 
-## Estrutura do projeto
-
-```text
+```txt
 mtg-league-dashboard/
 ├─ public/
-│  ├─ favicon.svg
-│  ├─ players/
-│  └─ decks/
+│  └─ arquivos estáticos opcionais
 ├─ src/
 │  ├─ App.tsx
 │  ├─ index.css
@@ -83,215 +87,278 @@ mtg-league-dashboard/
 └─ README.md
 ```
 
-## Configuração da API
+---
 
-No arquivo `src/App.tsx`, configure a URL pública do Google Apps Script:
+## 📊 Estrutura esperada da planilha
 
-```ts
-const API_URL = "SUA_URL_DO_APPS_SCRIPT";
+O dashboard depende de algumas abas no Google Sheets.
+
+### Aba principal de respostas
+
+Normalmente criada automaticamente pelo Google Forms:
+
+```txt
+Respostas ao formulário 1
 ```
 
-A URL precisa abrir em aba anônima sem pedir login.
+Colunas esperadas:
 
-Exemplo de retorno esperado:
-
-```json
-{
-  "updatedAt": "05/05/2026, 10:00:00",
-  "players": [
-    {
-      "jogador": "JBL",
-      "jogos": 10,
-      "vitorias": 6,
-      "winrate": 0.6,
-      "fotoUrl": "https://...",
-      "titulo": "Prismari Enjoyer",
-      "bio": "Bio do jogador",
-      "rivalFrequente": {
-        "nome": "Deroldo",
-        "valor": 8,
-        "label": "partidas juntos"
-      },
-      "carrasco": {
-        "nome": "Pajé",
-        "valor": 3,
-        "label": "derrotas para"
-      }
-    }
-  ],
-  "decks": [
-    {
-      "deck": "Galazeth Prismari",
-      "aparicoes": 8,
-      "vitorias": 4,
-      "winrate": 0.5,
-      "fotoUrl": "https://...",
-      "comandante": "Galazeth Prismari",
-      "cores": "Izzet",
-      "bio": "Bio do deck",
-      "decklistUrl": "https://moxfield.com/..."
-    }
-  ]
-}
+```txt
+Carimbo de data/hora
+Jogadores:
+Vencedor:
+Quais decks jogaram?
+Quem venceu?
 ```
-
-## Abas necessárias no Google Sheets
 
 ### Aba `JOGADORES`
 
-```text
-Jogador | Foto URL | Título | Bio
+Usada para dados manuais dos perfis dos jogadores.
+
+Sugestão de colunas:
+
+```txt
+Jogador
+Foto URL
+Título
+Bio
+Deck Favorito
+Ícone Keyrune
 ```
 
-Exemplo:
+Exemplo de `Ícone Keyrune`:
 
-```text
-JBL | https://... | Prismari Enjoyer | Especialista em fazer mana demais.
-Deroldo | https://... | Mestre Linguíça | Sempre tem um topdeck suspeito.
-Pajé | https://... | Indiomon Supremo | Joga quieto e vence do nada.
+```txt
+ss ss-stx ss-rare ss-grad
+ss ss-mh3 ss-mythic ss-grad
+ss ss-cmm ss-uncommon ss-grad
 ```
 
 ### Aba `DECKS_INFO`
 
-```text
-Deck | Foto URL | Comandante | Cores | Bio | Decklist URL
+Usada para dados manuais dos perfis dos decks.
+
+Sugestão de colunas:
+
+```txt
+Deck
+Foto URL
+Comandante
+Cores
+Bio
+Decklist URL
+Autor
+Origem
+Carta Chave 1
+Arte Carta Chave 1
+Scryfall Carta Chave 1
+Carta Chave 2
+Arte Carta Chave 2
+Scryfall Carta Chave 2
+Carta Chave 3
+Arte Carta Chave 3
+Scryfall Carta Chave 3
+Carta Chave 4
+Arte Carta Chave 4
+Scryfall Carta Chave 4
+Carta Chave 5
+Arte Carta Chave 5
+Scryfall Carta Chave 5
 ```
+
+Valores recomendados para `Origem`:
+
+```txt
+Fixo
+Fora
+```
+
+Valores aceitos para `Cores` podem ser abreviações ou nomes, por exemplo:
+
+```txt
+W
+U
+B
+R
+G
+UR
+WUBRG
+Azorius
+Dimir
+Rakdos
+Gruul
+Selesnya
+Orzhov
+Izzet
+Golgari
+Boros
+Simic
+Esper
+Grixis
+Jund
+Naya
+Bant
+Abzan
+Jeskai
+Sultai
+Mardu
+Temur
+Incolor
+```
+
+---
+
+## 🧙 Keyrune
+
+O projeto usa Keyrune para símbolos de sets/expansões.
+
+No `index.html`, inclua o CSS:
+
+```html
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/keyrune@latest/css/keyrune.css"
+/>
+```
+
+Exemplo de ícone simples:
+
+```html
+<i class="ss ss-stx"></i>
+```
+
+Exemplo com raridade e gradiente:
+
+```html
+<i class="ss ss-stx ss-rare ss-grad"></i>
+```
+
+Na planilha, basta colocar a classe completa:
+
+```txt
+ss ss-stx ss-rare ss-grad
+```
+
+---
+
+## 🐟 Minigame do Fblthp
+
+O Fblthp funciona como um “troféu amaldiçoado”.
+
+Regras:
+
+1. O Fblthp começa com um jogador inicial.
+2. Se o jogador que está com o Fblthp participa de uma partida e perde, o vencedor da partida passa a ter o Fblthp.
+3. Se o dono atual não estiver na partida, nada muda.
+4. Quando o Fblthp troca de dono, ele pode trocar de arte entre 5 opções.
+5. A arte não muda a cada refresh; ela fica vinculada à transferência.
+
+## 🏆 Regras de ranking
+
+### Jogadores
+
+Ordenação:
+
+1. Maior Win Rate.
+2. Maior número de partidas.
+3. Maior número de vitórias.
+4. Ordem alfabética.
+
+### Decks
+
+Ordenação:
+
+1. Maior Win Rate.
+2. Maior número de aparições.
+3. Maior número de vitórias.
+4. Ordem alfabética.
+
+---
+
+## 🦆 Carrasco e Maior Pato
+
+O dashboard calcula relações entre jogadores e também entre decks.
+
+### Rival frequente
+
+Quem mais apareceu em partidas junto com aquela pessoa/deck.
+
+### Carrasco
+
+Quem mais derrotou aquela pessoa/deck, desde que exista saldo negativo no confronto direto.
 
 Exemplo:
 
-```text
-Galazeth Prismari | https://... | Galazeth Prismari | Izzet | Deck de artefatos e spellslinger. | https://moxfield.com/...
-Mothman | https://... | The Wise Mothman | Sultai | Deck de rad counters e mill. | https://archidekt.com/...
+```txt
+José venceu JBL: 2 vezes
+JBL venceu José: 3 vezes
 ```
 
-## Imagens
+Para José, JBL pode ser carrasco.
 
-Para evitar bloqueios de carregamento, recomenda-se hospedar imagens em:
+### Maior pato
 
-- Pasta `public/` do próprio projeto.
-- GitHub.
-- Imgur.
-- Cloudinary.
-- Postimages.
+Quem aquela pessoa/deck mais venceu, desde que exista saldo positivo no confronto direto.
 
-Evite usar links normais do Google Drive, pois eles podem ser bloqueados pelo navegador.
+Exemplo:
 
-Exemplo recomendado usando imagens locais:
-
-```text
-public/players/jbl.png
-public/decks/galazeth.jpg
+```txt
+José venceu Pajé: 4 vezes
+Pajé venceu José: 1 vez
 ```
 
-Na planilha, use:
+Para José, Pajé pode ser maior pato.
 
-```text
-/mtg-league-dashboard/players/jbl.png
-/mtg-league-dashboard/decks/galazeth.jpg
+### Saldo neutro
+
+Se estiver empatado, não conta como carrasco nem como pato.
+
+```txt
+José venceu JBL: 2 vezes
+JBL venceu José: 2 vezes
 ```
 
-## Rodando localmente
+Nesse caso, JBL não é carrasco nem pato do José.
 
-Instale as dependências:
+---
 
-```bash
-npm install
+## 📈 Aba de atividade
+
+A aba **Atividade** usa o histórico de partidas para gerar relatórios.
+
+Ela mostra:
+
+- Total de partidas.
+- Dia mais ativo.
+- Horário mais ativo.
+- Jogador mais ativo.
+- Deck mais usado.
+- Partidas por dia da semana.
+- Partidas por horário.
+- Jogadores mais ativos.
+- Decks mais usados.
+- Últimas partidas.
+
+Filtros disponíveis:
+
+```txt
+Geral
+Semana
+Mês
+Semestre
+Personalizado
 ```
 
-Rode o projeto localmente:
+Também existe o botão:
 
-```bash
-npm run dev
+```txt
+Exportar relatório
 ```
 
-Acesse:
+Ele baixa um `.csv` com o relatório do intervalo selecionado.
 
-```text
-http://localhost:5173/mtg-league-dashboard/
-```
+---
+## 👑 Créditos
 
-## Build
+Projeto criado para acompanhar a liga Commander **Formato Pina** (nomeado em homenagem ao representante do TCG do projeto de extensão LUDICO da UTFPR), com integração entre Google Forms, Google Sheets, Apps Script, React e GitHub Pages.
 
-Para gerar a versão de produção:
-
-```bash
-npm run build
-```
-
-Para visualizar o build localmente:
-
-```bash
-npm run preview
-```
-
-## Deploy no GitHub Pages
-
-Este projeto usa o pacote `gh-pages`.
-
-Para instalar:
-
-```bash
-npm install --save-dev gh-pages
-```
-
-O `package.json` deve conter:
-
-```json
-"scripts": {
-  "dev": "vite",
-  "build": "tsc -b && vite build",
-  "lint": "eslint .",
-  "preview": "vite preview",
-  "predeploy": "npm run build",
-  "deploy": "gh-pages -d dist"
-}
-```
-
-O arquivo `vite.config.ts` deve conter o `base` com o nome do repositório:
-
-```ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  base: '/mtg-league-dashboard/',
-})
-```
-
-Para publicar:
-
-```bash
-npm run deploy
-```
-
-Depois, ative o GitHub Pages no repositório:
-
-```text
-Settings → Pages → Deploy from a branch → gh-pages → /root
-```
-
-O site ficará disponível em:
-
-```text
-https://JoaoVBLaneiro.github.io/mtg-league-dashboard/
-```
-
-## Atualizando o site
-
-Depois de alterar o código:
-
-```bash
-git add .
-git commit -m "Update dashboard"
-git push
-npm run deploy
-```
-
-## Observações
-
-- O dashboard atualiza os dados lendo a API do Apps Script.
-- Não é necessário redeploy quando apenas novas respostas caem no Forms.
-- É necessário redeploy apenas quando o código, estilos, favicon ou imagens locais forem alterados.
-- Se novas respostas não aparecerem, verifique se o acionador do Apps Script está ativo.
-- Se a API não carregar, teste a URL em aba anônima.
