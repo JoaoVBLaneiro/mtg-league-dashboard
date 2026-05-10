@@ -135,6 +135,7 @@ type RawDeck = {
   cartasChave?: KeyCard[];
   autor?: DeckAuthorInfo;
   origem?: DeckOriginInfo;
+  decklistTexto?: string;
 };
 
 type Player = {
@@ -173,6 +174,7 @@ type Deck = {
   cartasChave: KeyCard[];
   autor: DeckAuthorInfo;
   origem: DeckOriginInfo;
+  decklistTexto: string;
 };
 
 type FblthpTransfer = {
@@ -317,6 +319,7 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       cartasChave: item.cartasChave || [],
       autor: item.autor || null,
       origem: item.origem || null,
+      decklistTexto: item.decklistTexto || "",
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -783,6 +786,292 @@ function PlayerProfileIcon({
   );
 }
 
+type ParsedDeckCard = {
+  quantity: number;
+  name: string;
+};
+
+type DecklistCategory =
+  | "commander"
+  | "creatures"
+  | "artifacts"
+  | "sorceries"
+  | "instants"
+  | "enchantments"
+  | "planeswalkers"
+  | "battles"
+  | "lands"
+  | "others";
+
+type ResolvedDeckCard = ParsedDeckCard & {
+  imageUrl: string;
+  scryfallUrl: string;
+  typeLine: string;
+  category: DecklistCategory;
+};
+
+const DECKLIST_CATEGORY_LABELS: Record<DecklistCategory, string> = {
+  commander: "Comandante",
+  creatures: "Criaturas",
+  artifacts: "Artefatos",
+  sorceries: "Sorceries",
+  instants: "Instants",
+  enchantments: "Encantamentos",
+  planeswalkers: "Planeswalkers",
+  battles: "Batalhas",
+  lands: "Terrenos",
+  others: "Outros",
+};
+
+const DECKLIST_CATEGORY_ORDER: DecklistCategory[] = [
+  "commander",
+  "creatures",
+  "artifacts",
+  "sorceries",
+  "instants",
+  "enchantments",
+  "planeswalkers",
+  "battles",
+  "lands",
+  "others",
+];
+
+function normalizeCardNameForCompare(name: string) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCommanderCard(cardName: string, commanderName: string) {
+  if (!commanderName) return false;
+
+  const card = normalizeCardNameForCompare(cardName);
+  const commander = normalizeCardNameForCompare(commanderName);
+
+  if (card === commander) return true;
+
+  // Ajuda em comandantes com partners ou nomes separados.
+  return commander
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .some((part) => card === part);
+}
+
+function getDecklistCategory({
+  cardName,
+  commanderName,
+  typeLine,
+}: {
+  cardName: string;
+  commanderName: string;
+  typeLine: string;
+}): DecklistCategory {
+  const normalizedType = String(typeLine || "").toLowerCase();
+
+  if (isCommanderCard(cardName, commanderName)) {
+    return "commander";
+  }
+
+  if (normalizedType.includes("land")) {
+    return "lands";
+  }
+
+  if (normalizedType.includes("creature")) {
+    return "creatures";
+  }
+
+  if (normalizedType.includes("artifact")) {
+    return "artifacts";
+  }
+
+  if (normalizedType.includes("sorcery")) {
+    return "sorceries";
+  }
+
+  if (normalizedType.includes("instant")) {
+    return "instants";
+  }
+
+  if (normalizedType.includes("enchantment")) {
+    return "enchantments";
+  }
+
+  if (normalizedType.includes("planeswalker")) {
+    return "planeswalkers";
+  }
+
+  if (normalizedType.includes("battle")) {
+    return "battles";
+  }
+
+  return "others";
+}
+
+function groupDecklistCards(cards: ResolvedDeckCard[]) {
+  const groups: Record<DecklistCategory, ResolvedDeckCard[]> = {
+    commander: [],
+    creatures: [],
+    artifacts: [],
+    sorceries: [],
+    instants: [],
+    enchantments: [],
+    planeswalkers: [],
+    battles: [],
+    lands: [],
+    others: [],
+  };
+
+  cards.forEach((card) => {
+    groups[card.category].push(card);
+  });
+
+  return DECKLIST_CATEGORY_ORDER
+    .map((category) => ({
+      category,
+      label: DECKLIST_CATEGORY_LABELS[category],
+      cards: groups[category],
+    }))
+    .filter((group) => group.cards.length > 0);
+}
+
+function parseDecklistText(text: string): ParsedDeckCard[] {
+  return String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith("//"))
+    .filter((line) => !line.startsWith("#"))
+    .map((line) => {
+      const cleanLine = line
+        .replace(/\s+\*F\*/gi, "")
+        .replace(/\s+\*E\*/gi, "")
+        .trim();
+
+      const match = cleanLine.match(/^(\d+)\s+(.+?)(?:\s+\(.+?\)\s*[A-Za-z0-9\-★]*)?$/);
+
+      if (!match) {
+        return null;
+      }
+
+      return {
+        quantity: Number(match[1]),
+        name: match[2].trim(),
+      };
+    })
+    .filter((card): card is ParsedDeckCard => card !== null);
+}
+
+function getDecklistCacheKey(cardName: string) {
+  return `scryfall-card-${cardName.toLowerCase()}`;
+}
+
+async function resolveCardFromScryfall(
+  card: ParsedDeckCard,
+  commanderName: string
+): Promise<ResolvedDeckCard> {
+  const cacheKey = getDecklistCacheKey(card.name);
+  const cached = localStorage.getItem(cacheKey);
+
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+
+      return {
+        ...card,
+        imageUrl: parsed.imageUrl || "",
+        scryfallUrl: parsed.scryfallUrl || "",
+        typeLine: parsed.typeLine || "",
+        category: getDecklistCategory({
+          cardName: card.name,
+          commanderName,
+          typeLine: parsed.typeLine || "",
+        }),
+      };
+    } catch {
+      localStorage.removeItem(cacheKey);
+    }
+  }
+
+  const response = await fetch(
+    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}`
+  );
+
+  if (!response.ok) {
+    return {
+      ...card,
+      imageUrl: "",
+      scryfallUrl: `https://scryfall.com/search?q=${encodeURIComponent(card.name)}`,
+      typeLine: "",
+      category: getDecklistCategory({
+        cardName: card.name,
+        commanderName,
+        typeLine: "",
+      }),
+    };
+  }
+
+  const data = await response.json();
+
+  const imageUrl =
+    data.image_uris?.normal ||
+    data.card_faces?.[0]?.image_uris?.normal ||
+    "";
+
+  const scryfallUrl =
+    data.scryfall_uri ||
+    `https://scryfall.com/search?q=${encodeURIComponent(card.name)}`;
+
+  const typeLine = data.type_line || "";
+
+  const resolved = {
+    imageUrl,
+    scryfallUrl,
+    typeLine,
+  };
+
+  localStorage.setItem(cacheKey, JSON.stringify(resolved));
+
+  return {
+    ...card,
+    ...resolved,
+    category: getDecklistCategory({
+      cardName: card.name,
+      commanderName,
+      typeLine,
+    }),
+  };
+}
+
+function DecklistButton({
+  deck,
+  onClick,
+}: {
+  deck: Deck;
+  onClick: () => void;
+}) {
+  const origin = deck.origem;
+
+  return (
+    <button className="decklist-open-button" onClick={onClick}>
+      <span className="decklist-open-icon">
+        {origin?.iconUrl ? (
+          <img src={origin.iconUrl} alt={origin.label} />
+        ) : origin?.keyruneClass ? (
+          <i className={origin.keyruneClass} />
+        ) : (
+          <Wand2 size={20} />
+        )}
+      </span>
+
+      <span>Ver Decklist</span>
+    </button>
+  );
+}
+
 function ProfileModal({
   selected,
   players,
@@ -792,6 +1081,7 @@ function ProfileModal({
   onFblthpClick,
   onOriginClick,
   onAuthorIconClick,
+  onDecklistClick,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
@@ -802,6 +1092,7 @@ function ProfileModal({
   onFblthpClick: () => void;
   onOriginClick: (origin: DeckOriginInfo) => void;
   onAuthorIconClick: (player: Player) => void;
+  onDecklistClick: (deck: Deck) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -1063,15 +1354,41 @@ function ProfileModal({
           <KeyCardsSection cards={(item as Deck).cartasChave} />
         ) : null}
 
-        {!isPlayer && (item as Deck).decklistUrl ? (
-          <a
-            className="decklist-button"
-            href={(item as Deck).decklistUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Ver decklist
-          </a>
+        {!isPlayer && ((item as Deck).decklistTexto || (item as Deck).decklistUrl) ? (
+          <div className="decklist-actions">
+            {(item as Deck).decklistTexto ? (
+              <DecklistButton
+                deck={item as Deck}
+                onClick={() => onDecklistClick(item as Deck)}
+              />
+            ) : null}
+
+            {(item as Deck).decklistUrl.trim() ? (() => {
+              const hostInfo = getDecklistHostInfo((item as Deck).decklistUrl);
+
+              return (
+                <a
+                  className="decklist-external-link"
+                  href={(item as Deck).decklistUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`Abrir no ${hostInfo.name}`}
+                >
+                  {hostInfo.iconUrl ? (
+                    <img
+                      className="decklist-external-icon"
+                      src={hostInfo.iconUrl}
+                      alt={hostInfo.name}
+                    />
+                  ) : (
+                    <Wand2 size={18} />
+                  )}
+
+                  <span>Abrir no {hostInfo.name}</span>
+                </a>
+              );
+            })() : null}
+          </div>
         ) : null}
       </motion.div>
     </div>
@@ -2119,6 +2436,40 @@ function ActivityView({
   );
 }
 
+function getDecklistHostInfo(url: string) {
+  const normalizedUrl = String(url || "").toLowerCase();
+
+  if (normalizedUrl.includes("moxfield.com")) {
+    return {
+      name: "Moxfield",
+      iconUrl: "https://i.imgur.com/lMsnEBV.png",
+    };
+  }
+
+  if (
+    normalizedUrl.includes("ligamagic.com") ||
+    normalizedUrl.includes("ligamagic.com.br") || 
+    normalizedUrl.includes("lig.ae")
+  ) {
+    return {
+      name: "Liga Magic",
+      iconUrl: "https://i.imgur.com/H4EhE0v.png",
+    };
+  }
+
+  if (normalizedUrl.includes("archidekt.com")) {
+    return {
+      name: "Archidekt",
+      iconUrl: "https://i.imgur.com/QNjCHI3.png",
+    };
+  }
+
+  return {
+    name: "Decklist externa",
+    iconUrl: "",
+  };
+}
+
 function FblthpInfoModal({
   fblthp,
   onClose,
@@ -2403,6 +2754,214 @@ function AuthorDecksModal({
   );
 }
 
+function hashText(text: string) {
+  let hash = 0;
+  const value = String(text || "");
+
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(36);
+}
+
+function getResolvedDecklistCacheKey(deck: Deck) {
+  const signature = [
+    deck.name,
+    deck.commander,
+    deck.decklistTexto,
+  ].join("|");
+
+  return `resolved-decklist-${hashText(signature)}`;
+}
+
+function getCachedResolvedDecklist(deck: Deck): ResolvedDeckCard[] | null {
+  const cacheKey = getResolvedDecklistCacheKey(deck);
+  const cached = localStorage.getItem(cacheKey);
+
+  if (!cached) return null;
+
+  try {
+    const parsed = JSON.parse(cached);
+
+    if (!Array.isArray(parsed)) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    localStorage.removeItem(cacheKey);
+    return null;
+  }
+}
+
+function saveResolvedDecklistToCache(deck: Deck, cards: ResolvedDeckCard[]) {
+  const cacheKey = getResolvedDecklistCacheKey(deck);
+
+  localStorage.setItem(cacheKey, JSON.stringify(cards));
+}
+
+function DecklistModal({
+  deck,
+  onClose,
+}: {
+  deck: Deck | null;
+  onClose: () => void;
+}) {
+  const [cards, setCards] = useState<ResolvedDeckCard[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+
+  useEffect(() => {
+    if (!deck) return;
+
+    const currentDeck = deck;
+    let cancelled = false;
+
+    async function loadDecklist() {
+      const parsedCards = parseDecklistText(currentDeck.decklistTexto);
+
+      setCards([]);
+
+      if (!currentDeck.decklistTexto.trim() || parsedCards.length === 0) {
+        setLoadingCards(false);
+        return;
+      }
+
+      const cachedDecklist = getCachedResolvedDecklist(currentDeck);
+
+      if (cachedDecklist && cachedDecklist.length === parsedCards.length) {
+        setCards(cachedDecklist);
+        setLoadingCards(false);
+        return;
+      }
+
+      setLoadingCards(true);
+
+      const resolvedCards: ResolvedDeckCard[] = [];
+
+      for (const card of parsedCards) {
+        if (cancelled) return;
+
+        const resolved = await resolveCardFromScryfall(
+          card,
+          currentDeck.commander
+        );
+
+        resolvedCards.push(resolved);
+
+        if (!cancelled) {
+          setCards([...resolvedCards]);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+
+      if (!cancelled) {
+        saveResolvedDecklistToCache(currentDeck, resolvedCards);
+        setCards(resolvedCards);
+        setLoadingCards(false);
+      }
+    }
+
+    loadDecklist();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deck]);
+
+  if (!deck) return null;
+
+  const parsedCount = parseDecklistText(deck.decklistTexto).length;
+
+  const groupedCards = groupDecklistCards(cards);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="decklist-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="decklist-modal-header">
+          <div className="decklist-modal-cover">
+            {deck.imageUrl ? (
+              <img src={deck.imageUrl} alt={deck.name} />
+            ) : (
+              <div className="avatar-placeholder">
+                <Wand2 size={28} />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <span className="profile-type">Decklist</span>
+            <h2>{deck.name}</h2>
+            <p>
+              {parsedCount} {parsedCount === 1 ? "carta listada" : "cartas listadas"}
+              {loadingCards ? " • carregando artes..." : ""}
+            </p>
+          </div>
+        </div>
+
+        {!deck.decklistTexto ? (
+          <div className="loading-box">
+            Nenhuma decklist cadastrada para esse deck.
+          </div>
+        ) : (
+          <div className="decklist-groups">
+            {groupedCards.map((group) => (
+              <section className="decklist-category-section" key={group.category}>
+                <div className="decklist-category-header">
+                  <h3>{group.label}</h3>
+
+                  <span>
+                    {group.cards.reduce((total, card) => total + card.quantity, 0)} cartas
+                  </span>
+                </div>
+
+                <div className="decklist-grid">
+                  {group.cards.map((card) => (
+                    <a
+                      key={`${card.quantity}-${card.name}`}
+                      className="decklist-card"
+                      href={card.scryfallUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <div className="decklist-card-image">
+                        {card.imageUrl ? (
+                          <img src={card.imageUrl} alt={card.name} />
+                        ) : (
+                          <div className="avatar-placeholder">
+                            <Wand2 size={22} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <strong>{card.name}</strong>
+                        <span>{card.quantity}x</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
@@ -2448,6 +3007,8 @@ export default function App() {
 
   const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
+
+  const [selectedDecklist, setSelectedDecklist] = useState<Deck | null>(null);
 
   const allDecks = useMemo(
     () => normalizeDecks(data.leaderboards.geral.decks),
@@ -2674,6 +3235,7 @@ export default function App() {
         onFblthpClick={() => setShowFblthpInfo(true)}
         onOriginClick={(origin) => setSelectedOrigin(origin)}
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
+        onDecklistClick={(deck) => setSelectedDecklist(deck)}
         onClose={() => setSelectedProfile(null)}
       />
 
@@ -2705,6 +3267,13 @@ export default function App() {
         <FblthpInfoModal
           fblthp={data.fblthp}
           onClose={() => setShowFblthpInfo(false)}
+        />
+      ) : null}
+
+      {selectedDecklist ? (
+        <DecklistModal
+          deck={selectedDecklist}
+          onClose={() => setSelectedDecklist(null)}
         />
       ) : null}
     </main>
