@@ -11,6 +11,20 @@ type RivalInfo = {
   label: string;
 } | null;
 
+type DeckAuthorInfo = {
+  nome: string;
+  iconeKeyrune: string;
+  fotoUrl: string;
+  titulo: string;
+} | null;
+
+type DeckOriginInfo = {
+  tipo: string;
+  label: string;
+  iconUrl: string;
+  keyruneClass: string;
+} | null;
+
 type ViewKey = "ranking" | "activity";
 
 type ActivityPeriodKey = "geral" | "semana" | "mes" | "semestre" | "custom";
@@ -93,6 +107,7 @@ type RawPlayer = {
   hasFblthp?: boolean;
   fblthpSince?: string;
   fblthpArtUrl?: string;
+  iconeKeyrune?: string;
 };
 
 type RawDeck = {
@@ -118,6 +133,8 @@ type RawDeck = {
   maiorPato?: RivalInfo;
   melhorPiloto?: RivalInfo;
   cartasChave?: KeyCard[];
+  autor?: DeckAuthorInfo;
+  origem?: DeckOriginInfo;
 };
 
 type Player = {
@@ -136,6 +153,7 @@ type Player = {
   hasFblthp: boolean;
   fblthpSince: string;
   fblthpArtUrl: string;
+  iconeKeyrune: string;
 };
 
 type Deck = {
@@ -153,6 +171,8 @@ type Deck = {
   maiorPato: RivalInfo;
   melhorPiloto: RivalInfo;
   cartasChave: KeyCard[];
+  autor: DeckAuthorInfo;
+  origem: DeckOriginInfo;
 };
 
 type FblthpTransfer = {
@@ -268,6 +288,7 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       hasFblthp: Boolean(item.hasFblthp),
       fblthpSince: item.fblthpSince || "",
       fblthpArtUrl: item.fblthpArtUrl || "",
+      iconeKeyrune: item.iconeKeyrune || "",
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -294,6 +315,8 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       maiorPato: item.maiorPato || null,
       melhorPiloto: item.melhorPiloto || null,
       cartasChave: item.cartasChave || [],
+      autor: item.autor || null,
+      origem: item.origem || null,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -594,12 +617,16 @@ function PlayerDeckMiniCard({
 
 function DeckPilotMiniCard({
   pilot,
+  players,
   onClick,
 }: {
   pilot: RivalInfo;
+  players: Player[];
   onClick: (playerName: string) => void;
 }) {
   if (!pilot) return null;
+
+  const pilotPlayer = players.find((player) => player.name === pilot.nome);
 
   return (
     <button
@@ -607,7 +634,13 @@ function DeckPilotMiniCard({
       onClick={() => onClick(pilot.nome)}
     >
       <div className="deck-pilot-mini-icon">
-        <Users size={22} />
+        {pilotPlayer?.iconeKeyrune ? (
+          <i className={pilotPlayer.iconeKeyrune} />
+        ) : pilotPlayer?.photoUrl ? (
+          <img src={pilotPlayer.photoUrl} alt={pilot.nome} />
+        ) : (
+          <Users size={22} />
+        )}
       </div>
 
       <div className="deck-pilot-mini-info">
@@ -673,6 +706,83 @@ function KeyCardsSection({ cards }: { cards: KeyCard[] }) {
   );
 }
 
+function DeckProfileBadges({
+  author,
+  origin,
+  onSelectAuthor,
+  onOriginClick,
+}: {
+  author: DeckAuthorInfo;
+  origin: DeckOriginInfo;
+  onSelectAuthor: (playerName: string) => void;
+  onOriginClick: () => void;
+}) {
+  if (!author && !origin) return null;
+
+  return (
+    <div className="deck-profile-floating-icons">
+      {author ? (
+        <button
+          className="deck-floating-icon-button deck-author-icon-button"
+          onClick={() => onSelectAuthor(author.nome)}
+          title={`Autor: ${author.nome}`}
+          aria-label={`Autor: ${author.nome}`}
+        >
+          {author.iconeKeyrune ? (
+            <i className={author.iconeKeyrune} />
+          ) : author.fotoUrl ? (
+            <img src={author.fotoUrl} alt={author.nome} />
+          ) : (
+            <Users size={22} />
+          )}
+        </button>
+      ) : null}
+
+      {origin ? (
+        <button
+          className={
+            origin.tipo === "Fixo"
+              ? "deck-floating-icon-button deck-origin-icon deck-origin-fixed"
+              : "deck-floating-icon-button deck-origin-icon deck-origin-away"
+          }
+          onClick={onOriginClick}
+          title={`Origem: ${origin.tipo === "Fixo" ? "Salinha" : "Fora"}`}
+          aria-label={`Origem: ${origin.tipo === "Fixo" ? "Salinha" : "Fora"}`}
+        >
+          {origin.iconUrl ? (
+            <img src={origin.iconUrl} alt={origin.label} />
+          ) : origin.keyruneClass ? (
+            <i className={origin.keyruneClass} />
+          ) : (
+            <Wand2 size={22} />
+          )}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PlayerProfileIcon({
+  player,
+  onClick,
+}: {
+  player: Player;
+  onClick: () => void;
+}) {
+  if (!player.iconeKeyrune) return null;
+
+  return (
+    <button
+      className="player-profile-floating-icon"
+      title={`Ver decks de ${player.name}`}
+      aria-label={`Ver decks de ${player.name}`}
+      onClick={onClick}
+    >
+      <i className={player.iconeKeyrune} />
+    </button>
+  );
+}
+
 function ProfileModal({
   selected,
   players,
@@ -680,6 +790,8 @@ function ProfileModal({
   onSelectPlayer,
   onSelectDeck,
   onFblthpClick,
+  onOriginClick,
+  onAuthorIconClick,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
@@ -688,6 +800,8 @@ function ProfileModal({
   onSelectPlayer: (player: Player) => void;
   onSelectDeck: (deck: Deck) => void;
   onFblthpClick: () => void;
+  onOriginClick: (origin: DeckOriginInfo) => void;
+  onAuthorIconClick: (player: Player) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -729,19 +843,44 @@ function ProfileModal({
           ×
         </button>
 
+        {isPlayer ? (
+          <PlayerProfileIcon
+            player={item as Player}
+            onClick={() => onAuthorIconClick(item as Player)}
+          />
+        ) : null}
+
+        {!isPlayer && ((item as Deck).autor || (item as Deck).origem) ? (
+          <DeckProfileBadges
+            author={(item as Deck).autor}
+            origin={(item as Deck).origem}
+            onSelectAuthor={openPlayerByName}
+            onOriginClick={() => {
+              const origin = (item as Deck).origem;
+
+              if (origin) {
+                onOriginClick(origin);
+              }
+            }}
+          />
+        ) : null}
+
         {hasFblthp && fblthpArtUrl ? (
           <button
-            className="fblthp-profile-badge"
+            className="fblthp-profile-badge fblthp-profile-icon-only"
             onClick={onFblthpClick}
-            title="Ver minigame do Fblthp"
+            title={`Tem o Fblthp${
+              (item as Player).fblthpSince
+                ? ` desde ${(item as Player).fblthpSince}`
+                : ""
+            }`}
+            aria-label={`Tem o Fblthp${
+              (item as Player).fblthpSince
+                ? ` desde ${(item as Player).fblthpSince}`
+                : ""
+            }`}
           >
             <img src={fblthpArtUrl} alt="Fblthp holder" />
-            <span>
-              Tem o Fblthp
-              {(item as Player).fblthpSince
-                ? ` desde ${(item as Player).fblthpSince}`
-                : ""}
-            </span>
           </button>
         ) : null}
 
@@ -852,6 +991,7 @@ function ProfileModal({
             <div className="deck-pilot-highlight">
               <DeckPilotMiniCard
                 pilot={(item as Deck).melhorPiloto}
+                players={players}
                 onClick={openPlayerByName}
               />
             </div>
@@ -2106,6 +2246,163 @@ function FblthpInfoModal({
   );
 }
 
+function OriginDecksModal({
+  origin,
+  decks,
+  onSelectDeck,
+  onClose,
+}: {
+  origin: DeckOriginInfo;
+  decks: Deck[];
+  onSelectDeck: (deck: Deck) => void;
+  onClose: () => void;
+}) {
+  if (!origin) return null;
+
+  const filteredDecks = decks.filter((deck) => {
+    if (!deck.origem) return false;
+    return deck.origem.tipo === origin.tipo;
+  });
+
+  const title =
+    origin.tipo === "Fixo"
+      ? "Decks fixos da salinha"
+      : "Decks de fora";
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="origin-decks-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="origin-decks-header">
+          <div
+            className={
+              origin.tipo === "Fixo"
+                ? "origin-decks-icon origin-decks-icon-fixed"
+                : "origin-decks-icon origin-decks-icon-away"
+            }
+          >
+            {origin.iconUrl ? (
+              <img src={origin.iconUrl} alt={origin.label} />
+            ) : origin.keyruneClass ? (
+              <i className={origin.keyruneClass} />
+            ) : (
+              <Wand2 size={26} />
+            )}
+          </div>
+
+          <div>
+            <span className="profile-type">Origem</span>
+            <h2>{title}</h2>
+            <p>
+              {filteredDecks.length}{" "}
+              {filteredDecks.length === 1 ? "deck encontrado" : "decks encontrados"}
+            </p>
+          </div>
+        </div>
+
+        <div className="origin-decks-list">
+          {filteredDecks.length === 0 ? (
+            <div className="loading-box">Nenhum deck encontrado nessa origem.</div>
+          ) : (
+            filteredDecks.map((deck, index) => (
+              <LeaderboardCard
+                key={deck.name}
+                item={deck}
+                index={index}
+                type="deck"
+                onClick={() => onSelectDeck(deck)}
+              />
+            ))
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function AuthorDecksModal({
+  author,
+  decks,
+  onSelectDeck,
+  onClose,
+}: {
+  author: Player | null;
+  decks: Deck[];
+  onSelectDeck: (deck: Deck) => void;
+  onClose: () => void;
+}) {
+  if (!author) return null;
+
+  const filteredDecks = decks.filter((deck) => {
+    if (!deck.autor) return false;
+    return deck.autor.nome === author.name;
+  });
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="author-decks-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="author-decks-header">
+          <div className="author-decks-icon">
+            {author.iconeKeyrune ? (
+              <i className={author.iconeKeyrune} />
+            ) : author.photoUrl ? (
+              <img src={author.photoUrl} alt={author.name} />
+            ) : (
+              <Users size={26} />
+            )}
+          </div>
+
+          <div>
+            <span className="profile-type">Autor</span>
+            <h2>Decks de {author.name}</h2>
+            <p>
+              {filteredDecks.length}{" "}
+              {filteredDecks.length === 1
+                ? "deck encontrado"
+                : "decks encontrados"}
+            </p>
+          </div>
+        </div>
+
+        <div className="author-decks-list">
+          {filteredDecks.length === 0 ? (
+            <div className="loading-box">
+              Nenhum deck cadastrado para esse autor.
+            </div>
+          ) : (
+            filteredDecks.map((deck, index) => (
+              <LeaderboardCard
+                key={deck.name}
+                item={deck}
+                index={index}
+                type="deck"
+                onClick={() => onSelectDeck(deck)}
+              />
+            ))
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
@@ -2148,6 +2445,9 @@ export default function App() {
   );
 
   const [showFblthpInfo, setShowFblthpInfo] = useState(false);
+
+  const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
+  const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
 
   const allDecks = useMemo(
     () => normalizeDecks(data.leaderboards.geral.decks),
@@ -2371,9 +2671,35 @@ export default function App() {
         onSelectDeck={(deck) =>
           setSelectedProfile({ type: "deck", item: deck })
         }
-        onClose={() => setSelectedProfile(null)}
         onFblthpClick={() => setShowFblthpInfo(true)}
+        onOriginClick={(origin) => setSelectedOrigin(origin)}
+        onAuthorIconClick={(player) => setSelectedAuthor(player)}
+        onClose={() => setSelectedProfile(null)}
       />
+
+      {selectedOrigin ? (
+        <OriginDecksModal
+          origin={selectedOrigin}
+          decks={allDecks}
+          onSelectDeck={(deck) => {
+            setSelectedOrigin(null);
+            setSelectedProfile({ type: "deck", item: deck });
+          }}
+          onClose={() => setSelectedOrigin(null)}
+        />
+      ) : null}
+
+      {selectedAuthor ? (
+        <AuthorDecksModal
+          author={selectedAuthor}
+          decks={allDecks}
+          onSelectDeck={(deck) => {
+            setSelectedAuthor(null);
+            setSelectedProfile({ type: "deck", item: deck });
+          }}
+          onClose={() => setSelectedAuthor(null)}
+        />
+      ) : null}
 
       {showFblthpInfo ? (
         <FblthpInfoModal
