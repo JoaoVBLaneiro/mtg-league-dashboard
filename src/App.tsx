@@ -453,6 +453,51 @@ function StatPill({
   );
 }
 
+function getScryfallCardSearchUrl(cardName: string) {
+  const name = String(cardName || "").trim();
+
+  if (!name) {
+    return "";
+  }
+
+  return `https://scryfall.com/search?as=grid&order=name&q=${encodeURIComponent(
+    `!"${name}"`
+  )}`;
+}
+
+function CommanderCardShell({
+  href,
+  className,
+  title,
+  children,
+}: {
+  href: string;
+  className: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!href) {
+    return (
+      <div className={className} title={title}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      className={`${className} commander-card-link`}
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={title}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {children}
+    </a>
+  );
+}
+
 function CommanderStack({
   deck,
   variant = "card",
@@ -467,6 +512,16 @@ function CommanderStack({
   const mainImage = deck.imageUrl;
   const secondaryImage = deck.secondaryCommanderImageUrl;
 
+  const mainScryfallUrl =
+    variant === "profile"
+      ? getScryfallCardSearchUrl(deck.commander || deck.name)
+      : "";
+
+  const secondaryScryfallUrl =
+    variant === "profile"
+      ? getScryfallCardSearchUrl(deck.secondaryCommander)
+      : "";
+
   if (!hasSecondary) {
     return (
       <div
@@ -476,7 +531,15 @@ function CommanderStack({
             : "commander-stack commander-stack-card commander-stack-single"
         }
       >
-        <div className="commander-card commander-card-main">
+        <CommanderCardShell
+          href={mainScryfallUrl}
+          className="commander-card commander-card-main"
+          title={
+            variant === "profile"
+              ? `Abrir ${deck.commander || deck.name} no Scryfall`
+              : `Comandante: ${deck.commander || deck.name}`
+          }
+        >
           {mainImage ? (
             <img src={mainImage} alt={deck.commander || deck.name} />
           ) : (
@@ -484,7 +547,7 @@ function CommanderStack({
               <Wand2 size={variant === "profile" ? 36 : 22} />
             </div>
           )}
-        </div>
+        </CommanderCardShell>
       </div>
     );
   }
@@ -497,18 +560,28 @@ function CommanderStack({
           : "commander-stack commander-stack-card"
       }
     >
-      <div
+      <CommanderCardShell
+        href={secondaryScryfallUrl}
         className="commander-card commander-card-secondary"
-        title={`${deck.secondaryCommanderType || "Carta secundária"}: ${
-          deck.secondaryCommander
-        }`}
+        title={
+          variant === "profile"
+            ? `Abrir ${deck.secondaryCommander} no Scryfall`
+            : `${deck.secondaryCommanderType || "Carta secundária"}: ${
+                deck.secondaryCommander
+              }`
+        }
       >
         <img src={secondaryImage} alt={deck.secondaryCommander} />
-      </div>
+      </CommanderCardShell>
 
-      <div
+      <CommanderCardShell
+        href={mainScryfallUrl}
         className="commander-card commander-card-main"
-        title={`Comandante: ${deck.commander || deck.name}`}
+        title={
+          variant === "profile"
+            ? `Abrir ${deck.commander || deck.name} no Scryfall`
+            : `Comandante: ${deck.commander || deck.name}`
+        }
       >
         {mainImage ? (
           <img src={mainImage} alt={deck.commander || deck.name} />
@@ -517,7 +590,7 @@ function CommanderStack({
             <Wand2 size={variant === "profile" ? 36 : 22} />
           </div>
         )}
-      </div>
+      </CommanderCardShell>
     </div>
   );
 }
@@ -764,10 +837,60 @@ function DeckPilotMiniCard({
   );
 }
 
-function KeyCardsSection({ cards }: { cards: KeyCard[] }) {
+type CardPreviewState = {
+  imageUrl: string;
+  name: string;
+  x: number;
+  y: number;
+} | null;
+
+function CardPreview({
+  preview,
+}: {
+  preview: CardPreviewState;
+}) {
+  if (!preview || !preview.imageUrl) return null;
+
+  const windowWidth = window.innerWidth;
+  const previewWidth = 260;
+  const previewHeight = 365;
+
+  const shouldOpenLeft = preview.x + previewWidth + 32 > windowWidth;
+
+  const style: React.CSSProperties = {
+    left: shouldOpenLeft ? preview.x - previewWidth - 24 : preview.x + 24,
+    top: Math.max(16, Math.min(preview.y - previewHeight / 2, window.innerHeight - previewHeight - 16)),
+  };
+
+  return (
+    <div className="card-hover-preview" style={style}>
+      <img src={preview.imageUrl} alt={preview.name} />
+    </div>
+  );
+}
+
+function KeyCardsSection({
+  cards,
+  onCardPreview,
+}: {
+  cards: KeyCard[];
+  onCardPreview: (preview: CardPreviewState) => void;
+}) {
   const visibleCards = cards.filter((card) => card.nome);
 
   if (!visibleCards.length) return null;
+
+  function showPreview(
+    card: KeyCard,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    onCardPreview({
+      imageUrl: card.imagemUrl,
+      name: card.nome,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
 
   return (
     <div className="profile-section key-cards-section">
@@ -799,6 +922,9 @@ function KeyCardsSection({ cards }: { cards: KeyCard[] }) {
                 href={card.scryfallUrl}
                 target="_blank"
                 rel="noreferrer"
+                onMouseEnter={(event) => showPreview(card, event)}
+                onMouseMove={(event) => showPreview(card, event)}
+                onMouseLeave={() => onCardPreview(null)}
               >
                 {content}
               </a>
@@ -806,7 +932,13 @@ function KeyCardsSection({ cards }: { cards: KeyCard[] }) {
           }
 
           return (
-            <div key={card.nome} className="key-card">
+            <div
+              key={card.nome}
+              className="key-card"
+              onMouseEnter={(event) => showPreview(card, event)}
+              onMouseMove={(event) => showPreview(card, event)}
+              onMouseLeave={() => onCardPreview(null)}
+            >
               {content}
             </div>
           );
@@ -1189,6 +1321,7 @@ function ProfileModal({
   onOriginClick,
   onAuthorIconClick,
   onDecklistClick,
+  onCardPreview,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
@@ -1200,6 +1333,7 @@ function ProfileModal({
   onOriginClick: (origin: DeckOriginInfo) => void;
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
+  onCardPreview: (preview: CardPreviewState) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -1481,7 +1615,10 @@ function ProfileModal({
         ) : null}
 
         {!isPlayer && (item as Deck).cartasChave?.length ? (
-          <KeyCardsSection cards={(item as Deck).cartasChave} />
+          <KeyCardsSection
+            cards={(item as Deck).cartasChave}
+            onCardPreview={onCardPreview}
+          />
         ) : null}
 
         {!isPlayer && ((item as Deck).decklistTexto || (item as Deck).decklistUrl) ? (
@@ -2936,12 +3073,26 @@ function saveResolvedDecklistToCache(deck: Deck, cards: ResolvedDeckCard[]) {
 function DecklistModal({
   deck,
   onClose,
+  onCardPreview,
 }: {
   deck: Deck | null;
   onClose: () => void;
+  onCardPreview: (preview: CardPreviewState) => void;
 }) {
   const [cards, setCards] = useState<ResolvedDeckCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+
+  function showPreview(
+    card: ResolvedDeckCard,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    onCardPreview({
+      imageUrl: card.imageUrl,
+      name: card.name,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
 
   useEffect(() => {
     if (!deck) return;
@@ -3065,6 +3216,9 @@ function DecklistModal({
                       href={card.scryfallUrl}
                       target="_blank"
                       rel="noreferrer"
+                      onMouseEnter={(event) => showPreview(card, event)}
+                      onMouseMove={(event) => showPreview(card, event)}
+                      onMouseLeave={() => onCardPreview(null)}
                     >
                       <div className="decklist-card-image">
                         {card.imageUrl ? (
@@ -3139,6 +3293,8 @@ export default function App() {
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
 
   const [selectedDecklist, setSelectedDecklist] = useState<Deck | null>(null);
+
+  const [cardPreview, setCardPreview] = useState<CardPreviewState>(null);
 
   const allDecks = useMemo(
     () => normalizeDecks(data.leaderboards.geral.decks),
@@ -3366,6 +3522,7 @@ export default function App() {
         onOriginClick={(origin) => setSelectedOrigin(origin)}
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
         onDecklistClick={(deck) => setSelectedDecklist(deck)}
+        onCardPreview={setCardPreview}
         onClose={() => setSelectedProfile(null)}
       />
 
@@ -3403,9 +3560,15 @@ export default function App() {
       {selectedDecklist ? (
         <DecklistModal
           deck={selectedDecklist}
-          onClose={() => setSelectedDecklist(null)}
+          onClose={() => {
+            setSelectedDecklist(null);
+            setCardPreview(null);
+          }}
+          onCardPreview={setCardPreview}
         />
       ) : null}
+
+      <CardPreview preview={cardPreview} />
     </main>
   );
 }
