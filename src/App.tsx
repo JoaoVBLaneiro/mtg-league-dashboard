@@ -624,7 +624,9 @@ function LeaderboardCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
-      className="leaderboard-card clickable"
+      className={`leaderboard-card clickable ${
+        isPlayer ? "leaderboard-card-player" : "leaderboard-card-deck"
+      }`}
     >
 
       {hasFblthp && fblthpArtUrl ? (

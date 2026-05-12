@@ -2675,3 +2675,130 @@ footer {
     0 18px 42px rgba(0, 0, 0, 0.5),
     0 0 0 2px rgba(167, 139, 250, 0.45);
 }
+
+/* =========================
+   MOBILE DECK CARD FIX
+========================= */
+
+@media (max-width: 700px) {
+  .leaderboard-card-deck {
+    display: grid;
+    grid-template-columns: 46px 72px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .leaderboard-card-deck .rank {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    font-size: 16px;
+  }
+
+  .leaderboard-card-deck .commander-stack-card {
+    width: 72px;
+    height: 94px;
+  }
+
+  .leaderboard-card-deck .commander-stack-card .commander-card {
+    width: 62px;
+    border-radius: 14px;
+  }
+
+  .leaderboard-card-deck .commander-stack-single.commander-stack-card {
+    width: 62px;
+    height: 88px;
+  }
+
+  .leaderboard-card-deck .commander-stack-single .commander-card {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+  }
+
+  .leaderboard-card-deck .card-info {
+    min-width: 0;
+  }
+
+  .leaderboard-card-deck .name-with-title {
+    display: block;
+  }
+
+  .leaderboard-card-deck .player-name {
+    display: block;
+    max-width: 100%;
+    font-size: 20px;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .leaderboard-card-deck .stats {
+    margin-top: 10px;
+    gap: 7px;
+  }
+
+  .leaderboard-card-deck .stat-pill {
+    padding: 5px 9px;
+    font-size: 12px;
+  }
+
+  .leaderboard-card-deck .deck-meta {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.35;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .leaderboard-card-deck .mana-pip {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 430px) {
+  .leaderboard-card-deck {
+    grid-template-columns: 42px 64px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .leaderboard-card-deck .rank {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
+
+  .leaderboard-card-deck .commander-stack-card {
+    width: 64px;
+    height: 86px;
+  }
+
+  .leaderboard-card-deck .commander-stack-card .commander-card {
+    width: 56px;
+    border-radius: 13px;
+  }
+
+  .leaderboard-card-deck .commander-stack-single.commander-stack-card {
+    width: 56px;
+    height: 78px;
+  }
+
+  .leaderboard-card-deck .player-name {
+    font-size: 18px;
+  }
+
+  .leaderboard-card-deck .deck-meta {
+    font-size: 13px;
+  }
+
+  .leaderboard-card-deck .stat-pill {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
