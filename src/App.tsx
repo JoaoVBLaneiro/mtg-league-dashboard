@@ -136,6 +136,12 @@ type RawDeck = {
   autor?: DeckAuthorInfo;
   origem?: DeckOriginInfo;
   decklistTexto?: string;
+  comandanteSecundario?: string;
+  secondaryCommander?: string;
+  fotoComandanteSecundario?: string;
+  secondaryCommanderImageUrl?: string;
+  tipoComandanteSecundario?: string;
+  secondaryCommanderType?: string;
 };
 
 type Player = {
@@ -175,6 +181,9 @@ type Deck = {
   autor: DeckAuthorInfo;
   origem: DeckOriginInfo;
   decklistTexto: string;
+  secondaryCommander: string;
+  secondaryCommanderImageUrl: string;
+  secondaryCommanderType: string;
 };
 
 type FblthpTransfer = {
@@ -320,6 +329,12 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
       autor: item.autor || null,
       origem: item.origem || null,
       decklistTexto: item.decklistTexto || "",
+      secondaryCommander:
+        item.comandanteSecundario || item.secondaryCommander || "",
+      secondaryCommanderImageUrl:
+        item.fotoComandanteSecundario || item.secondaryCommanderImageUrl || "",
+      secondaryCommanderType:
+        item.tipoComandanteSecundario || item.secondaryCommanderType || "",
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -438,6 +453,75 @@ function StatPill({
   );
 }
 
+function CommanderStack({
+  deck,
+  variant = "card",
+}: {
+  deck: Deck;
+  variant?: "card" | "profile";
+}) {
+  const hasSecondary =
+    Boolean(deck.secondaryCommander) &&
+    Boolean(deck.secondaryCommanderImageUrl);
+
+  const mainImage = deck.imageUrl;
+  const secondaryImage = deck.secondaryCommanderImageUrl;
+
+  if (!hasSecondary) {
+    return (
+      <div
+        className={
+          variant === "profile"
+            ? "commander-stack commander-stack-profile commander-stack-single"
+            : "commander-stack commander-stack-card commander-stack-single"
+        }
+      >
+        <div className="commander-card commander-card-main">
+          {mainImage ? (
+            <img src={mainImage} alt={deck.commander || deck.name} />
+          ) : (
+            <div className="avatar-placeholder">
+              <Wand2 size={variant === "profile" ? 36 : 22} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        variant === "profile"
+          ? "commander-stack commander-stack-profile"
+          : "commander-stack commander-stack-card"
+      }
+    >
+      <div
+        className="commander-card commander-card-secondary"
+        title={`${deck.secondaryCommanderType || "Carta secundária"}: ${
+          deck.secondaryCommander
+        }`}
+      >
+        <img src={secondaryImage} alt={deck.secondaryCommander} />
+      </div>
+
+      <div
+        className="commander-card commander-card-main"
+        title={`Comandante: ${deck.commander || deck.name}`}
+      >
+        {mainImage ? (
+          <img src={mainImage} alt={deck.commander || deck.name} />
+        ) : (
+          <div className="avatar-placeholder">
+            <Wand2 size={variant === "profile" ? 36 : 22} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LeaderboardCard({
   item,
   index,
@@ -489,15 +573,19 @@ function LeaderboardCard({
 
       <div className="rank">{medalFor(index)}</div>
 
-      <div className={isPlayer ? "avatar player-avatar" : "avatar deck-avatar"}>
-        {image ? (
-          <img src={image} alt={item.name} />
-        ) : (
-          <div className="avatar-placeholder">
-            {isPlayer ? <Users size={24} /> : <Wand2 size={24} />}
-          </div>
-        )}
-      </div>
+      {isPlayer ? (
+        <div className="avatar player-avatar">
+          {image ? (
+            <img src={image} alt={item.name} />
+          ) : (
+            <div className="avatar-placeholder">
+              <Users size={24} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <CommanderStack deck={item as Deck} variant="card" />
+      )}
 
       <div className="card-info">
         <h3 className="name-with-title">
@@ -522,20 +610,39 @@ function LeaderboardCard({
           </StatPill>
         </div>
 
-        {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
-          <p className="deck-meta">
-            {(item as Deck).commander ? (
-              <span>{(item as Deck).commander}</span>
-            ) : null}
+        {!isPlayer &&
+          ((item as Deck).commander ||
+            (item as Deck).secondaryCommander ||
+            (item as Deck).colors) ? (
+            <p className="deck-meta">
+              {(item as Deck).commander ? (
+                <span>{(item as Deck).commander}</span>
+              ) : null}
 
-            {(item as Deck).colors ? (
-              <>
-                {(item as Deck).commander ? <span> • </span> : null}
-                <ManaPips colors={(item as Deck).colors} />
-              </>
-            ) : null}
-          </p>
-        ) : null}
+              {(item as Deck).secondaryCommander ? (
+                <>
+                  {(item as Deck).commander ? <span> + </span> : null}
+
+                  <span>
+                    {(item as Deck).secondaryCommander}
+                    {(item as Deck).secondaryCommanderType
+                      ? ` (${(item as Deck).secondaryCommanderType})`
+                      : ""}
+                  </span>
+                </>
+              ) : null}
+
+              {(item as Deck).colors ? (
+                <>
+                  {(item as Deck).commander || (item as Deck).secondaryCommander ? (
+                    <span> • </span>
+                  ) : null}
+
+                  <ManaPips colors={(item as Deck).colors} />
+                </>
+              ) : null}
+            </p>
+          ) : null}
       </div>
     </motion.div>
   );
@@ -1176,15 +1283,19 @@ function ProfileModal({
         ) : null}
 
         <div className="profile-header">
-          <div className={isPlayer ? "profile-image player-profile-image" : "profile-image deck-profile-image"}>
-            {image ? (
-              <img src={image} alt={item.name} />
-            ) : (
-              <div className="avatar-placeholder">
-                {isPlayer ? <Users size={36} /> : <Wand2 size={36} />}
-              </div>
-            )}
-          </div>
+          {isPlayer ? (
+            <div className="profile-image player-profile-image">
+              {image ? (
+                <img src={image} alt={item.name} />
+              ) : (
+                <div className="avatar-placeholder">
+                  <Users size={36} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <CommanderStack deck={item as Deck} variant="profile" />
+          )}
 
           <div>
             <span className="profile-type">
@@ -1197,20 +1308,39 @@ function ProfileModal({
               <p className="profile-subtitle">{(item as Player).title}</p>
             ) : null}
 
-            {!isPlayer && ((item as Deck).commander || (item as Deck).colors) ? (
-              <p className="profile-subtitle deck-profile-subtitle">
-                {(item as Deck).commander ? (
-                  <span>{(item as Deck).commander}</span>
-                ) : null}
+            {!isPlayer &&
+              ((item as Deck).commander ||
+                (item as Deck).secondaryCommander ||
+                (item as Deck).colors) ? (
+                <p className="profile-subtitle deck-profile-subtitle">
+                  {(item as Deck).commander ? (
+                    <span>{(item as Deck).commander}</span>
+                  ) : null}
 
-                {(item as Deck).colors ? (
-                  <>
-                    {(item as Deck).commander ? <span> • </span> : null}
-                    <ManaPips colors={(item as Deck).colors} />
-                  </>
-                ) : null}
-              </p>
-            ) : null}
+                  {(item as Deck).secondaryCommander ? (
+                    <>
+                      {(item as Deck).commander ? <span> + </span> : null}
+
+                      <span>
+                        {(item as Deck).secondaryCommander}
+                        {(item as Deck).secondaryCommanderType
+                          ? ` (${(item as Deck).secondaryCommanderType})`
+                          : ""}
+                      </span>
+                    </>
+                  ) : null}
+
+                  {(item as Deck).colors ? (
+                    <>
+                      {(item as Deck).commander || (item as Deck).secondaryCommander ? (
+                        <span> • </span>
+                      ) : null}
+
+                      <ManaPips colors={(item as Deck).colors} />
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
           </div>
         </div>
 

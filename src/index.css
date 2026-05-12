@@ -2476,3 +2476,146 @@ footer {
   object-fit: contain;
   flex-shrink: 0;
 }
+
+/* =========================
+   COMMANDER STACK
+========================= */
+
+.commander-stack {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.commander-stack-card {
+  width: 82px;
+  height: 96px;
+}
+
+.commander-stack-profile {
+  width: 230px;
+  height: 300px;
+}
+
+.commander-card {
+  position: absolute;
+  overflow: hidden;
+  aspect-ratio: 63 / 88;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease,
+    z-index 0.22s ease;
+}
+
+.commander-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.commander-stack-card .commander-card {
+  width: 62px;
+  border-radius: 3.5px;
+}
+
+.commander-stack-profile .commander-card {
+  width: 180px;
+  border-radius: 14px;
+}
+
+/* Carta principal na frente */
+.commander-card-main {
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+/* Carta secundária atrás, sem escurecer */
+.commander-card-secondary {
+  right: 0;
+  top: 0;
+  z-index: 1;
+  opacity: 1;
+  transform: translateX(10px) translateY(-4px) rotate(4deg) scale(0.94);
+}
+
+/* Hover na carta secundária: ela vem pra frente */
+.commander-card-secondary:hover {
+  z-index: 3;
+  transform: translateX(0) translateY(0) rotate(0deg) scale(1.03);
+}
+
+/* Quando a secundária vem pra frente, a principal recua */
+.commander-card-secondary:hover + .commander-card-main,
+.commander-stack:has(.commander-card-secondary:hover) .commander-card-main {
+  z-index: 1;
+  opacity: 1;
+  transform: translateX(-8px) translateY(6px) rotate(-3deg) scale(0.94);
+}
+
+/* Quando só tem uma carta */
+.commander-stack-single.commander-stack-card {
+  width: 62px;
+  height: 88px;
+}
+
+.commander-stack-single.commander-stack-profile {
+  width: 180px;
+  height: auto;
+  aspect-ratio: 63 / 88;
+  border-radius: 14px; 
+}
+
+.commander-stack-single .commander-card-main {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.commander-stack-single .commander-card {
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 700px) {
+  .commander-stack-card {
+    width: 48px;
+    height: 64px;
+  }
+
+  .commander-stack-card .commander-card {
+    width: 38px;
+    border-radius: 7px; 
+  }
+
+  .commander-stack-profile {
+    width: 100%;
+    max-width: 260px;
+    height: 330px;
+  }
+
+  .commander-stack-profile .commander-card {
+    width: 190px;
+  }
+
+  .commander-card-secondary {
+    transform: translateX(6px) translateY(-4px) rotate(4deg) scale(0.94);
+  }
+}
+
+@media (max-width: 430px) {
+  .commander-stack-card {
+    width: 42px;
+    height: 56px;
+  }
+
+  .commander-stack-card .commander-card {
+    width: 34px;
+  }
+}
