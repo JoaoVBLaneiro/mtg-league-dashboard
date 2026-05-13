@@ -112,6 +112,12 @@ type DeckMiniInfo = {
   decklistUrl: string;
   valor: number | null;
   label: string;
+  secondaryCommander?: string;
+  secondaryCommanderImageUrl?: string;
+  secondaryCommanderType?: string;
+  comandanteSecundario?: string;
+  fotoComandanteSecundario?: string;
+  tipoComandanteSecundario?: string;
 } | null;
 
 type RawPlayer = {
@@ -781,6 +787,60 @@ function Section({
   );
 }
 
+function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
+  const secondaryCommander =
+    deck.secondaryCommander || deck.comandanteSecundario || "";
+
+  const secondaryCommanderImageUrl =
+    deck.secondaryCommanderImageUrl || deck.fotoComandanteSecundario || "";
+
+  const secondaryCommanderType =
+    deck.secondaryCommanderType || deck.tipoComandanteSecundario || "";
+
+  const hasSecondary =
+    Boolean(secondaryCommander) && Boolean(secondaryCommanderImageUrl);
+
+  if (!hasSecondary) {
+    return (
+      <div className="mini-commander-stack mini-commander-stack-single">
+        <div className="mini-commander-card mini-commander-card-main">
+          {deck.fotoUrl ? (
+            <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+          ) : (
+            <div className="avatar-placeholder">
+              <Wand2 size={18} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mini-commander-stack">
+      <div
+        className="mini-commander-card mini-commander-card-secondary"
+        title={`${secondaryCommanderType || "Carta secundária"}: ${secondaryCommander}`}
+      >
+        <img src={secondaryCommanderImageUrl} alt={secondaryCommander} />
+      </div>
+
+      <div
+        className="mini-commander-card mini-commander-card-main"
+        title={`Comandante: ${deck.comandante || deck.nome}`}
+      >
+        {deck.fotoUrl ? (
+          <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+        ) : (
+          <div className="avatar-placeholder">
+            <Wand2 size={18} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlayerDeckMiniCard({
   title,
   deck,
@@ -797,15 +857,7 @@ function PlayerDeckMiniCard({
       className="player-deck-mini-card"
       onClick={() => onClick(deck.nome)}
     >
-      <div className="player-deck-mini-image">
-        {deck.fotoUrl ? (
-          <img src={deck.fotoUrl} alt={deck.nome} />
-        ) : (
-          <div className="avatar-placeholder">
-            <Wand2 size={22} />
-          </div>
-        )}
-      </div>
+      <MiniCommanderStack deck={deck} />
 
       <div className="player-deck-mini-info">
         <span>{title}</span>
@@ -814,9 +866,22 @@ function PlayerDeckMiniCard({
         <p>
           {deck.comandante ? <span>{deck.comandante}</span> : null}
 
+          {(deck.secondaryCommander || deck.comandanteSecundario) ? (
+            <>
+              {deck.comandante ? <span> + </span> : null}
+
+              <span>{deck.secondaryCommander || deck.comandanteSecundario}</span>
+            </>
+          ) : null}
+
           {deck.cores ? (
             <>
-              {deck.comandante ? <span> • </span> : null}
+              {deck.comandante ||
+              deck.secondaryCommander ||
+              deck.comandanteSecundario ? (
+                <span> • </span>
+              ) : null}
+
               <ManaPips colors={deck.cores} />
             </>
           ) : null}
@@ -3622,6 +3687,52 @@ export default function App() {
   useEffect(() => {
     setShowAllDecks(false);
   }, [activePeriod, activeView]);
+
+  useEffect(() => {
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+
+      setCardPreview(null);
+      setSetPreview(null);
+
+      if (selectedDecklist) {
+        setSelectedDecklist(null);
+        return;
+      }
+
+      if (showFblthpInfo) {
+        setShowFblthpInfo(false);
+        return;
+      }
+
+      if (selectedOrigin) {
+        setSelectedOrigin(null);
+        return;
+      }
+
+      if (selectedAuthor) {
+        setSelectedAuthor(null);
+        return;
+      }
+
+      if (selectedProfile) {
+        setSelectedProfile(null);
+        return;
+      }
+    }
+
+    window.addEventListener("keydown", handleEscapeKey);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscapeKey);
+    };
+  }, [
+    selectedDecklist,
+    showFblthpInfo,
+    selectedOrigin,
+    selectedAuthor,
+    selectedProfile,
+  ]);
 
   const activeLeaderboard =
   data.leaderboards?.[activePeriod] ?? {
