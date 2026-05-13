@@ -318,6 +318,12 @@ function medalFor(index: number) {
   return `#${index + 1}`;
 }
 
+const MIN_PARTICIPATIONS_FOR_WINRATE = 3;
+
+function hasEnoughParticipations(value: number) {
+  return value >= MIN_PARTICIPATIONS_FOR_WINRATE;
+}
+
 function normalizePlayers(players: RawPlayer[] = []): Player[] {
   return players
     .map((item) => ({
@@ -340,7 +346,20 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       profileExtras: item.profileExtras || emptyPlayerProfileExtras,
     }))
     .sort((a, b) => {
-      if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+      const aEligible = hasEnoughParticipations(a.games);
+      const bEligible = hasEnoughParticipations(b.games);
+
+      if (aEligible !== bEligible) {
+        return Number(bEligible) - Number(aEligible);
+      }
+
+      if (aEligible && bEligible) {
+        if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+        if (b.games !== a.games) return b.games - a.games;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return a.name.localeCompare(b.name);
+      }
+
       if (b.games !== a.games) return b.games - a.games;
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
@@ -375,7 +394,20 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
         item.tipoComandanteSecundario || item.secondaryCommanderType || "",
     }))
     .sort((a, b) => {
-      if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+      const aEligible = hasEnoughParticipations(a.appearances);
+      const bEligible = hasEnoughParticipations(b.appearances);
+
+      if (aEligible !== bEligible) {
+        return Number(bEligible) - Number(aEligible);
+      }
+
+      if (aEligible && bEligible) {
+        if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+        if (b.appearances !== a.appearances) return b.appearances - a.appearances;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return a.name.localeCompare(b.name);
+      }
+
       if (b.appearances !== a.appearances) return b.appearances - a.appearances;
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
@@ -655,6 +687,7 @@ function LeaderboardCard({
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
   const gamesLabel = isPlayer ? "partidas" : "aparições";
   const gamesValue = isPlayer ? (item as Player).games : (item as Deck).appearances;
+  const shouldShowWinrate = hasEnoughParticipations(gamesValue);
 
   return (
     <motion.div
@@ -710,9 +743,11 @@ function LeaderboardCard({
         </h3>
 
         <div className="stats">
-          <StatPill variant="winrate" value={item.winrate}>
-            {formatPercent(item.winrate)} WR
-          </StatPill>
+          {shouldShowWinrate ? (
+            <StatPill variant="winrate" value={item.winrate}>
+              {formatPercent(item.winrate)} WR
+            </StatPill>
+          ) : null}
 
           <StatPill variant="games">
             {gamesValue} {gamesLabel}
@@ -1662,6 +1697,13 @@ function ProfileModal({
 
   const fblthpArtUrl = isPlayer ? (item as Player).fblthpArtUrl : "";
 
+  const profileParticipations = isPlayer
+  ? (item as Player).games
+  : (item as Deck).appearances;
+
+  const shouldShowProfileWinrate =
+  hasEnoughParticipations(profileParticipations);
+
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
 
@@ -1794,9 +1836,11 @@ function ProfileModal({
         </div>
 
         <div className="profile-stats profile-stats-pills">
-          <StatPill variant="winrate" value={item.winrate}>
-            {formatPercent(item.winrate)} WR
-          </StatPill>
+          {shouldShowProfileWinrate ? (
+            <StatPill variant="winrate" value={item.winrate}>
+              {formatPercent(item.winrate)} WR
+            </StatPill>
+          ) : null}
 
           <StatPill variant="games">
             {isPlayer ? (item as Player).games : (item as Deck).appearances}{" "}
