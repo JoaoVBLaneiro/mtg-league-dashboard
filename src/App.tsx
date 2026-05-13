@@ -2114,6 +2114,62 @@ function PeriodTabs({
   );
 }
 
+function useScreenWakeLock(enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    let wakeLock: WakeLockSentinel | null = null;
+    let isCancelled = false;
+
+    async function requestWakeLock() {
+      try {
+        if (!("wakeLock" in navigator)) {
+          console.warn("Screen Wake Lock API não suportada neste navegador.");
+          return;
+        }
+
+        wakeLock = await navigator.wakeLock.request("screen");
+
+        wakeLock.addEventListener("release", () => {
+          console.log("Wake Lock liberado.");
+        });
+
+        console.log("Wake Lock ativo.");
+      } catch (error) {
+        console.warn("Não foi possível ativar Wake Lock:", error);
+      }
+    }
+
+    async function releaseWakeLock() {
+      if (wakeLock) {
+        try {
+          await wakeLock.release();
+        } catch {
+          // Ignora erro ao liberar.
+        }
+
+        wakeLock = null;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible" && !wakeLock && !isCancelled) {
+        requestWakeLock();
+      }
+    }
+
+    requestWakeLock();
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isCancelled = true;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [enabled]);
+}
+
 function useIdlePageAutoScroll({
   enabled = true,
   idleDelay = 10000,
@@ -3636,6 +3692,8 @@ export default function App() {
     },
     activity: emptyActivity,
   });
+
+  useScreenWakeLock(true);
 
   const [activeView, setActiveView] = useState<ViewKey>("ranking");
 
