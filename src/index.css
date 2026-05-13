@@ -47,6 +47,9 @@ button {
 ========================= */
 
 .hero {
+  position: relative;
+  overflow: hidden;
+
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -57,6 +60,34 @@ button {
   background: rgba(255, 255, 255, 0.09);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+
+  background-image: url("https://i.imgur.com/vsGAAwC.png");
+  background-repeat: no-repeat;
+  background-position: right 32px center;
+  background-size: min(360px, 42vw);
+
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 700px) {
+  .hero::before {
+    background-position: center right -40px;
+    background-size: 260px;
+    opacity: 0.06;
+  }
 }
 
 .badge {
