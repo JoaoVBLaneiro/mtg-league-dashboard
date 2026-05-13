@@ -2802,3 +2802,224 @@ footer {
     font-size: 11px;
   }
 }
+
+/* =========================
+   PLAYER FAVORITES
+========================= */
+
+.player-favorites-section {
+  margin-top: 24px;
+}
+
+.player-favorites-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.player-favorite-card,
+.player-favorite-info-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  background: rgba(255, 255, 255, 0.055);
+  color: white;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.player-favorite-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.55);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.player-favorite-card-image {
+  width: 52px;
+  aspect-ratio: 63 / 88;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #27272a;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.player-favorite-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player-favorite-card-info {
+  min-width: 0;
+}
+
+.player-favorite-card-info span {
+  display: block;
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.player-favorite-card-info strong {
+  display: block;
+  margin-top: 4px;
+  color: white;
+  font-size: 14px;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-favorite-set-icon,
+.player-favorite-year {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+}
+
+.player-favorite-set-icon .ss {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.player-favorite-year {
+  color: #bae6fd;
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+@media (min-width: 700px) {
+  .player-favorites-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1000px) {
+  .player-favorites-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .player-favorite-card,
+  .player-favorite-info-card {
+    grid-template-columns: 46px minmax(0, 1fr);
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .player-favorite-card-image {
+    width: 46px;
+    border-radius: 8px;
+  }
+
+  .player-favorite-set-icon,
+  .player-favorite-year {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .player-favorite-set-icon .ss {
+    font-size: 30px;
+  }
+
+  .player-favorite-year {
+    font-size: 16px;
+  }
+
+  .player-favorite-card-info strong {
+    font-size: 13px;
+  }
+}
+
+/* =========================
+   SET HOVER PREVIEW
+========================= */
+
+.player-favorite-set-card {
+  cursor: pointer;
+}
+
+.player-favorite-set-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.set-hover-preview {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 220px;
+  padding: 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.18), transparent 42%),
+    rgba(9, 9, 11, 0.96);
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: cardPreviewIn 0.12s ease-out;
+}
+
+.set-hover-preview-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: rgba(250, 204, 21, 0.1);
+  border: 1px solid rgba(250, 204, 21, 0.24);
+}
+
+.set-hover-preview-icon .ss {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.set-hover-preview span {
+  display: block;
+  color: #fef3c7;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.set-hover-preview strong {
+  display: block;
+  margin-top: 4px;
+  color: white;
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+@media (max-width: 700px) {
+  .set-hover-preview {
+    display: none;
+  }
+}

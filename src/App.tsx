@@ -75,6 +75,35 @@ type KeyCard = {
   scryfallUrl: string;
 };
 
+type PlayerFavoriteCard = {
+  label: string;
+  nome: string;
+  imagemUrl: string;
+  scryfallUrl: string;
+};
+
+type PlayerProfileExtras = {
+  favoriteCommander: PlayerFavoriteCard | null;
+  favoriteCreature: PlayerFavoriteCard | null;
+  favoriteCard: PlayerFavoriteCard | null;
+  favoritePlaneswalker: PlayerFavoriteCard | null;
+  favoriteSet: {
+    nome: string;
+    keyruneClass: string;
+    wizardsUrl: string;
+  } | null;
+  startedYear: string;
+};
+
+const emptyPlayerProfileExtras: PlayerProfileExtras = {
+  favoriteCommander: null,
+  favoriteCreature: null,
+  favoriteCard: null,
+  favoritePlaneswalker: null,
+  favoriteSet: null,
+  startedYear: "",
+};
+
 type DeckMiniInfo = {
   nome: string;
   fotoUrl: string;
@@ -108,6 +137,7 @@ type RawPlayer = {
   fblthpSince?: string;
   fblthpArtUrl?: string;
   iconeKeyrune?: string;
+  profileExtras?: PlayerProfileExtras;
 };
 
 type RawDeck = {
@@ -161,6 +191,7 @@ type Player = {
   fblthpSince: string;
   fblthpArtUrl: string;
   iconeKeyrune: string;
+  profileExtras: PlayerProfileExtras;
 };
 
 type Deck = {
@@ -300,6 +331,7 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       fblthpSince: item.fblthpSince || "",
       fblthpArtUrl: item.fblthpArtUrl || "",
       iconeKeyrune: item.iconeKeyrune || "",
+      profileExtras: item.profileExtras || emptyPlayerProfileExtras,
     }))
     .sort((a, b) => {
       if (b.winrate !== a.winrate) return b.winrate - a.winrate;
@@ -846,6 +878,47 @@ type CardPreviewState = {
   y: number;
 } | null;
 
+function SetPreview({
+  set,
+  x,
+  y,
+}: {
+  set: {
+    nome: string;
+    keyruneClass: string;
+    wizardsUrl: string;
+  } | null;
+  x: number;
+  y: number;
+}) {
+  if (!set) return null;
+
+  const previewWidth = 220;
+  const shouldOpenLeft = x + previewWidth + 32 > window.innerWidth;
+
+  const style: React.CSSProperties = {
+    left: shouldOpenLeft ? x - previewWidth - 24 : x + 24,
+    top: Math.max(16, Math.min(y - 80, window.innerHeight - 180)),
+  };
+
+  return (
+    <div className="set-hover-preview" style={style}>
+      <div className="set-hover-preview-icon">
+        {set.keyruneClass ? (
+          <i className={set.keyruneClass} />
+        ) : (
+          <Trophy size={36} />
+        )}
+      </div>
+
+      <div>
+        <span>Set favorito</span>
+        <strong>{set.nome}</strong>
+      </div>
+    </div>
+  );
+}
+
 function CardPreview({
   preview,
 }: {
@@ -867,6 +940,169 @@ function CardPreview({
   return (
     <div className="card-hover-preview" style={style}>
       <img src={preview.imageUrl} alt={preview.name} />
+    </div>
+  );
+}
+
+function PlayerFavoritesSection({
+  extras,
+  onCardPreview,
+  onSetPreview,
+}: {
+  extras: PlayerProfileExtras;
+  onCardPreview: (preview: CardPreviewState) => void;
+  onSetPreview: (
+    preview: {
+      set: {
+        nome: string;
+        keyruneClass: string;
+        wizardsUrl: string;
+      };
+      x: number;
+      y: number;
+    } | null
+  ) => void;
+
+}) {
+  const favoriteCards = [
+    extras.favoriteCommander,
+    extras.favoriteCreature,
+    extras.favoriteCard,
+    extras.favoritePlaneswalker,
+  ].filter((item): item is PlayerFavoriteCard => item !== null);
+
+  const hasAnyInfo =
+    favoriteCards.length > 0 || extras.favoriteSet || extras.startedYear;
+
+  if (!hasAnyInfo) return null;
+
+  function showPreview(
+    card: PlayerFavoriteCard,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    onCardPreview({
+      imageUrl: card.imagemUrl,
+      name: card.nome,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  return (
+    <div className="profile-section player-favorites-section">
+      <h3>Favoritos</h3>
+
+      <div className="player-favorites-grid">
+        {favoriteCards.map((card) => {
+          const content = (
+            <>
+              <div className="player-favorite-card-image">
+                {card.imagemUrl ? (
+                  <img src={card.imagemUrl} alt={card.nome} />
+                ) : (
+                  <div className="avatar-placeholder">
+                    <Wand2 size={22} />
+                  </div>
+                )}
+              </div>
+
+              <div className="player-favorite-card-info">
+                <span>{card.label}</span>
+                <strong>{card.nome}</strong>
+              </div>
+            </>
+          );
+
+          if (card.scryfallUrl) {
+            return (
+              <a
+                key={card.label}
+                className="player-favorite-card"
+                href={card.scryfallUrl}
+                target="_blank"
+                rel="noreferrer"
+                onMouseEnter={(event) => showPreview(card, event)}
+                onMouseMove={(event) => showPreview(card, event)}
+                onMouseLeave={() => onCardPreview(null)}
+              >
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <div
+              key={card.label}
+              className="player-favorite-card"
+              onMouseEnter={(event) => showPreview(card, event)}
+              onMouseMove={(event) => showPreview(card, event)}
+              onMouseLeave={() => onCardPreview(null)}
+            >
+              {content}
+            </div>
+          );
+        })}
+
+        {extras.favoriteSet ? (
+          <a
+            className="player-favorite-info-card player-favorite-set-card"
+            href={extras.favoriteSet.wizardsUrl || undefined}
+            target="_blank"
+            rel="noreferrer"
+            onMouseEnter={(event) =>
+              onSetPreview({
+                set: extras.favoriteSet!,
+                x: event.clientX,
+                y: event.clientY,
+              })
+            }
+            onMouseMove={(event) =>
+              onSetPreview({
+                set: extras.favoriteSet!,
+                x: event.clientX,
+                y: event.clientY,
+              })
+            }
+            onMouseLeave={() => onSetPreview(null)}
+            onClick={(event) => {
+              if (!extras.favoriteSet?.wizardsUrl) {
+                event.preventDefault();
+              }
+            }}
+            title={
+              extras.favoriteSet.wizardsUrl
+                ? `Abrir ${extras.favoriteSet.nome} no site da Wizards`
+                : extras.favoriteSet.nome
+            }
+          >
+            <div className="player-favorite-set-icon">
+              {extras.favoriteSet.keyruneClass ? (
+                <i className={extras.favoriteSet.keyruneClass} />
+              ) : (
+                <Trophy size={24} />
+              )}
+            </div>
+
+            <div className="player-favorite-card-info">
+              <span>Set Favorito</span>
+              <strong>{extras.favoriteSet.nome}</strong>
+            </div>
+          </a>
+        ) : null}
+
+        {extras.startedYear ? (
+          <div className="player-favorite-info-card">
+            <div className="player-favorite-year">
+              {extras.startedYear}
+            </div>
+
+            <div className="player-favorite-card-info">
+              <span>Começou em</span>
+              <strong>{extras.startedYear}</strong>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1324,6 +1560,7 @@ function ProfileModal({
   onAuthorIconClick,
   onDecklistClick,
   onCardPreview,
+  onSetPreview,
   onClose,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
@@ -1336,6 +1573,17 @@ function ProfileModal({
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
+  onSetPreview: (
+    preview: {
+      set: {
+        nome: string;
+        keyruneClass: string;
+        wizardsUrl: string;
+      };
+      x: number;
+      y: number;
+    } | null
+  ) => void;
   onClose: () => void;
 }) {
   if (!selected) return null;
@@ -1614,6 +1862,14 @@ function ProfileModal({
             <h3>Bio</h3>
             <p>{item.bio}</p>
           </div>
+        ) : null}
+
+        {isPlayer ? (
+          <PlayerFavoritesSection
+            extras={(item as Player).profileExtras}
+            onCardPreview={onCardPreview}
+            onSetPreview={onSetPreview}
+          />
         ) : null}
 
         {!isPlayer && (item as Deck).cartasChave?.length ? (
@@ -3296,6 +3552,16 @@ export default function App() {
 
   const [selectedDecklist, setSelectedDecklist] = useState<Deck | null>(null);
 
+  const [setPreview, setSetPreview] = useState<{
+    set: {
+      nome: string;
+      keyruneClass: string;
+      wizardsUrl: string;
+    };
+    x: number;
+    y: number;
+  } | null>(null);
+
   const [cardPreview, setCardPreview] = useState<CardPreviewState>(null);
 
   const allDecks = useMemo(
@@ -3525,7 +3791,12 @@ export default function App() {
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
         onDecklistClick={(deck) => setSelectedDecklist(deck)}
         onCardPreview={setCardPreview}
-        onClose={() => setSelectedProfile(null)}
+        onSetPreview={setSetPreview}
+        onClose={() => {
+          setSelectedProfile(null);
+          setCardPreview(null);
+          setSetPreview(null);
+        }}
       />
 
       {selectedOrigin ? (
@@ -3571,6 +3842,14 @@ export default function App() {
       ) : null}
 
       <CardPreview preview={cardPreview} />
+
+      {setPreview ? (
+        <SetPreview
+          set={setPreview.set}
+          x={setPreview.x}
+          y={setPreview.y}
+        />
+      ) : null}
     </main>
   );
 }
