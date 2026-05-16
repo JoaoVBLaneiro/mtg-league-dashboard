@@ -245,13 +245,18 @@ type FblthpState = {
   history: FblthpTransfer[];
 };
 
-type PeriodKey = "geral" | "mes" | "semestre";
+type PeriodKey = "geral" | "evento" | "mes" | "semestre";
 
 type DashboardData = {
   updatedAt: string | null;
   fblthp: FblthpState | null;
   leaderboards: {
     geral: {
+      label: string;
+      players: RawPlayer[];
+      decks: RawDeck[];
+    };
+    evento: {
       label: string;
       players: RawPlayer[];
       decks: RawDeck[];
@@ -324,7 +329,10 @@ function hasEnoughParticipations(value: number) {
   return value >= MIN_PARTICIPATIONS_FOR_WINRATE;
 }
 
-function normalizePlayers(players: RawPlayer[] = []): Player[] {
+function normalizePlayers(
+  players: RawPlayer[] = [],
+  sortMode: "winrate" | "wins" = "winrate"
+): Player[] {
   return players
     .map((item) => ({
       name: item.jogador || item.player || item.nome || "Jogador sem nome",
@@ -346,6 +354,13 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
       profileExtras: item.profileExtras || emptyPlayerProfileExtras,
     }))
     .sort((a, b) => {
+      if (sortMode === "wins") {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.games !== a.games) return b.games - a.games;
+        if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+        return a.name.localeCompare(b.name);
+      }
+
       const aEligible = hasEnoughParticipations(a.games);
       const bEligible = hasEnoughParticipations(b.games);
 
@@ -366,7 +381,10 @@ function normalizePlayers(players: RawPlayer[] = []): Player[] {
     });
 }
 
-function normalizeDecks(decks: RawDeck[] = []): Deck[] {
+function normalizeDecks(
+  decks: RawDeck[] = [],
+  sortMode: "winrate" | "wins" = "winrate"
+): Deck[] {
   return decks
     .map((item) => ({
       name: item.deck || item.nome || "Deck sem nome",
@@ -394,6 +412,13 @@ function normalizeDecks(decks: RawDeck[] = []): Deck[] {
         item.tipoComandanteSecundario || item.secondaryCommanderType || "",
     }))
     .sort((a, b) => {
+      if (sortMode === "wins") {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.appearances !== a.appearances) return b.appearances - a.appearances;
+        if (b.winrate !== a.winrate) return b.winrate - a.winrate;
+        return a.name.localeCompare(b.name);
+      }
+
       const aEligible = hasEnoughParticipations(a.appearances);
       const bEligible = hasEnoughParticipations(b.appearances);
 
@@ -671,12 +696,14 @@ function LeaderboardCard({
   type,
   onClick,
   onFblthpClick,
+  forceShowWinrate = false,
 }: {
   item: Player | Deck;
   index: number;
   type: "player" | "deck";
   onClick: () => void;
   onFblthpClick?: () => void;
+  forceShowWinrate?: boolean;
 }) {
   const isPlayer = type === "player";
 
@@ -687,7 +714,7 @@ function LeaderboardCard({
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
   const gamesLabel = isPlayer ? "partidas" : "aparições";
   const gamesValue = isPlayer ? (item as Player).games : (item as Deck).appearances;
-  const shouldShowWinrate = hasEnoughParticipations(gamesValue);
+  const shouldShowWinrate = forceShowWinrate || hasEnoughParticipations(gamesValue);
 
   return (
     <motion.div
@@ -1662,6 +1689,7 @@ function ProfileModal({
   onCardPreview,
   onSetPreview,
   onClose,
+  forceShowWinrate = false,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
   players: Player[];
@@ -1673,6 +1701,7 @@ function ProfileModal({
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
+  forceShowWinrate?: boolean;
   onSetPreview: (
     preview: {
       set: {
@@ -1701,8 +1730,7 @@ function ProfileModal({
   ? (item as Player).games
   : (item as Deck).appearances;
 
-  const shouldShowProfileWinrate =
-  hasEnoughParticipations(profileParticipations);
+  const shouldShowProfileWinrate = forceShowWinrate || hasEnoughParticipations(profileParticipations);
 
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
@@ -2081,6 +2109,11 @@ function PeriodTabs({
       key: "geral",
       label: "Geral",
       description: "Desde sempre",
+    },
+    {
+      key: "evento",
+      label: "Evento",
+      description: "Hoje, por vitórias",
     },
     {
       key: "mes",
@@ -3679,6 +3712,11 @@ export default function App() {
         players: [],
         decks: [],
       },
+      evento: {
+        label: "Evento",
+        players: [],
+        decks: [],
+      },
       mes: {
         label: "Mês",
         players: [],
@@ -3843,14 +3881,16 @@ export default function App() {
     decks: [],
   };
 
+  const leaderboardSortMode = activePeriod === "evento" ? "wins" : "winrate";
+
   const players = useMemo(
-    () => normalizePlayers(activeLeaderboard.players),
-    [activeLeaderboard.players]
+    () => normalizePlayers(activeLeaderboard.players, leaderboardSortMode),
+    [activeLeaderboard.players, leaderboardSortMode]
   );
 
   const decks = useMemo(
-    () => normalizeDecks(activeLeaderboard.decks),
-    [activeLeaderboard.decks]
+    () => normalizeDecks(activeLeaderboard.decks, leaderboardSortMode),
+    [activeLeaderboard.decks, leaderboardSortMode]
   );
 
   const initialDeckLimit = Math.max(players.length - 1, 1);
@@ -3930,7 +3970,11 @@ export default function App() {
               <Section
                 icon={<Users size={22} />}
                 title={`Melhores jogadores - ${activeLeaderboard.label}`}
-                subtitle="Ordenado por winrate; desempate por número de partidas."
+                subtitle={
+                  activePeriod === "evento"
+                    ? "Ordenado por vitórias no dia; desempate por número de partidas."
+                    : "Ordenado por winrate; desempate por número de partidas."
+                }
               >
                 {players.map((player, index) => (
                   <LeaderboardCard
@@ -3940,6 +3984,7 @@ export default function App() {
                     type="player"
                     onClick={() => setSelectedProfile({ type: "player", item: player })}
                     onFblthpClick={() => setShowFblthpInfo(true)}
+                    forceShowWinrate={activePeriod === "evento"}
                   />
                 ))}
               </Section>
@@ -3947,7 +3992,11 @@ export default function App() {
               <Section
                 icon={<Wand2 size={22} />}
                 title={`Melhores decks - ${activeLeaderboard.label}`}
-                subtitle="Ordenado por winrate; desempate por número de aparições."
+                subtitle={
+                  activePeriod === "evento"
+                    ? "Ordenado por vitórias no dia; desempate por número de partidas."
+                    : "Ordenado por winrate; desempate por número de partidas."
+                }
               >
                 {visibleDecks.map((deck, index) => (
                   <LeaderboardCard
@@ -3956,6 +4005,7 @@ export default function App() {
                     index={index}
                     type="deck"
                     onClick={() => setSelectedProfile({ type: "deck", item: deck })}
+                    forceShowWinrate={activePeriod === "evento"}
                   />
                 ))}
 
@@ -4005,6 +4055,7 @@ export default function App() {
         onDecklistClick={(deck) => setSelectedDecklist(deck)}
         onCardPreview={setCardPreview}
         onSetPreview={setSetPreview}
+        forceShowWinrate={activePeriod === "evento"}
         onClose={() => {
           setSelectedProfile(null);
           setCardPreview(null);
