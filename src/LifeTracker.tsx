@@ -331,8 +331,12 @@ export default function LifeTrackerApp() {
 
   function resetMatch() {
     try {
-      if (screen.orientation?.unlock) {
-        screen.orientation.unlock();
+      const orientationApi = screen.orientation as ScreenOrientation & {
+        unlock?: () => void;
+      };
+
+      if (orientationApi.unlock) {
+        orientationApi.unlock();
       }
 
       if (document.fullscreenElement) {
@@ -341,6 +345,16 @@ export default function LifeTrackerApp() {
     } catch (error) {
       console.warn("Não foi possível sair do fullscreen/orientação:", error);
     }
+
+    clearHoldTimers();
+
+    setFinishConfirmOpen(false);
+    setWinnerModalOpen(false);
+    setSelectedWinnerId("");
+    setMatchSubmitError("");
+    setSelectionModal(null);
+    setCommanderDamageModalPlayerId(null);
+    setMarkerModalPlayerId(null);
 
     setMatchStarted(false);
     setPlayers([]);
@@ -761,17 +775,6 @@ function getVisibleMarkers(player: LifePlayerSlot) {
   if (matchStarted) {
     return (
       <main className="life-page">
-        <header className="life-topbar">
-          <div>
-            <span>Marcador de Vida</span>
-            <strong>Partida em andamento</strong>
-          </div>
-
-          <button className="life-topbar-button" onClick={resetMatch}>
-            Nova partida
-          </button>
-        </header>
-
         <section
           className={[
             "life-board",
@@ -982,6 +985,14 @@ function getVisibleMarkers(player: LifePlayerSlot) {
                   onClick={closeFinishConfirm}
                 >
                   Ainda não
+                </button>
+
+                <button
+                  className="match-result-danger"
+                  type="button"
+                  onClick={resetMatch}
+                >
+                  Nova Partida
                 </button>
 
                 <button
@@ -1356,7 +1367,7 @@ function getVisibleMarkers(player: LifePlayerSlot) {
           <span>Liga Commander</span>
           <h1>Configurar partida</h1>
           <p>
-            Defina a vida inicial, quantidade de jogadores e orientação da mesa.
+            Defina a vida inicial e quantidade de jogadores.
           </p>
         </div>
 

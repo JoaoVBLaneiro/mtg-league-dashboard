@@ -10,7 +10,7 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "favicon.ico", "apple-touch-icon.png"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
 
       manifest: {
         name: "Liga Commander",
@@ -19,7 +19,7 @@ export default defineConfig({
         theme_color: "#020617",
         background_color: "#020617",
         display: "standalone",
-        orientation: "landscape",
+        orientation: "any",
         start_url: "/mtg-league-dashboard/life",
         scope: "/mtg-league-dashboard/",
         icons: [

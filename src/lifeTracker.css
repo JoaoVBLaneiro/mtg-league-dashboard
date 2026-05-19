@@ -270,7 +270,7 @@ button {
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 46px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .life-page:has(.life-board) .life-topbar {
@@ -366,7 +366,7 @@ button {
 }
 
 .life-player-card-has-deck-bg .life-player-card-bg::before {
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 .life-player-card-bg::after {
@@ -1056,7 +1056,7 @@ button {
 
 @media (orientation: landscape) and (max-height: 520px) {
   .life-page:has(.life-board) {
-    grid-template-rows: 36px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .life-page:has(.life-board) .life-topbar {
@@ -1872,15 +1872,15 @@ button {
 
 /* um pouco menos forte que antes */
 .life-player-card-has-deck-bg .life-player-card-bg::before {
-  opacity: 0.36;
+  opacity: 0.86;
 }
 
 /* escurece as laterais e preserva o “frame” visual */
 .life-player-card-bg::after {
   background:
-    radial-gradient(circle at center, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.74)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.72)),
-    linear-gradient(145deg, rgba(9, 9, 11, 0.68), rgba(15, 23, 42, 0.72));
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.52)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.54), rgba(0, 0, 0, 0.20), rgba(0, 0, 0, 0.54)),
+    linear-gradient(145deg, rgba(9, 9, 11, 0.44), rgba(15, 23, 42, 0.52));
 }
 
 /* reforça a borda escura interna */
@@ -2079,5 +2079,29 @@ button {
   .life-board-table.life-board-6 .life-player-position-5 .life-player-rotator,
   .life-board-table.life-board-6 .life-player-position-6 .life-player-rotator {
     transform: none !important;
+  }
+}
+
+/* =========================
+   FINISH MODAL - NEW MATCH
+========================= */
+
+.match-result-actions-three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.match-result-danger {
+  border: 1px solid rgba(248, 113, 113, 0.38);
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecaca;
+}
+
+.match-result-danger:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 520px) {
+  .match-result-actions-three {
+    grid-template-columns: 1fr;
   }
 }
