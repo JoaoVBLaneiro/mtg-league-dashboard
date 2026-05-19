@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Trophy, Users, Wand2, RefreshCw, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
+import LifeTrackerApp from "./LifeTracker";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
 
@@ -3702,7 +3703,7 @@ function DecklistModal({
   );
 }
 
-export default function App() {
+function DashboardApp() {
   const [data, setData] = useState<DashboardData>({
     updatedAt: null,
     fblthp: null,
@@ -4116,4 +4117,18 @@ export default function App() {
       ) : null}
     </main>
   );
+}
+
+export default function App() {
+  const currentPath = window.location.pathname;
+  const currentHash = window.location.hash;
+
+  const isLifeTrackerRoute =
+    currentPath.includes("/life") || currentHash.includes("life");
+
+  if (isLifeTrackerRoute) {
+    return <LifeTrackerApp />;
+  }
+
+  return <DashboardApp />;
 }

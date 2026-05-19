@@ -1,0 +1,2083 @@
+/* =========================
+   LIFE TRACKER - CLEAN VERSION
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
+
+.life-page {
+  min-height: 100dvh;
+  color: white;
+  background:
+    radial-gradient(circle at top, rgba(79, 70, 229, 0.34), transparent 34%),
+    linear-gradient(180deg, #020617 0%, #09090b 52%, #000 100%);
+}
+
+.life-setup-page {
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================
+   TOPBAR
+========================= */
+
+.life-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.78);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.life-topbar div {
+  display: grid;
+  gap: 2px;
+}
+
+.life-topbar span {
+  color: #f97316;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.life-topbar strong {
+  color: white;
+  font-size: 20px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.life-topbar-button {
+  padding: 9px 12px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.08);
+  color: #ddd6fe;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* =========================
+   SETUP SCREEN
+========================= */
+
+.life-setup-panel {
+  width: min(640px, calc(100% - 28px));
+  margin: 28px auto;
+  padding: 22px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top right, rgba(167, 139, 250, 0.16), transparent 36%),
+    rgba(9, 9, 11, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.life-setup-hero {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.life-setup-hero span {
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.life-setup-hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(34px, 9vw, 56px);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.life-setup-hero p {
+  max-width: 420px;
+  margin: 12px auto 0;
+  color: #a1a1aa;
+  line-height: 1.5;
+}
+
+.life-config-group {
+  margin-top: 28px;
+}
+
+.life-config-group h2 {
+  margin: 0 0 12px;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.life-option-grid {
+  display: grid;
+  border: 2px solid rgba(99, 102, 241, 0.78);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.life-option-grid-six {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.life-option {
+  min-height: 58px;
+  border: 0;
+  border-right: 2px solid rgba(99, 102, 241, 0.78);
+  background: rgba(0, 0, 0, 0.3);
+  color: #f4f4f5;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.life-option:last-child {
+  border-right: 0;
+}
+
+.life-option-active {
+  background: #6366f1;
+  color: white;
+}
+
+.life-orientation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.life-orientation-card {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 14px 10px;
+  border-radius: 20px;
+  border: 2px solid rgba(99, 102, 241, 0.5);
+  background: rgba(0, 0, 0, 0.26);
+  color: white;
+  cursor: pointer;
+}
+
+.life-orientation-card-active {
+  background: rgba(99, 102, 241, 0.38);
+  border-color: rgba(129, 140, 248, 0.95);
+}
+
+.life-orientation-card strong {
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.life-orientation-card small {
+  color: #a1a1aa;
+  font-size: 11px;
+  text-align: center;
+}
+
+.orientation-preview {
+  display: grid;
+  width: 92px;
+  height: 58px;
+  gap: 4px;
+}
+
+.orientation-preview span {
+  border-radius: 8px;
+  border: 1px solid rgba(221, 214, 254, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.orientation-preview-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.orientation-preview-table {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.orientation-preview-table span:nth-child(1),
+.orientation-preview-table span:nth-child(4) {
+  transform: rotate(90deg);
+}
+
+.life-start-button {
+  width: 100%;
+  min-height: 62px;
+  margin-top: 34px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  color: white;
+  font-size: 22px;
+  font-weight: 1000;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 16px 36px rgba(234, 88, 12, 0.28);
+}
+
+@media (max-width: 520px) {
+  .life-topbar {
+    padding: 16px 14px;
+  }
+
+  .life-topbar strong {
+    font-size: 16px;
+  }
+
+  .life-setup-panel {
+    width: calc(100% - 20px);
+    margin-top: 18px;
+    padding: 18px;
+  }
+
+  .life-option {
+    min-height: 52px;
+    font-size: 19px;
+  }
+
+  .life-orientation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================
+   MATCH SCREEN
+========================= */
+
+.life-page:has(.life-board) {
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 46px minmax(0, 1fr);
+}
+
+.life-page:has(.life-board) .life-topbar {
+  position: relative;
+  top: auto;
+  min-height: 46px;
+  padding: 6px 10px;
+}
+
+.life-page:has(.life-board) .life-topbar span {
+  font-size: 8px;
+}
+
+.life-page:has(.life-board) .life-topbar strong {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.life-page:has(.life-board) .life-topbar-button {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+
+.life-board {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 5px;
+  display: grid;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.life-board-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.life-board-2 {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.life-board-3 {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.life-board-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.life-board-5,
+.life-board-6 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.life-player-card-companion {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 6px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  container-type: size;
+}
+
+.life-player-card-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.18), transparent 42%),
+    linear-gradient(145deg, rgba(9, 9, 11, 0.95), rgba(15, 23, 42, 0.86));
+}
+
+.life-player-card-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--life-deck-bg);
+  background-size: cover;
+  background-position: center 22%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  filter: saturate(1.15) contrast(1.05);
+  transform: scale(1.04);
+}
+
+.life-player-card-has-deck-bg .life-player-card-bg::before {
+  opacity: 0.5;
+}
+
+.life-player-card-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.64), rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.64)),
+    linear-gradient(145deg, rgba(9, 9, 11, 0.78), rgba(15, 23, 42, 0.72));
+}
+
+.life-player-rotator {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  transform-origin: center;
+}
+
+.life-board-grid .life-player-rotator {
+  transform: none;
+}
+
+/* 4 players table mode: each column faces one side of the table */
+.life-board-table.life-board-4 .life-player-rotator {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100cqh;
+  height: 100cqw;
+  transform: translate(-50%, -50%) rotate(var(--life-rotation));
+}
+
+.life-board-table.life-board-4 .life-player-position-1,
+.life-board-table.life-board-4 .life-player-position-3 {
+  --life-rotation: 90deg;
+}
+
+.life-board-table.life-board-4 .life-player-position-2,
+.life-board-table.life-board-4 .life-player-position-4 {
+  --life-rotation: -90deg;
+}
+
+.life-board-table.life-board-2 .life-player-position-1 .life-player-rotator,
+.life-board-table.life-board-3 .life-player-position-1 .life-player-rotator {
+  transform: rotate(180deg);
+}
+
+/* =========================
+   PLAYER HEADER / SLOTS
+========================= */
+
+.life-player-header {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 88px) minmax(0, 88px);
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.life-slot-button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
+
+  min-width: 0;
+  width: 88px;
+  min-height: 42px;
+  padding: 4px 5px;
+
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.055);
+  color: white;
+
+  text-align: center;
+  cursor: pointer;
+}
+
+.life-slot-button:hover {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.life-slot-icon {
+  display: block;
+  margin-bottom: 1px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.life-slot-icon-player {
+  color: #facc15;
+}
+
+.life-slot-icon-deck {
+  color: #a78bfa;
+}
+
+.life-slot-button span {
+  display: block;
+  color: #a1a1aa;
+  font-size: 5.5px;
+  line-height: 1;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.life-slot-button strong {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 1px;
+  color: white;
+  font-size: 7.5px;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   MAIN LIFE CONTROLS
+========================= */
+
+.life-companion-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 38px 36px minmax(0, 1fr) 36px 38px;
+  align-items: center;
+  justify-items: center;
+  gap: 5px;
+  height: calc(100% - 47px);
+  min-height: 0;
+}
+
+.life-utility-column {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.life-small-action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.055);
+  color: #e4e4e7;
+  cursor: pointer;
+}
+
+.life-small-action span {
+  writing-mode: initial;
+  text-orientation: initial;
+  font-size: 5.5px;
+  line-height: 1;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.life-small-action:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.life-hold-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 13px;
+  color: white;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.life-hold-button:active {
+  transform: scale(0.96);
+}
+
+.life-minus-button {
+  background: rgba(127, 29, 29, 0.42);
+  border: 1px solid rgba(248, 113, 113, 0.24);
+}
+
+.life-plus-button {
+  background: rgba(20, 83, 45, 0.48);
+  border: 1px solid rgba(74, 222, 128, 0.24);
+}
+
+.life-center-zone {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.life-total-zone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.life-total-zone strong {
+  color: white;
+  font-size: clamp(48px, 16vw, 104px);
+  line-height: 0.82;
+  text-align: center;
+  letter-spacing: -0.08em;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.life-delta {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 1000;
+  animation: lifeDeltaPop 0.16s ease-out;
+  pointer-events: none;
+}
+
+.life-delta-positive {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.32);
+}
+
+.life-delta-negative {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+}
+
+@keyframes lifeDeltaPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* =========================
+   COMMANDER SUMMARY - visible, not editable
+========================= */
+
+.commander-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  width: min(156px, 96%);
+  min-height: 22px;
+  padding: 3px 5px;
+  margin-top: -2px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(0, 0, 0, 0.24);
+  color: white;
+
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.commander-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0.45;
+}
+
+.commander-summary-item-active {
+  opacity: 1;
+}
+
+.commander-summary-icon {
+  color: #facc15;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.commander-summary-item strong {
+  color: white;
+  font-size: 9px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+/* =========================
+   SELECTION MODAL
+========================= */
+
+.life-selection-backdrop,
+.commander-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.life-selection-modal,
+.commander-modal {
+  width: min(520px, 100%);
+  max-height: min(680px, 88dvh);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.18), transparent 40%),
+    rgba(9, 9, 11, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.62);
+}
+
+.life-selection-modal {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+}
+
+.life-selection-header,
+.commander-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.life-selection-header div,
+.commander-modal-header div {
+  display: grid;
+  gap: 4px;
+}
+
+.life-selection-header span,
+.commander-modal-header span {
+  color: #f97316;
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.life-selection-header strong,
+.commander-modal-header strong {
+  color: white;
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.commander-modal-header small {
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.life-selection-header button,
+.commander-modal-header button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.life-selection-search {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  outline: none;
+}
+
+.life-selection-search::placeholder {
+  color: #71717a;
+}
+
+.life-selection-search:focus {
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
+}
+
+.life-selection-list,
+.commander-modal-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.life-selection-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.055);
+  color: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.life-selection-item:hover {
+  border-color: rgba(167, 139, 250, 0.5);
+  background: rgba(167, 139, 250, 0.12);
+}
+
+.life-selection-item strong {
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.life-selection-item span {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.life-selection-player-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.life-selection-player-icon {
+  flex-shrink: 0;
+  color: #facc15;
+  font-size: 18px;
+}
+
+.life-selection-empty {
+  margin: 0;
+  padding: 18px;
+  border-radius: 16px;
+  color: #a1a1aa;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* =========================
+   COMMANDER DAMAGE MODAL
+========================= */
+
+.commander-modal {
+  background:
+    radial-gradient(circle at top right, rgba(248, 113, 113, 0.16), transparent 40%),
+    rgba(9, 9, 11, 0.98);
+}
+
+.commander-modal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.commander-modal-player {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.commander-modal-icon {
+  flex-shrink: 0;
+  color: #facc15;
+  font-size: 24px;
+}
+
+.commander-modal-player div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.commander-modal-player strong {
+  color: white;
+  font-size: 15px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commander-modal-player span {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commander-modal-controls {
+  display: grid;
+  grid-template-columns: 38px 44px 38px;
+  align-items: center;
+  gap: 6px;
+}
+
+.commander-modal-controls button {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.commander-modal-damage {
+  color: white;
+  font-size: 26px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.commander-modal-damage-lethal {
+  color: #fca5a5;
+  text-shadow: 0 0 18px rgba(248, 113, 113, 0.55);
+}
+
+/* Hide old leftover elements if they still exist in browser cache/JSX */
+.commander-damage-panel,
+.life-edit-backdrop,
+.life-edit-modal,
+.life-edit-shortcuts,
+.life-total-zone-button {
+  display: none !important;
+}
+
+/* =========================
+   RESPONSIVE MATCH SCREEN
+========================= */
+
+@media (max-width: 520px) {
+  .life-player-header {
+    grid-template-columns: minmax(0, 72px) minmax(0, 72px);
+    gap: 5px;
+    margin-bottom: 4px;
+  }
+
+  .life-slot-button {
+    width: 72px;
+    min-height: 34px;
+    padding: 3px 4px;
+    border-radius: 10px;
+  }
+
+  .life-slot-icon {
+    font-size: 11px;
+  }
+
+  .life-slot-button span {
+    display: block;
+    font-size: 5px;
+  }
+
+  .life-slot-button strong {
+    font-size: 6.8px;
+  }
+
+  .life-companion-grid {
+    grid-template-columns: 31px 31px minmax(0, 1fr) 31px 31px;
+    gap: 3px;
+    height: calc(100% - 38px);
+  }
+
+  .life-small-action {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
+
+  .life-small-action span {
+    font-size: 5px;
+  }
+
+  .life-hold-button {
+    width: 30px;
+    height: 46px;
+    border-radius: 10px;
+    font-size: 23px;
+  }
+
+  .life-total-zone strong {
+    font-size: clamp(42px, 15vw, 78px);
+  }
+
+  .commander-summary {
+    width: min(122px, 98%);
+    min-height: 19px;
+    padding: 2px 4px;
+    gap: 3px;
+  }
+
+  .commander-summary-icon {
+    font-size: 9px;
+  }
+
+  .commander-summary-item strong {
+    font-size: 8px;
+  }
+
+  .commander-modal,
+  .life-selection-modal {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .commander-modal-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .commander-modal-controls {
+    grid-template-columns: 1fr 54px 1fr;
+  }
+
+  .commander-modal-controls button {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-page:has(.life-board) {
+    grid-template-rows: 36px minmax(0, 1fr);
+  }
+
+  .life-page:has(.life-board) .life-topbar {
+    min-height: 36px;
+    padding: 4px 8px;
+  }
+
+  .life-page:has(.life-board) .life-topbar span {
+    display: none;
+  }
+
+  .life-page:has(.life-board) .life-topbar strong {
+    font-size: 11px;
+  }
+
+  .life-page:has(.life-board) .life-topbar-button {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .life-board {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .life-board-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+  }
+
+  .life-board-3,
+  .life-board-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .life-board-5,
+  .life-board-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .life-board-table.life-board-4 .life-player-rotator {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: 100%;
+    transform: none;
+  }
+
+  .life-player-card-companion {
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .life-player-header {
+    grid-template-columns: minmax(0, 68px) minmax(0, 68px);
+    gap: 4px;
+    margin-bottom: 3px;
+  }
+
+  .life-slot-button {
+    width: 68px;
+    min-height: 28px;
+    padding: 2px 4px;
+    border-radius: 8px;
+  }
+
+  .life-slot-icon {
+    font-size: 10px;
+    margin-bottom: 0;
+  }
+
+  .life-slot-button span {
+    display: none;
+  }
+
+  .life-slot-button strong {
+    font-size: 6.5px;
+  }
+
+  .life-companion-grid {
+    grid-template-columns: 28px 28px minmax(0, 1fr) 28px 28px;
+    gap: 3px;
+    height: calc(100% - 31px);
+  }
+
+  .life-small-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .life-small-action span {
+    font-size: 4.5px;
+  }
+
+  .life-hold-button {
+    width: 28px;
+    height: 40px;
+    border-radius: 9px;
+    font-size: 20px;
+  }
+
+  .life-total-zone strong {
+    font-size: clamp(34px, 10vw, 62px);
+  }
+
+  .commander-summary {
+    width: min(110px, 98%);
+    min-height: 17px;
+    padding: 2px 4px;
+  }
+
+  .commander-summary-icon {
+    font-size: 8px;
+  }
+
+  .commander-summary-item strong {
+    font-size: 7.5px;
+  }
+}
+
+/* =========================
+   BIGGER COMMANDER SUMMARY
+========================= */
+
+.commander-summary {
+  width: min(178px, 98%) !important;
+  min-height: 27px !important;
+  padding: 4px 7px !important;
+  gap: 6px !important;
+  border-radius: 999px !important;
+}
+
+.commander-summary-icon {
+  font-size: 12px !important;
+}
+
+.commander-summary-item strong {
+  font-size: 10px !important;
+}
+
+@media (max-width: 520px) {
+  .commander-summary {
+    width: min(146px, 98%) !important;
+    min-height: 23px !important;
+    padding: 3px 5px !important;
+    gap: 5px !important;
+  }
+
+  .commander-summary-icon {
+    font-size: 10px !important;
+  }
+
+  .commander-summary-item strong {
+    font-size: 9px !important;
+  }
+}
+
+/* =========================
+   MARKER SUMMARY ON CARD
+========================= */
+
+.life-small-action-marker-active {
+  border-color: rgba(250, 204, 21, 0.52) !important;
+  background: rgba(250, 204, 21, 0.13) !important;
+  color: #fef3c7 !important;
+}
+
+.marker-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  width: min(156px, 96%);
+  min-height: 24px;
+  padding: 3px 6px;
+  margin-top: 4px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: white;
+
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.marker-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.marker-summary-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.marker-summary-item strong {
+  color: white;
+  font-size: 9px;
+  font-weight: 1000;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.marker-summary-poison .marker-summary-icon {
+  color: #86efac;
+}
+
+.marker-summary-experience .marker-summary-icon {
+  color: #facc15;
+}
+
+.marker-summary-radiation .marker-summary-icon {
+  color: #fde68a;
+}
+
+@media (max-width: 520px) {
+  .marker-summary {
+    width: min(132px, 96%);
+    min-height: 21px;
+    padding: 2px 5px;
+    gap: 4px;
+    margin-top: 3px;
+  }
+
+  .marker-summary-icon {
+    font-size: 10px;
+  }
+
+  .marker-summary-item strong {
+    font-size: 8px;
+  }
+}
+
+/* =========================
+   MARKER MODAL
+========================= */
+
+.marker-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 135;
+
+  display: grid;
+  place-items: center;
+
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.marker-modal {
+  width: min(520px, 100%);
+  max-height: min(680px, 88dvh);
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+
+  padding: 18px;
+  border-radius: 28px;
+
+  background:
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 40%),
+    rgba(9, 9, 11, 0.98);
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.62);
+}
+
+.marker-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.marker-modal-header div {
+  display: grid;
+  gap: 4px;
+}
+
+.marker-modal-header span {
+  color: #f97316;
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.marker-modal-header strong {
+  color: white;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.marker-modal-header small {
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.marker-modal-header button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.marker-modal-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+}
+
+.marker-modal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px;
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.marker-modal-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.marker-modal-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+
+  font-size: 23px;
+  line-height: 1;
+}
+
+.marker-modal-info div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.marker-modal-info strong {
+  color: white;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.marker-modal-info span:not(.marker-modal-symbol) {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.marker-modal-poison .marker-modal-symbol {
+  color: #86efac;
+}
+
+.marker-modal-experience .marker-modal-symbol {
+  color: #facc15;
+}
+
+.marker-modal-radiation .marker-modal-symbol {
+  color: #fde68a;
+}
+
+.marker-modal-controls {
+  display: grid;
+  grid-template-columns: 38px 44px 38px;
+  align-items: center;
+  gap: 6px;
+}
+
+.marker-modal-controls button {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.marker-modal-controls > strong {
+  color: white;
+  font-size: 26px;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .marker-modal {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .marker-modal-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .marker-modal-controls {
+    grid-template-columns: 1fr 54px 1fr;
+  }
+
+  .marker-modal-controls button {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+/* =========================
+   FINISH MATCH BUTTON
+========================= */
+
+.finish-match-button {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 80;
+
+  display: grid;
+  place-items: center;
+
+  width: 58px;
+  height: 58px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+
+  background:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.32), transparent 62%),
+    rgba(9, 9, 11, 0.9);
+
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.5),
+    0 0 0 5px rgba(0, 0, 0, 0.18);
+
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.finish-match-button img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.finish-match-button:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+@media (max-width: 520px) {
+  .finish-match-button {
+    width: 52px;
+    height: 52px;
+  }
+
+  .finish-match-button img {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* =========================
+   MATCH RESULT MODALS
+========================= */
+
+.match-result-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+
+  display: grid;
+  place-items: center;
+
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.match-result-modal {
+  width: min(520px, 100%);
+  max-height: min(640px, 88dvh);
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 14px;
+
+  padding: 18px;
+  border-radius: 28px;
+
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.18), transparent 40%),
+    rgba(9, 9, 11, 0.98);
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.62);
+  overflow: hidden;
+}
+
+.match-result-confirm {
+  width: min(430px, 100%);
+}
+
+.match-result-header {
+  display: grid;
+  gap: 6px;
+}
+
+.match-result-header span {
+  color: #f97316;
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.match-result-header strong {
+  color: white;
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+.match-result-header p {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.winner-list {
+  min-height: 0;
+  overflow-y: auto;
+
+  display: grid;
+  gap: 8px;
+
+  padding-right: 4px;
+}
+
+.winner-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 12px;
+  border-radius: 18px;
+
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.055);
+  color: white;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.winner-option-active {
+  border-color: rgba(250, 204, 21, 0.62);
+  background: rgba(250, 204, 21, 0.13);
+}
+
+.winner-option-icon {
+  flex-shrink: 0;
+  color: #facc15;
+  font-size: 22px;
+}
+
+.winner-option div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.winner-option strong {
+  color: white;
+  font-size: 15px;
+  line-height: 1.1;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.winner-option span {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 700;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-result-error {
+  margin: 0;
+  padding: 10px 12px;
+
+  border-radius: 14px;
+  border: 1px solid rgba(248, 113, 113, 0.26);
+  background: rgba(127, 29, 29, 0.22);
+  color: #fecaca;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.match-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.match-result-actions button {
+  min-height: 46px;
+  border-radius: 15px;
+
+  font-size: 14px;
+  font-weight: 1000;
+
+  cursor: pointer;
+}
+
+.match-result-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+}
+
+.match-result-primary {
+  border: 1px solid rgba(250, 204, 21, 0.42);
+  background: rgba(250, 204, 21, 0.16);
+  color: #fef3c7;
+}
+
+.match-result-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .match-result-backdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .match-result-modal {
+    width: 100%;
+    max-height: 82dvh;
+    padding: 14px;
+    border-radius: 22px;
+    gap: 12px;
+  }
+
+  .match-result-confirm {
+    max-height: none;
+  }
+
+  .match-result-header strong {
+    font-size: 22px;
+  }
+
+  .match-result-header p {
+    font-size: 13px;
+  }
+
+  .winner-option {
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .winner-option-icon {
+    font-size: 20px;
+  }
+
+  .winner-option strong {
+    font-size: 14px;
+  }
+
+  .winner-option span {
+    font-size: 11px;
+  }
+
+  .match-result-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .match-result-actions button {
+    min-height: 42px;
+  }
+}
+
+/* =========================
+   TABLE ORIENTATION IN LANDSCAPE
+   Mantém os jogadores de cima virados para o lado oposto da mesa
+========================= */
+
+@media (orientation: landscape) and (max-height: 520px) {
+  /*
+    Em landscape, os quadrantes já são horizontais.
+    Então não usamos rotação lateral de 90deg.
+    Usamos rotação de 180deg na fileira de cima.
+  */
+
+  .life-board-table .life-player-rotator {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: 100%;
+    transform: none;
+  }
+
+  /* 2 jogadores: um em cima, um embaixo */
+  .life-board-table.life-board-2 {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .life-board-table.life-board-2 .life-player-position-1 .life-player-rotator {
+    transform: rotate(180deg);
+  }
+
+  /* 3 e 4 jogadores: fileira de cima invertida */
+  .life-board-table.life-board-3,
+  .life-board-table.life-board-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .life-board-table.life-board-3 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-3 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-4 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-4 .life-player-position-2 .life-player-rotator {
+    transform: rotate(180deg);
+  }
+
+  /* 5 e 6 jogadores: 3 em cima, 3 embaixo */
+  .life-board-table.life-board-5,
+  .life-board-table.life-board-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  .life-board-table.life-board-5 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-5 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-5 .life-player-position-3 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-3 .life-player-rotator {
+    transform: rotate(180deg);
+  }
+}
+
+/* =========================
+   COMMANDER BACKGROUND FRAME FIX
+========================= */
+
+.life-player-card-companion {
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 44%),
+    rgba(3, 7, 18, 0.96);
+}
+
+/* cria uma margem interna para a imagem não “vazar” colorida até a borda */
+.life-player-card-bg {
+  inset: 7px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* a imagem fica dentro dessa moldura */
+.life-player-card-bg::before {
+  inset: 0;
+  transform: scale(1.02);
+  opacity: 0;
+}
+
+/* um pouco menos forte que antes */
+.life-player-card-has-deck-bg .life-player-card-bg::before {
+  opacity: 0.36;
+}
+
+/* escurece as laterais e preserva o “frame” visual */
+.life-player-card-bg::after {
+  background:
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.74)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.72)),
+    linear-gradient(145deg, rgba(9, 9, 11, 0.68), rgba(15, 23, 42, 0.72));
+}
+
+/* reforça a borda escura interna */
+.life-player-card-companion::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 7px rgba(0, 0, 0, 0.48),
+    inset 0 0 38px rgba(0, 0, 0, 0.72);
+}
+
+/* garante que o conteúdo continue acima do fundo */
+.life-player-rotator {
+  z-index: 1;
+}
+
+.life-player-header,
+.life-companion-grid {
+  position: relative;
+  z-index: 2;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-player-card-bg {
+    inset: 5px;
+    border-radius: 10px;
+  }
+
+  .life-player-card-companion::after {
+    box-shadow:
+      inset 0 0 0 5px rgba(0, 0, 0, 0.5),
+      inset 0 0 28px rgba(0, 0, 0, 0.76);
+  }
+
+  .life-player-card-has-deck-bg .life-player-card-bg::before {
+    opacity: 0.92;
+  }
+}
+
+/* =========================================================
+   COMPANION-LIKE LAYOUT PATCH - STEP 1
+   Objetivo:
+   - Não mexe no TSX
+   - Corrige 3 jogadores: 2 em cima, 1 embaixo ocupando tudo
+   - Corrige 5 jogadores: 2 em cima, 3 embaixo
+   - Mantém a rotação dos jogadores do lado oposto
+========================================================= */
+
+@media (orientation: landscape) {
+  /* -------------------------
+     RESET SEGURO DO BOARD
+  ------------------------- */
+
+  .life-board-table {
+    display: grid !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .life-board-table .life-player-card-companion {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .life-board-table .life-player-rotator {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    transform-origin: center center !important;
+  }
+
+  /* =====================================================
+     3 JOGADORES - estilo Companion
+     [ J1 invertido ] [ J2 invertido ]
+     [        J3 normal ocupando a linha inteira        ]
+  ===================================================== */
+
+  .life-board-table.life-board-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "p1 p2"
+      "p3 p3" !important;
+  }
+
+  .life-board-table.life-board-3 .life-player-position-1 {
+    grid-area: p1 !important;
+  }
+
+  .life-board-table.life-board-3 .life-player-position-2 {
+    grid-area: p2 !important;
+  }
+
+  .life-board-table.life-board-3 .life-player-position-3 {
+    grid-area: p3 !important;
+  }
+
+  .life-board-table.life-board-3 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-3 .life-player-position-2 .life-player-rotator {
+    transform: rotate(180deg) !important;
+  }
+
+  .life-board-table.life-board-3 .life-player-position-3 .life-player-rotator {
+    transform: none !important;
+  }
+
+  /* =====================================================
+     5 JOGADORES - estilo Companion
+     [      J1 invertido      ] [      J2 invertido      ]
+     [   J3 normal   ] [   J4 normal   ] [   J5 normal   ]
+     
+     Usamos 6 colunas para conseguir 2 em cima e 3 embaixo
+     sem sobrar buraco.
+  ===================================================== */
+
+  .life-board-table.life-board-5 {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "p1 p1 p1 p2 p2 p2"
+      "p3 p3 p4 p4 p5 p5" !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-1 {
+    grid-area: p1 !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-2 {
+    grid-area: p2 !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-3 {
+    grid-area: p3 !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-4 {
+    grid-area: p4 !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-5 {
+    grid-area: p5 !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-5 .life-player-position-2 .life-player-rotator {
+    transform: rotate(180deg) !important;
+  }
+
+  .life-board-table.life-board-5 .life-player-position-3 .life-player-rotator,
+  .life-board-table.life-board-5 .life-player-position-4 .life-player-rotator,
+  .life-board-table.life-board-5 .life-player-position-5 .life-player-rotator {
+    transform: none !important;
+  }
+
+  /* =====================================================
+     4 e 6 JOGADORES - mantém mesa clássica
+  ===================================================== */
+
+  .life-board-table.life-board-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .life-board-table.life-board-4 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-4 .life-player-position-2 .life-player-rotator {
+    transform: rotate(180deg) !important;
+  }
+
+  .life-board-table.life-board-4 .life-player-position-3 .life-player-rotator,
+  .life-board-table.life-board-4 .life-player-position-4 .life-player-rotator {
+    transform: none !important;
+  }
+
+  .life-board-table.life-board-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .life-board-table.life-board-6 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-3 .life-player-rotator {
+    transform: rotate(180deg) !important;
+  }
+
+  .life-board-table.life-board-6 .life-player-position-4 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-5 .life-player-rotator,
+  .life-board-table.life-board-6 .life-player-position-6 .life-player-rotator {
+    transform: none !important;
+  }
+}
