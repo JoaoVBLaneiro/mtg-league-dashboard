@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/mtg-league-dashboard/sw.js', { scope: '/mtg-league-dashboard/' })})}
