@@ -326,6 +326,16 @@ function medalFor(index: number) {
 
 const MIN_PARTICIPATIONS_FOR_WINRATE = 3;
 
+const PLAYER_CARD_HEIGHT = 129;
+const DECK_CARD_HEIGHT = 154;
+
+function getBalancedDeckLimit(visiblePlayerCount: number) {
+  return Math.max(
+    Math.round((visiblePlayerCount * PLAYER_CARD_HEIGHT) / DECK_CARD_HEIGHT),
+    1
+  );
+}
+
 function hasEnoughParticipations(value: number) {
   return value >= MIN_PARTICIPATIONS_FOR_WINRATE;
 }
@@ -3732,6 +3742,8 @@ function DashboardApp() {
 
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("geral");
 
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
+
   const [showAllDecks, setShowAllDecks] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -3820,6 +3832,7 @@ function DashboardApp() {
   }, []);
 
   useEffect(() => {
+    setShowAllPlayers(false);
     setShowAllDecks(false);
   }, [activePeriod, activeView]);
 
@@ -3888,11 +3901,27 @@ function DashboardApp() {
     [activeLeaderboard.decks, leaderboardSortMode]
   );
 
-  const initialDeckLimit = Math.max(players.length - 1, 1);
+  const shouldFilterLowParticipationPlayers =
+  activePeriod === "geral" || activePeriod === "semestre";
+
+  const eligiblePlayers = players.filter((player) =>
+    hasEnoughParticipations(player.games)
+  );
+
+  const visiblePlayers =
+    shouldFilterLowParticipationPlayers && !showAllPlayers
+      ? eligiblePlayers
+      : players;
+
+  const hasMorePlayers =
+    shouldFilterLowParticipationPlayers &&
+    players.length > visiblePlayers.length;
+
+  const initialDeckLimit = getBalancedDeckLimit(visiblePlayers.length);
 
   const visibleDecks = showAllDecks
-  ? decks
-  : decks.slice(0, initialDeckLimit);
+    ? decks
+    : decks.slice(0, initialDeckLimit);
 
   const hasMoreDecks = decks.length > visibleDecks.length;
 
@@ -3905,7 +3934,7 @@ function DashboardApp() {
     idleDelay: 10000,
     scrollSpeed: 0.9,
     edgePause: 3000,
-    resetKey: `${activeView}-${activePeriod}-${players.length}-${decks.length}-${visibleDecks.length}-${showAllDecks}`,
+    resetKey: `${activeView}-${activePeriod}-${visiblePlayers.length}-${decks.length}-${visibleDecks.length}-${showAllPlayers}-${showAllDecks}`,
   });
 
   return (
@@ -3971,7 +4000,7 @@ function DashboardApp() {
                     : "Ordenado por winrate; desempate por número de partidas."
                 }
               >
-                {players.map((player, index) => (
+                {visiblePlayers.map((player, index) => (
                   <LeaderboardCard
                     key={player.name}
                     item={player}
@@ -3982,6 +4011,27 @@ function DashboardApp() {
                     forceShowWinrate={activePeriod === "evento"}
                   />
                 ))}
+
+                {hasMorePlayers ? (
+                  <button
+                    className="show-more-decks-button"
+                    onClick={() => setShowAllPlayers(true)}
+                  >
+                    Mostrar mais jogadores
+                    <span>
+                      {players.length - visiblePlayers.length} restantes
+                    </span>
+                  </button>
+                ) : shouldFilterLowParticipationPlayers &&
+                  showAllPlayers &&
+                  players.length > eligiblePlayers.length ? (
+                  <button
+                    className="show-more-decks-button show-less-decks-button"
+                    onClick={() => setShowAllPlayers(false)}
+                  >
+                    Mostrar menos
+                  </button>
+                ) : null}
               </Section>
 
               <Section
