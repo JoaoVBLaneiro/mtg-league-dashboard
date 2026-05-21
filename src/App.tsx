@@ -801,9 +801,6 @@ function LeaderboardCard({
 
                   <span>
                     {(item as Deck).secondaryCommander}
-                    {(item as Deck).secondaryCommanderType
-                      ? ` (${(item as Deck).secondaryCommanderType})`
-                      : ""}
                   </span>
                 </>
               ) : null}
@@ -1843,9 +1840,6 @@ function ProfileModal({
 
                       <span>
                         {(item as Deck).secondaryCommander}
-                        {(item as Deck).secondaryCommanderType
-                          ? ` (${(item as Deck).secondaryCommanderType})`
-                          : ""}
                       </span>
                     </>
                   ) : null}

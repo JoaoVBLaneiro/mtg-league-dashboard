@@ -34,7 +34,11 @@ type LifePlayerSlot = {
   playerIcon: string;
   deckName: string;
   deckImageUrl: string;
+  deckCommanderName: string;
+  deckSecondaryCommanderName: string;
+  deckSecondaryCommanderType: string;
   commanderDamage: Record<string, number>;
+  selfCommanderDamage: Record<string, number>;
   markers: PlayerMarkers;
 };
 
@@ -56,43 +60,77 @@ type LeagueDeckOption = {
   name: string;
   commander: string;
   imageUrl: string;
+  secondaryCommander: string;
+  secondaryCommanderImageUrl: string;
+  secondaryCommanderType: string;
   authorName: string;
 };
 
+type DashboardApiPlayer = {
+  jogador?: string;
+  player?: string;
+  nome?: string;
+  iconeKeyrune?: string;
+  keyruneIcon?: string;
+  icon?: string;
+  icone?: string;
+  partidas?: number | string;
+  jogos?: number | string;
+  appearances?: number | string;
+  totalPartidas?: number | string;
+  deckFavorito?: unknown;
+  melhorDeck?: unknown;
+};
+
+type DashboardApiDeck = {
+  deck?: string;
+  nome?: string;
+  comandante?: string;
+  commander?: string;
+
+  fotoUrl?: string;
+  arteUrl?: string;
+  artUrl?: string;
+  imageUrl?: string;
+  photoUrl?: string;
+
+  comandanteSecundario?: string;
+  secondaryCommander?: string;
+
+  fotoComandanteSecundario?: string;
+  secondaryCommanderImageUrl?: string;
+
+  tipoComandanteSecundario?: string;
+  secondaryCommanderType?: string;
+
+  autor?: unknown;
+  author?: unknown;
+  autorNome?: string;
+  authorName?: string;
+};
+
 type DashboardApiResponse = {
+  catalog?: {
+    players?: DashboardApiPlayer[];
+    decks?: DashboardApiDeck[];
+  };
+
   leaderboards?: {
     geral?: {
-      players?: Array<{
-        jogador?: string;
-        player?: string;
-        nome?: string;
-        iconeKeyrune?: string;
-        keyruneIcon?: string;
-        icon?: string;
-        icone?: string;
-        partidas?: number | string;
-        jogos?: number | string;
-        appearances?: number | string;
-        totalPartidas?: number | string;
-        deckFavorito?: unknown;
-        melhorDeck?: unknown;
-      }>;
-      decks?: Array<{
-        deck?: string;
-        nome?: string;
-        comandante?: string;
-        commander?: string;
-        fotoUrl?: string;
-        imageUrl?: string;
-        photoUrl?: string;
-        autor?: unknown;
-        author?: unknown;
-        autorNome?: string;
-        authorName?: string;
-      }>;
+      players?: DashboardApiPlayer[];
+      decks?: DashboardApiDeck[];
     };
   };
 };
+
+type CommanderDamageSource = {
+    damageKey: string;
+    sourcePlayer: LifePlayerSlot;
+    commanderName: string;
+    commanderSlot: "primary" | "secondary";
+    iconClass: string;
+    damage: number;
+  };
 
 type SelectionModalState = {
   playerSlotId: string;
@@ -114,6 +152,88 @@ function normalizeComparableText(value: string) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function mergeCatalogWithLeaderboardStats<T extends Record<string, unknown>>(
+  catalogItems: T[],
+  leaderboardItems: T[],
+  getName: (item: T) => string
+) {
+  const leaderboardMap = new Map<string, T>();
+
+  leaderboardItems.forEach((item) => {
+    const name = normalizeComparableText(getName(item));
+
+    if (name) {
+      leaderboardMap.set(name, item);
+    }
+  });
+
+  const mergedItems = catalogItems.map((catalogItem) => {
+    const name = normalizeComparableText(getName(catalogItem));
+    const leaderboardItem = leaderboardMap.get(name);
+
+    if (!leaderboardItem) {
+      return catalogItem;
+    }
+
+    return {
+      ...catalogItem,
+      partidas:
+        leaderboardItem.partidas ??
+        leaderboardItem.jogos ??
+        catalogItem.partidas ??
+        catalogItem.jogos ??
+        0,
+      jogos:
+        leaderboardItem.jogos ??
+        leaderboardItem.partidas ??
+        catalogItem.jogos ??
+        catalogItem.partidas ??
+        0,
+      appearances:
+        leaderboardItem.appearances ??
+        leaderboardItem.aparicoes ??
+        catalogItem.appearances ??
+        catalogItem.aparicoes ??
+        0,
+      totalPartidas:
+        leaderboardItem.totalPartidas ??
+        leaderboardItem.jogos ??
+        leaderboardItem.partidas ??
+        catalogItem.totalPartidas ??
+        0,
+      aparicoes:
+        leaderboardItem.aparicoes ??
+        leaderboardItem.appearances ??
+        catalogItem.aparicoes ??
+        catalogItem.appearances ??
+        0,
+      vitorias:
+        leaderboardItem.vitorias ??
+        catalogItem.vitorias ??
+        0,
+      winrate:
+        leaderboardItem.winrate ??
+        catalogItem.winrate ??
+        0,
+      melhorDeck:
+        leaderboardItem.melhorDeck ?? catalogItem.melhorDeck,
+      deckFavorito:
+        catalogItem.deckFavorito ?? leaderboardItem.deckFavorito,
+    };
+  });
+
+  const catalogNames = new Set(
+    catalogItems.map((item) => normalizeComparableText(getName(item)))
+  );
+
+  const missingLeaderboardItems = leaderboardItems.filter((item) => {
+    const name = normalizeComparableText(getName(item));
+    return name && !catalogNames.has(name);
+  });
+
+  return [...mergedItems, ...missingLeaderboardItems];
 }
 
 function isSameText(a: string, b: string) {
@@ -171,6 +291,34 @@ function normalizeNumber(value: number | string | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+  async function requestOrientationMode(mode: "portrait" | "landscape") {
+  try {
+    const root = document.documentElement;
+
+    if (!document.fullscreenElement && root.requestFullscreen) {
+      await root.requestFullscreen();
+    }
+
+    const orientation = screen.orientation as ScreenOrientation & {
+      lock?: (orientation: string) => Promise<void>;
+    };
+
+    if (orientation.lock) {
+      await orientation.lock(mode);
+    }
+  } catch (error) {
+    console.warn(`Não foi possível travar em ${mode}:`, error);
+  }
+}
+
+async function requestLandscapeMode() {
+  await requestOrientationMode("landscape");
+}
+
+async function requestPortraitMode() {
+  await requestOrientationMode("portrait");
+}
+
 export default function LifeTrackerApp() {
   const [startingLife, setStartingLife] = useState(40);
   const [playerCount, setPlayerCount] = useState(4);
@@ -213,8 +361,24 @@ export default function LifeTrackerApp() {
 
         const data = (await response.json()) as DashboardApiResponse;
 
-        const rawPlayers = data.leaderboards?.geral?.players || [];
-        const rawDecks = data.leaderboards?.geral?.decks || [];
+        const catalogPlayers = data.catalog?.players || [];
+        const leaderboardPlayers = data.leaderboards?.geral?.players || [];
+
+        const catalogDecks = data.catalog?.decks || [];
+        const leaderboardDecks = data.leaderboards?.geral?.decks || [];
+
+        const rawPlayers = mergeCatalogWithLeaderboardStats(
+          catalogPlayers,
+          leaderboardPlayers,
+          (player) =>
+            String(player.jogador || player.player || player.nome || "")
+        );
+
+        const rawDecks = mergeCatalogWithLeaderboardStats(
+          catalogDecks,
+          leaderboardDecks,
+          (deck) => String(deck.deck || deck.nome || "")
+        );
 
         const normalizedPlayers = rawPlayers
         .map((player) => ({
@@ -255,7 +419,27 @@ export default function LifeTrackerApp() {
           .map((deck) => ({
             name: deck.deck || deck.nome || "Deck sem nome",
             commander: deck.comandante || deck.commander || "",
-            imageUrl: deck.fotoUrl || deck.imageUrl || deck.photoUrl || "",
+            secondaryCommander:
+              deck.comandanteSecundario ||
+              deck.secondaryCommander ||
+              "",
+
+            secondaryCommanderImageUrl:
+              deck.fotoComandanteSecundario ||
+              deck.secondaryCommanderImageUrl ||
+              "",
+
+            secondaryCommanderType:
+              deck.tipoComandanteSecundario ||
+              deck.secondaryCommanderType ||
+              "",
+            imageUrl:
+              deck.arteUrl ||
+              deck.artUrl ||
+              deck.fotoUrl ||
+              deck.imageUrl ||
+              deck.photoUrl ||
+              "",
             authorName:
               getApiMiniName(deck.autor) ||
               getApiMiniName(deck.author) ||
@@ -282,25 +466,11 @@ export default function LifeTrackerApp() {
     loadLeagueData();
   }, []);
 
-  async function requestLandscapeMode() {
-    try {
-      const root = document.documentElement;
-
-      if (!document.fullscreenElement && root.requestFullscreen) {
-        await root.requestFullscreen();
-      }
-
-      const orientation = screen.orientation as ScreenOrientation & {
-        lock?: (orientation: string) => Promise<void>;
-      };
-
-      if (orientation.lock) {
-        await orientation.lock("landscape");
-      }
-    } catch (error) {
-      console.warn("Não foi possível travar em landscape:", error);
+  useEffect(() => {
+    if (!matchStarted) {
+      requestPortraitMode();
     }
-  }
+  }, [matchStarted]);
 
   async function startMatch() {
     await requestLandscapeMode();
@@ -316,7 +486,11 @@ export default function LifeTrackerApp() {
         playerIcon: "",
         deckName: "",
         deckImageUrl: "",
+        deckCommanderName: "",
+        deckSecondaryCommanderName: "",
+        deckSecondaryCommanderType: "",
         commanderDamage: {},
+        selfCommanderDamage: {},
         markers: {
           poison: 0,
           experience: 0,
@@ -329,7 +503,7 @@ export default function LifeTrackerApp() {
     setMatchStarted(true);
   }
 
-  function resetMatch() {
+  async function resetMatch() {
     try {
       const orientationApi = screen.orientation as ScreenOrientation & {
         unlock?: () => void;
@@ -339,9 +513,8 @@ export default function LifeTrackerApp() {
         orientationApi.unlock();
       }
 
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      }
+      await requestPortraitMode();
+
     } catch (error) {
       console.warn("Não foi possível sair do fullscreen/orientação:", error);
     }
@@ -349,6 +522,7 @@ export default function LifeTrackerApp() {
     clearHoldTimers();
 
     setFinishConfirmOpen(false);
+
     setWinnerModalOpen(false);
     setSelectedWinnerId("");
     setMatchSubmitError("");
@@ -394,27 +568,29 @@ export default function LifeTrackerApp() {
   }
 
   function adjustCommanderDamage(
-    targetPlayerId: string,
-    sourcePlayerId: string,
-    amount: number
-  ) {
-    setPlayers((currentPlayers) =>
-      currentPlayers.map((player) => {
-        if (player.id !== targetPlayerId) return player;
+  targetPlayerId: string,
+  damageKey: string,
+  amount: number
+) {
+  setPlayers((currentPlayers) =>
+    currentPlayers.map((player) => {
+      if (player.id !== targetPlayerId) {
+        return player;
+      }
 
-        const currentDamage = player.commanderDamage[sourcePlayerId] || 0;
-        const nextDamage = Math.max(0, currentDamage + amount);
+      const currentDamage = player.commanderDamage[damageKey] || 0;
+      const nextDamage = Math.max(0, currentDamage + amount);
 
-        return {
-          ...player,
-          commanderDamage: {
-            ...player.commanderDamage,
-            [sourcePlayerId]: nextDamage,
-          },
-        };
-      })
-    );
-  }
+      return {
+        ...player,
+        commanderDamage: {
+          ...player.commanderDamage,
+          [damageKey]: nextDamage,
+        },
+      };
+    })
+  );
+}
 
   function openMarkerModal(playerId: string) {
   setMarkerModalPlayerId(playerId);
@@ -471,6 +647,7 @@ async function submitMatchResult() {
         deckName: player.deckName || "",
         life: player.life,
         commanderDamage: player.commanderDamage,
+        selfCommanderDamage: player.selfCommanderDamage,
         markers: player.markers,
         isWinner: player.id === winner.id,
       })),
@@ -482,6 +659,8 @@ async function submitMatchResult() {
       body: JSON.stringify(payload),
     });
 
+    await requestPortraitMode();
+
     setWinnerModalOpen(false);
     setSelectedWinnerId("");
     setMatchStarted(false);
@@ -491,6 +670,31 @@ async function submitMatchResult() {
   } finally {
     setMatchSubmitting(false);
   }
+}
+
+function adjustSelfCommanderDamage(
+  playerId: string,
+  damageKey: string,
+  amount: number
+) {
+  setPlayers((currentPlayers) =>
+    currentPlayers.map((player) => {
+      if (player.id !== playerId) {
+        return player;
+      }
+
+      const currentDamage = player.selfCommanderDamage[damageKey] || 0;
+      const nextDamage = Math.max(0, currentDamage + amount);
+
+      return {
+        ...player,
+        selfCommanderDamage: {
+          ...player.selfCommanderDamage,
+          [damageKey]: nextDamage,
+        },
+      };
+    })
+  );
 }
 
 function adjustPlayerMarker(
@@ -609,6 +813,9 @@ function getVisibleMarkers(player: LifePlayerSlot) {
               ...player,
               deckName: selectedDeck.name,
               deckImageUrl: selectedDeck.imageUrl,
+              deckCommanderName: selectedDeck.commander,
+              deckSecondaryCommanderName: selectedDeck.secondaryCommander,
+              deckSecondaryCommanderType: selectedDeck.secondaryCommanderType,
             }
           : player
       )
@@ -629,14 +836,122 @@ function getVisibleMarkers(player: LifePlayerSlot) {
     return player.playerIcon || "ss-cmd";
   }
 
-  function getCommanderDamageEntries(targetPlayer: LifePlayerSlot) {
-    return players
-      .filter((sourcePlayer) => sourcePlayer.id !== targetPlayer.id)
-      .map((sourcePlayer) => ({
-        sourcePlayer,
-        damage: targetPlayer.commanderDamage[sourcePlayer.id] || 0,
-      }));
+  function getCommanderDamageKey(
+    sourcePlayerId: string,
+    commanderSlot: "primary" | "secondary"
+  ) {
+    return `${sourcePlayerId}:${commanderSlot}`;
   }
+
+  function hasSecondaryCommanderDamageSource(player: LifePlayerSlot) {
+    return Boolean(
+      player.deckSecondaryCommanderType.trim() &&
+        player.deckSecondaryCommanderName.trim()
+    );
+  }
+
+  function getPrimaryCommanderName(player: LifePlayerSlot) {
+    return (
+      player.deckCommanderName ||
+      player.deckName ||
+      player.playerName ||
+      player.label
+    );
+  }
+
+  function getSecondaryCommanderIcon(player: LifePlayerSlot) {
+    const baseIcon = getPlayerDisplayIcon(player) || "ss-cmd";
+
+    if (baseIcon.includes("ss-mythic")) {
+      return baseIcon.replace("ss-mythic", "ss-uncommon");
+    }
+
+    if (/\bss-(common|uncommon|rare|mythic|special|bonus)\b/.test(baseIcon)) {
+      return baseIcon.replace(
+        /\bss-(common|uncommon|rare|mythic|special|bonus)\b/g,
+        "ss-uncommon"
+      );
+    }
+
+    return `${baseIcon} ss-uncommon`;
+  }
+
+  function getCommanderDamageEntries(player: LifePlayerSlot) {
+  const entries: CommanderDamageSource[] = [];
+
+  players
+    .filter((sourcePlayer) => sourcePlayer.id !== player.id)
+    .forEach((sourcePlayer) => {
+      const primaryKey = getCommanderDamageKey(sourcePlayer.id, "primary");
+
+      entries.push({
+        damageKey: primaryKey,
+        sourcePlayer,
+        commanderName: getPrimaryCommanderName(sourcePlayer),
+        commanderSlot: "primary",
+        iconClass: getPlayerDisplayIcon(sourcePlayer),
+        damage: player.commanderDamage[primaryKey] || 0,
+      });
+
+      if (hasSecondaryCommanderDamageSource(sourcePlayer)) {
+        const secondaryKey = getCommanderDamageKey(
+          sourcePlayer.id,
+          "secondary"
+        );
+
+        entries.push({
+          damageKey: secondaryKey,
+          sourcePlayer,
+          commanderName: sourcePlayer.deckSecondaryCommanderName,
+          commanderSlot: "secondary",
+          iconClass: getSecondaryCommanderIcon(sourcePlayer),
+          damage: player.commanderDamage[secondaryKey] || 0,
+        });
+      }
+    });
+
+  return entries;
+}
+
+function getSelfCommanderDamageEntries(player: LifePlayerSlot) {
+  const entries: CommanderDamageSource[] = [];
+
+  const primaryKey = getCommanderDamageKey(player.id, "primary");
+
+  entries.push({
+    damageKey: primaryKey,
+    sourcePlayer: player,
+    commanderName: getPrimaryCommanderName(player),
+    commanderSlot: "primary",
+    iconClass: getPlayerDisplayIcon(player),
+    damage: player.selfCommanderDamage[primaryKey] || 0,
+  });
+
+  if (hasSecondaryCommanderDamageSource(player)) {
+    const secondaryKey = getCommanderDamageKey(player.id, "secondary");
+
+    entries.push({
+      damageKey: secondaryKey,
+      sourcePlayer: player,
+      commanderName: player.deckSecondaryCommanderName,
+      commanderSlot: "secondary",
+      iconClass: getSecondaryCommanderIcon(player),
+      damage: player.selfCommanderDamage[secondaryKey] || 0,
+    });
+  }
+
+  return entries;
+}
+
+function hasVisibleMarkerInfo(player: LifePlayerSlot) {
+  const hasMarkers = getVisibleMarkers(player).length > 0;
+
+  const hasSelfCommanderDamage = getSelfCommanderDamageEntries(player).some(
+    (entry) => entry.damage > 0
+  );
+
+  return hasMarkers || hasSelfCommanderDamage;
+}
 
   function getDeckSelectionPriority(
     deck: LeagueDeckOption,
@@ -878,28 +1193,27 @@ function getVisibleMarkers(player: LifePlayerSlot) {
                       onClick={() => openCommanderDamageModal(player.id)}
                       title="Ver dano de comandante"
                     >
-                      {getCommanderDamageEntries(player).map(({ sourcePlayer, damage }) => (
+                      {getCommanderDamageEntries(player).map((entry) => (
                         <span
                           className={
-                            damage > 0
+                            entry.damage > 0
                               ? "commander-summary-item commander-summary-item-active"
                               : "commander-summary-item"
                           }
-                          key={sourcePlayer.id}
+                          key={entry.damageKey}
+                          title={entry.commanderName}
                         >
                           <i
-                            className={`ss ${getPlayerDisplayIcon(
-                              sourcePlayer
-                            )} commander-summary-icon`}
+                            className={`ss ${entry.iconClass} commander-summary-icon`}
                             aria-hidden="true"
                           />
 
-                          <strong>{damage}</strong>
+                          <strong>{entry.damage}</strong>
                         </span>
                       ))}
                     </button>
 
-                    {getVisibleMarkers(player).length > 0 ? (
+                    {hasVisibleMarkerInfo(player) ? (
                       <button
                         className="marker-summary"
                         type="button"
@@ -916,6 +1230,23 @@ function getVisibleMarkers(player: LifePlayerSlot) {
                             </span>
 
                             <strong>{marker.value}</strong>
+                          </span>
+                        ))}
+
+                        {getSelfCommanderDamageEntries(player)
+                        .filter((entry) => entry.damage > 0)
+                        .map((entry) => (
+                          <span
+                            className="marker-summary-item marker-summary-self-commander"
+                            key={`self-${entry.damageKey}`}
+                            title={`Dano do próprio comandante: ${entry.commanderName}`}
+                          >
+                            <i
+                              className={`ss ${entry.iconClass} marker-summary-icon`}
+                              aria-hidden="true"
+                            />
+
+                            <strong>{entry.damage}</strong>
                           </span>
                         ))}
                       </button>
@@ -1205,67 +1536,62 @@ function getVisibleMarkers(player: LifePlayerSlot) {
               </div>
 
               <div className="commander-modal-list">
-                {getCommanderDamageEntries(commanderDamageModalPlayer).map(
-                  ({ sourcePlayer, damage }) => (
-                    <div className="commander-modal-row" key={sourcePlayer.id}>
-                      <div className="commander-modal-player">
-                        <i
-                          className={`ss ${getPlayerDisplayIcon(
-                            sourcePlayer
-                          )} commander-modal-icon`}
-                          aria-hidden="true"
-                        />
+                {getCommanderDamageEntries(commanderDamageModalPlayer).map((entry) => (
+                  <div className="commander-modal-row" key={entry.damageKey}>
+                    <div className="commander-modal-player">
+                      <i
+                        className={`ss ${entry.iconClass} commander-modal-icon`}
+                        aria-hidden="true"
+                      />
 
-                        <div>
-                          <strong>
-                            {sourcePlayer.playerName || sourcePlayer.label}
-                          </strong>
-                          {sourcePlayer.deckName ? (
-                            <span>{sourcePlayer.deckName}</span>
-                          ) : null}
-                        </div>
-                      </div>
+                      <div>
+                        <strong>{entry.commanderName}</strong>
 
-                      <div className="commander-modal-controls">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            adjustCommanderDamage(
-                              commanderDamageModalPlayer.id,
-                              sourcePlayer.id,
-                              -1
-                            )
-                          }
-                        >
-                          −
-                        </button>
-
-                        <strong
-                          className={
-                            damage >= 21
-                              ? "commander-modal-damage commander-modal-damage-lethal"
-                              : "commander-modal-damage"
-                          }
-                        >
-                          {damage}
-                        </strong>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            adjustCommanderDamage(
-                              commanderDamageModalPlayer.id,
-                              sourcePlayer.id,
-                              1
-                            )
-                          }
-                        >
-                          +
-                        </button>
+                        <span>
+                          {entry.sourcePlayer.playerName || entry.sourcePlayer.label}
+                        </span>
                       </div>
                     </div>
-                  )
-                )}
+
+                    <div className="commander-modal-controls">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustCommanderDamage(
+                            commanderDamageModalPlayer.id,
+                            entry.damageKey,
+                            -1
+                          )
+                        }
+                      >
+                        −
+                      </button>
+
+                      <strong
+                        className={
+                          entry.damage >= 21
+                            ? "commander-modal-damage commander-modal-damage-lethal"
+                            : "commander-modal-damage"
+                        }
+                      >
+                        {entry.damage}
+                      </strong>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustCommanderDamage(
+                            commanderDamageModalPlayer.id,
+                            entry.damageKey,
+                            1
+                          )
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -1336,6 +1662,65 @@ function getVisibleMarkers(player: LifePlayerSlot) {
                     );
                   }
                 )}
+
+                {getSelfCommanderDamageEntries(markerModalPlayer).length > 0 ? (
+                  <div className="marker-modal-section-title">
+                    Dano do próprio comandante
+                  </div>
+                ) : null}
+
+                {getSelfCommanderDamageEntries(markerModalPlayer).map((entry) => (
+                  <div
+                    className="marker-modal-row marker-modal-self-commander-row"
+                    key={`self-modal-${entry.damageKey}`}
+                  >
+                    <div className="marker-modal-info marker-modal-self-commander">
+                      <i
+                        className={`ss ${entry.iconClass} marker-modal-symbol marker-modal-symbol-icon`}
+                        aria-hidden="true"
+                      />
+
+                      <div>
+                        <strong>{entry.commanderName}</strong>
+                        <span>
+                          {entry.commanderSlot === "secondary"
+                            ? "Comandante secundário"
+                            : "Comandante principal"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="marker-modal-controls">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustSelfCommanderDamage(
+                            markerModalPlayer.id,
+                            entry.damageKey,
+                            -1
+                          )
+                        }
+                      >
+                        −
+                      </button>
+
+                      <strong>{entry.damage}</strong>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          adjustSelfCommanderDamage(
+                            markerModalPlayer.id,
+                            entry.damageKey,
+                            1
+                          )
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
