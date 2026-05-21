@@ -108,6 +108,7 @@ const emptyPlayerProfileExtras: PlayerProfileExtras = {
 type DeckMiniInfo = {
   nome: string;
   fotoUrl: string;
+  arteUrl?: string;
   comandante: string;
   cores: string;
   decklistUrl: string;
@@ -132,6 +133,7 @@ type RawPlayer = {
   winrate?: number | string;
   fotoUrl?: string;
   photoUrl?: string;
+  headerUrl?: string;
   titulo?: string;
   title?: string;
   bio?: string;
@@ -157,8 +159,10 @@ type RawDeck = {
   wins?: number | string;
   winrate?: number | string;
   fotoUrl?: string;
+  arteUrl?: string;
   imageUrl?: string;
   photoUrl?: string;
+  headerUrl?: string;
   comandante?: string;
   commander?: string;
   cores?: string;
@@ -187,6 +191,7 @@ type Player = {
   wins: number;
   winrate: number;
   photoUrl: string;
+  headerUrl?: string;
   title: string;
   bio: string;
   rivalFrequente: RivalInfo;
@@ -207,6 +212,8 @@ type Deck = {
   wins: number;
   winrate: number;
   imageUrl: string;
+  arteUrl: string;
+  headerUrl?: string;
   commander: string;
   colors: string;
   bio: string;
@@ -351,6 +358,13 @@ function normalizePlayers(
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
       photoUrl: item.fotoUrl || item.photoUrl || "",
+      headerUrl:
+        item.headerUrl ||
+        item.deckFavorito?.arteUrl ||
+        item.deckFavorito?.fotoUrl ||
+        item.fotoUrl ||
+        item.photoUrl ||
+        "",
       title: item.titulo || item.title || "",
       bio: item.bio || "",
       rivalFrequente: item.rivalFrequente || null,
@@ -403,6 +417,14 @@ function normalizeDecks(
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
       imageUrl: item.fotoUrl || item.imageUrl || item.photoUrl || "",
+      arteUrl: item.arteUrl || "",
+      headerUrl:
+        item.headerUrl ||
+        item.arteUrl ||
+        item.fotoUrl ||
+        item.imageUrl ||
+        item.photoUrl ||
+        "",
       commander: item.comandante || item.commander || "",
       colors: item.cores || item.colors || "",
       bio: item.bio || "",
@@ -1730,7 +1752,10 @@ function ProfileModal({
 
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
 
+  const headerImage = item.headerUrl;
+
   const hasFblthp = isPlayer && (item as Player).hasFblthp;
+
 
   const fblthpArtUrl = isPlayer ? (item as Player).fblthpArtUrl : "";
 
@@ -1767,6 +1792,14 @@ function ProfileModal({
         <button className="modal-close" onClick={onClose}>
           ×
         </button>
+
+        {headerImage ? (
+          <div className="profile-cover">
+            <img src={headerImage} alt={`Header de ${item.name}`} />
+          </div>
+        ) : (
+          <div className="profile-cover profile-cover-empty" />
+        )}
 
         {isPlayer ? (
           <PlayerProfileIcon
@@ -3270,7 +3303,7 @@ function FblthpInfoModal({
 
           <p>
             Se o dono atual não estiver na partida, nada acontece. Para pegar o
-            Fblthp, você precisa derrotar quem está com ele.
+            Fblthp, você precisa derrotar quem está com ele e ter pelo menos 3 participações em partidas.
           </p>
         </div>
 
