@@ -3198,3 +3198,19 @@ footer {
     height: 72px;
   }
 }
+
+/* =========================
+   KILL COUNT - STAT PILL
+========================= */
+
+.stat-pill-kills {
+  border-color: rgba(239, 68, 68, 0.34);
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.22), transparent 42%),
+    rgba(127, 29, 29, 0.26);
+  color: #fecaca;
+}
+
+.stat-pill-kills::before {
+  background: linear-gradient(135deg, #ef4444, #f97316, #facc15);
+}

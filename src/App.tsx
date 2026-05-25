@@ -131,6 +131,8 @@ type RawPlayer = {
   vitorias?: number | string;
   wins?: number | string;
   winrate?: number | string;
+  kills?: number | string;
+  deaths?: number | string;
   fotoUrl?: string;
   photoUrl?: string;
   headerUrl?: string;
@@ -158,6 +160,8 @@ type RawDeck = {
   vitorias?: number | string;
   wins?: number | string;
   winrate?: number | string;
+  kills?: number | string;
+  deaths?: number | string;
   fotoUrl?: string;
   arteUrl?: string;
   imageUrl?: string;
@@ -190,6 +194,8 @@ type Player = {
   games: number;
   wins: number;
   winrate: number;
+  kills: number;
+  deaths: number;
   photoUrl: string;
   headerUrl?: string;
   title: string;
@@ -211,6 +217,8 @@ type Deck = {
   appearances: number;
   wins: number;
   winrate: number;
+  kills: number;
+  deaths: number;
   imageUrl: string;
   arteUrl: string;
   headerUrl?: string;
@@ -357,6 +365,8 @@ function normalizePlayers(
       games: Number(item.jogos || item.games || 0),
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
+      kills: Number(item.kills || 0),
+      deaths: Number(item.deaths || 0),
       photoUrl: item.fotoUrl || item.photoUrl || "",
       headerUrl:
         item.headerUrl ||
@@ -396,11 +406,13 @@ function normalizePlayers(
       if (aEligible && bEligible) {
         if (b.winrate !== a.winrate) return b.winrate - a.winrate;
         if (b.games !== a.games) return b.games - a.games;
+        if (b.kills !== a.kills) return b.kills - a.kills;
         if (b.wins !== a.wins) return b.wins - a.wins;
         return a.name.localeCompare(b.name);
       }
 
       if (b.games !== a.games) return b.games - a.games;
+      if (b.kills !== a.kills) return b.kills - a.kills;
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
     });
@@ -416,6 +428,8 @@ function normalizeDecks(
       appearances: Number(item.aparicoes || item.appearances || item.jogos || 0),
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
+      kills: Number(item.kills || 0),
+      deaths: Number(item.deaths || 0),
       imageUrl: item.fotoUrl || item.imageUrl || item.photoUrl || "",
       arteUrl: item.arteUrl || "",
       headerUrl:
@@ -462,11 +476,13 @@ function normalizeDecks(
       if (aEligible && bEligible) {
         if (b.winrate !== a.winrate) return b.winrate - a.winrate;
         if (b.appearances !== a.appearances) return b.appearances - a.appearances;
+        if (b.kills !== a.kills) return b.kills - a.kills;
         if (b.wins !== a.wins) return b.wins - a.wins;
         return a.name.localeCompare(b.name);
       }
 
       if (b.appearances !== a.appearances) return b.appearances - a.appearances;
+      if (b.kills !== a.kills) return b.kills - a.kills;
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
     });
@@ -564,7 +580,7 @@ function StatPill({
   value,
 }: {
   children: React.ReactNode;
-  variant?: "default" | "winrate" | "wins" | "games";
+  variant?: "default" | "winrate" | "wins" | "games" | "kills";
   value?: number | string;
 }) {
   const dynamicStyle =
@@ -1915,6 +1931,10 @@ function ProfileModal({
 
           <StatPill variant="wins">
             {item.wins} vitórias
+          </StatPill>
+
+          <StatPill variant="kills">
+            {item.kills} abates
           </StatPill>
 
           {isPlayer &&

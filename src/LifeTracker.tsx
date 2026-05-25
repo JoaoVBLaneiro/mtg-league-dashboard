@@ -40,6 +40,8 @@ type LifePlayerSlot = {
   commanderDamage: Record<string, number>;
   selfCommanderDamage: Record<string, number>;
   markers: PlayerMarkers;
+  isEliminated: boolean;
+  eliminatedByPlayerId: string;
 };
 
 const LIFE_TOTAL_OPTIONS = [20, 25, 30, 40, 50, 60];
@@ -334,6 +336,7 @@ export default function LifeTrackerApp() {
   const [markerModalPlayerId, setMarkerModalPlayerId] = useState<string | null>(
     null
   );
+  const [killModalTargetPlayerId, setKillModalTargetPlayerId] = useState<string | null>(null);
   const [commanderDamageModalPlayerId, setCommanderDamageModalPlayerId] = useState<string | null>(null);
 
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
@@ -496,6 +499,8 @@ export default function LifeTrackerApp() {
           experience: 0,
           radiation: 0,
         },
+        isEliminated: false,
+        eliminatedByPlayerId: "",
       })
     );
 
@@ -635,11 +640,45 @@ async function submitMatchResult() {
     setMatchSubmitting(true);
     setMatchSubmitError("");
 
+    const manuallyMarkedKillEvents = players
+      .filter((player) => player.isEliminated && player.eliminatedByPlayerId)
+      .map((player) => {
+        const killer = players.find(
+          (possibleKiller) => possibleKiller.id === player.eliminatedByPlayerId
+        );
+
+        return {
+          killerPlayerName: killer ? getPlayerDisplayName(killer) : "",
+          killerDeckName: killer?.deckName || "",
+          eliminatedPlayerName: getPlayerDisplayName(player),
+          eliminatedDeckName: player.deckName || "",
+        };
+      })
+      .filter(
+        (event) => event.killerPlayerName && event.eliminatedPlayerName
+      );
+
+    const winnerFinishingKillEvents = players
+      .filter((player) => player.id !== winner.id)
+      .filter((player) => !player.isEliminated)
+      .map((player) => ({
+        killerPlayerName: getPlayerDisplayName(winner),
+        killerDeckName: winner.deckName || "",
+        eliminatedPlayerName: getPlayerDisplayName(player),
+        eliminatedDeckName: player.deckName || "",
+      }));
+
+    const killEvents = [
+      ...manuallyMarkedKillEvents,
+      ...winnerFinishingKillEvents,
+    ];
+
     const payload = {
       action: "registerMatchResult",
       startedAt: new Date().toISOString(),
       winnerPlayerName: winner.playerName || winner.label,
       winnerDeckName: winner.deckName || "",
+      killEvents,
       players: players.map((player) => ({
         id: player.id,
         label: player.label,
@@ -647,8 +686,9 @@ async function submitMatchResult() {
         deckName: player.deckName || "",
         life: player.life,
         commanderDamage: player.commanderDamage,
-        selfCommanderDamage: player.selfCommanderDamage,
         markers: player.markers,
+        isEliminated: player.isEliminated,
+        eliminatedByPlayerId: player.eliminatedByPlayerId,
         isWinner: player.id === winner.id,
       })),
     };
@@ -830,6 +870,60 @@ function getVisibleMarkers(player: LifePlayerSlot) {
 
   function closeCommanderDamageModal() {
     setCommanderDamageModalPlayerId(null);
+  }
+
+  function openKillModal(playerId: string) {
+    setKillModalTargetPlayerId(playerId);
+  }
+
+  function closeKillModal() {
+    setKillModalTargetPlayerId(null);
+  }
+
+  function eliminatePlayer(targetPlayerId: string, killerPlayerId: string) {
+    setPlayers((currentPlayers) =>
+      currentPlayers.map((player) =>
+        player.id === targetPlayerId
+          ? {
+              ...player,
+              isEliminated: true,
+              eliminatedByPlayerId: killerPlayerId,
+            }
+          : player
+      )
+    );
+
+    closeKillModal();
+  }
+
+  function undoElimination(playerId: string) {
+    setPlayers((currentPlayers) =>
+      currentPlayers.map((player) =>
+        player.id === playerId
+          ? {
+              ...player,
+              isEliminated: false,
+              eliminatedByPlayerId: "",
+            }
+          : player
+      )
+    );
+  }
+
+  function getPlayerDisplayName(player: LifePlayerSlot) {
+    return player.playerName || player.label;
+  }
+
+  function getPlayerKiller(player: LifePlayerSlot) {
+    if (!player.eliminatedByPlayerId) {
+      return null;
+    }
+
+    return (
+      players.find(
+        (possibleKiller) => possibleKiller.id === player.eliminatedByPlayerId
+      ) || null
+    );
   }
 
   function getPlayerDisplayIcon(player: LifePlayerSlot) {
@@ -1087,6 +1181,14 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
     (player) => player.id === markerModalPlayerId
   );
 
+  const killModalTargetPlayer = players.find(
+    (player) => player.id === killModalTargetPlayerId
+  );
+
+  const killModalKillerOptions = killModalTargetPlayer
+    ? players.filter((player) => player.id !== killModalTargetPlayer.id)
+    : [];
+
   if (matchStarted) {
     return (
       <main className="life-page">
@@ -1101,7 +1203,9 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
             <div
               className={`life-player-card life-player-card-companion life-player-position-${
                 index + 1
-              } ${player.deckImageUrl ? "life-player-card-has-deck-bg" : ""}`}
+              } ${player.deckImageUrl ? "life-player-card-has-deck-bg" : ""} ${
+                player.isEliminated ? "life-player-eliminated" : ""
+              }`}
               key={player.id}
               style={
                 player.deckImageUrl
@@ -1156,6 +1260,23 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                     >
                       <span>Dano</span>
                     </button>
+
+                    <button
+                      className={
+                        player.isEliminated
+                          ? "life-small-action life-kill-action life-kill-action-undo"
+                          : "life-small-action life-kill-action"
+                      }
+                      type="button"
+                      onClick={() =>
+                        player.isEliminated
+                          ? undoElimination(player.id)
+                          : openKillModal(player.id)
+                      }
+                      title={player.isEliminated ? "Desfazer eliminação" : "Eliminar jogador"}
+                    >
+                      <span>{player.isEliminated ? "Desfazer" : "Matar"}</span>
+                    </button>
                   </div>
 
                   <button
@@ -1172,8 +1293,29 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                   <div className="life-center-zone">
                     <div className="life-total-zone">
                       <strong>{player.life}</strong>
+                        {player.isEliminated ? (() => {
+                          const killer = getPlayerKiller(player);
 
-                      {player.deltaVisible && player.pendingDelta !== 0 ? (
+                          return (
+                            <div className="life-eliminated-badge">
+                              <span className="life-eliminated-killer-icon">
+                                <i
+                                  className={`ss ${killer?.playerIcon || "ss-cmd"}`}
+                                  aria-hidden="true"
+                                />
+                              </span>
+
+                              <span className="life-eliminated-text">
+                                <strong>Eliminado</strong>
+                                <span>
+                                  por {killer ? getPlayerDisplayName(killer) : "jogador desconhecido"}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        })() : null}
+
+                        {player.deltaVisible && player.pendingDelta !== 0 ? (
                         <span
                           className={
                             player.pendingDelta > 0
@@ -1725,6 +1867,58 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
             </div>
           </div>
         ) : null}
+
+        {killModalTargetPlayer ? (
+          <div className="life-modal-backdrop" onClick={closeKillModal}>
+            <div
+              className="life-modal life-kill-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="life-modal-header">
+                <div>
+                  <span>Eliminar jogador</span>
+                  <strong>
+                    Quem matou {getPlayerDisplayName(killModalTargetPlayer)}?
+                  </strong>
+                </div>
+
+                <button
+                  className="life-modal-close"
+                  type="button"
+                  onClick={closeKillModal}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="life-killer-options">
+                {killModalKillerOptions.map((killer) => (
+                  <button
+                    key={killer.id}
+                    className="life-killer-option"
+                    type="button"
+                    onClick={() => eliminatePlayer(killModalTargetPlayer.id, killer.id)}
+                  >
+                    <span className="life-killer-icon">
+                      <i
+                        className={`ss ${
+                          killer.playerIcon || "ss-cmd"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </span>
+
+                    <span>
+                      <strong>{getPlayerDisplayName(killer)}</strong>
+                      <small>{killer.deckName || "Sem deck selecionado"}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
       </main>
     );
   }

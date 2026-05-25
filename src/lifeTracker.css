@@ -2261,3 +2261,552 @@ button {
 .marker-summary-self-commander .marker-summary-icon {
   color: #facc15;
 }
+
+/* =========================
+   KILL COUNT / ELIMINATION
+========================= */
+
+.life-player-eliminated .life-player-card-bg::before {
+  filter: grayscale(0.45) saturate(0.72) contrast(1.02);
+}
+
+.life-player-eliminated .life-player-header,
+.life-player-eliminated .life-companion-grid {
+  position: relative;
+  z-index: 2;
+}
+
+.life-player-eliminated .life-player-card-bg::after {
+  background:
+    radial-gradient(circle at center, rgba(127, 29, 29, 0.22), rgba(0, 0, 0, 0.52)),
+    linear-gradient(145deg, rgba(9, 9, 11, 0.30), rgba(15, 23, 42, 0.46));
+}
+
+.life-player-eliminated .life-total-zone > strong {
+  opacity: 0.48;
+  text-decoration: line-through;
+  text-decoration-thickness: 5px;
+}
+
+.life-eliminated-badge {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  width: max-content;
+  max-width: calc(100% - 18px);
+  padding: 9px 13px;
+
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 999px;
+
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.34), transparent 44%),
+    rgba(69, 10, 10, 0.84);
+
+  color: #fee2e2;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+}
+
+.life-eliminated-killer-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+
+  width: 30px;
+  height: 30px;
+
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #facc15;
+
+  font-size: 17px;
+  line-height: 1;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(250, 204, 21, 0.18),
+    0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+.life-eliminated-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.life-eliminated-text strong {
+  color: #fee2e2;
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.life-eliminated-text span {
+  color: #fecaca;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-eliminated-badge {
+    gap: 7px;
+    padding: 7px 10px;
+    max-width: calc(100% - 12px);
+  }
+
+  .life-eliminated-killer-icon {
+    width: 25px;
+    height: 25px;
+    font-size: 14px;
+  }
+
+  .life-eliminated-text strong {
+    font-size: 8px;
+  }
+
+  .life-eliminated-text span {
+    font-size: 9px;
+  }
+}
+
+.life-kill-action {
+  border-color: rgba(248, 113, 113, 0.32);
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.22), transparent 42%),
+    rgba(127, 29, 29, 0.26);
+  color: #fecaca;
+}
+
+.life-kill-action-undo {
+  border-color: rgba(250, 204, 21, 0.35);
+  background:
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.20), transparent 42%),
+    rgba(113, 63, 18, 0.30);
+  color: #fef3c7;
+}
+
+.life-kill-modal {
+  max-width: 460px;
+}
+
+.life-killer-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.life-killer-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 12px 14px;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 42%),
+    rgba(15, 23, 42, 0.82);
+
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.life-killer-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.42);
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.20), transparent 42%),
+    rgba(30, 41, 59, 0.92);
+}
+
+.life-killer-icon {
+  display: grid;
+  place-items: center;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #facc15;
+  font-size: 24px;
+  flex: 0 0 auto;
+}
+
+.life-killer-option span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.life-killer-option strong {
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.life-killer-option small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* =========================
+   KILL MODAL - FIX VISUAL
+   usa o mesmo padrão dos outros modais
+========================= */
+
+.life-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+
+  display: grid;
+  place-items: center;
+
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.life-modal {
+  width: min(520px, 100%);
+  max-height: min(680px, 88dvh);
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+
+  padding: 18px;
+  border-radius: 28px;
+
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.18), transparent 40%),
+    rgba(9, 9, 11, 0.98);
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.62);
+}
+
+.life-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.life-modal-header div {
+  display: grid;
+  gap: 4px;
+}
+
+.life-modal-header span {
+  color: #f97316;
+  font-size: 10px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.life-modal-header strong {
+  color: white;
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.life-modal-close {
+  width: 38px;
+  height: 38px;
+
+  display: grid;
+  place-items: center;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.life-modal-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.life-kill-modal {
+  overflow: hidden;
+}
+
+.life-killer-options {
+  min-height: 0;
+  overflow-y: auto;
+
+  display: grid;
+  gap: 10px;
+
+  padding-right: 4px;
+}
+
+.life-killer-option {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 12px 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 42%),
+    rgba(255, 255, 255, 0.055);
+
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.life-killer-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.44);
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.20), transparent 42%),
+    rgba(255, 255, 255, 0.08);
+}
+
+.life-killer-icon {
+  display: grid;
+  place-items: center;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #facc15;
+
+  font-size: 24px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.life-killer-option > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.life-killer-option strong {
+  color: white;
+  font-size: 14px;
+  font-weight: 1000;
+  line-height: 1.12;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.life-killer-option small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 520px) {
+  .life-modal {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
+  .life-modal-header strong {
+    font-size: 19px;
+  }
+
+  .life-killer-option {
+    grid-template-columns: 38px minmax(0, 1fr);
+    padding: 11px 12px;
+    border-radius: 16px;
+  }
+
+  .life-killer-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 13px;
+    font-size: 22px;
+  }
+}
+
+/* =========================
+   FIX ELIMINATED BADGE TEXT SIZE
+   impede o "ELIMINADO" de herdar o tamanho da vida
+========================= */
+
+.life-total-zone .life-eliminated-badge .life-eliminated-text strong {
+  font-size: 10px !important;
+  line-height: 1 !important;
+  letter-spacing: 0.12em !important;
+  text-decoration: none !important;
+  opacity: 1 !important;
+}
+
+.life-total-zone .life-eliminated-badge .life-eliminated-text span {
+  font-size: 11px !important;
+  line-height: 1.05 !important;
+  text-decoration: none !important;
+  opacity: 1 !important;
+}
+
+.life-total-zone .life-eliminated-badge strong,
+.life-total-zone .life-eliminated-badge span {
+  letter-spacing: normal;
+  text-decoration: none !important;
+}
+
+.life-player-eliminated .life-eliminated-badge {
+  opacity: 1 !important;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-total-zone .life-eliminated-badge .life-eliminated-text strong {
+    font-size: 8px !important;
+  }
+
+  .life-total-zone .life-eliminated-badge .life-eliminated-text span {
+    font-size: 9px !important;
+  }
+}
+
+/* =========================
+   KILL / ELIMINATION FINAL RESPONSIVE FIXES
+========================= */
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-modal-backdrop {
+    padding: 8px;
+  }
+
+  .life-modal {
+    width: min(460px, 94vw);
+    max-height: 92dvh;
+    padding: 12px;
+    border-radius: 20px;
+    gap: 10px;
+  }
+
+  .life-modal-header {
+    gap: 10px;
+  }
+
+  .life-modal-header span {
+    font-size: 8px;
+  }
+
+  .life-modal-header strong {
+    font-size: 16px;
+    line-height: 1.05;
+  }
+
+  .life-modal-close {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+
+  .life-killer-options {
+    gap: 7px;
+    margin-top: 0;
+    padding-right: 2px;
+  }
+
+  .life-killer-option {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+
+  .life-killer-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+    font-size: 18px;
+  }
+
+  .life-killer-option strong {
+    font-size: 12px;
+  }
+
+  .life-killer-option small {
+    font-size: 9px;
+  }
+}
+
+/* =========================
+   ELIMINATED BADGE SAFE SIZE
+========================= */
+
+.life-eliminated-badge {
+  max-width: min(260px, calc(100% - 18px));
+}
+
+.life-eliminated-text {
+  max-width: 170px;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-eliminated-badge {
+    max-width: min(190px, calc(100% - 12px));
+  }
+
+  .life-eliminated-text {
+    max-width: 120px;
+  }
+}
+
+/* =========================
+   UTILITY COLUMN WITH MULTIPLE BUTTONS
+========================= */
+
+.life-utility-column {
+  gap: 5px;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-utility-column {
+    gap: 3px;
+  }
+}
