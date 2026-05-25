@@ -3214,3 +3214,418 @@ footer {
 .stat-pill-kills::before {
   background: linear-gradient(135deg, #ef4444, #f97316, #facc15);
 }
+
+/* =========================
+   PROFILE HOVER CARD
+   estilo Steam friend card
+========================= */
+
+.profile-hover-card {
+  position: fixed;
+  z-index: 260;
+  width: 320px;
+  min-height: 204px;
+
+  overflow: visible;
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.18), transparent 42%),
+    rgba(9, 9, 11, 0.98);
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  pointer-events: none;
+  animation: profileHoverIn 0.12s ease-out;
+  backdrop-filter: blur(14px);
+}
+
+@keyframes profileHoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.profile-hover-cover {
+  position: relative;
+  height: 92px;
+  overflow: hidden;
+
+  border-radius: 18px 18px 0 0;
+
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.26), transparent 44%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(9, 9, 11, 0.98));
+}
+
+.profile-hover-cover img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 34%;
+  filter: saturate(1.12) contrast(1.04);
+}
+
+.profile-hover-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.68)),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 54%);
+}
+
+.profile-hover-main {
+  position: relative;
+
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+
+  padding: 0 14px 12px;
+  margin-top: -28px;
+}
+
+.profile-hover-avatar {
+  position: relative;
+  z-index: 2;
+
+  display: grid;
+  place-items: center;
+
+  width: 76px;
+  height: 76px;
+
+  overflow: hidden;
+  border-radius: 14px;
+
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid rgba(250, 204, 21, 0.44);
+
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.42),
+    0 0 0 4px rgba(0, 0, 0, 0.18);
+
+  color: #facc15;
+  font-size: 32px;
+}
+
+.profile-hover-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hover-icon {
+  position: absolute;
+  left: 76px;
+  top: 52px;
+  z-index: 3;
+
+  display: grid;
+  place-items: center;
+
+  width: 28px;
+  height: 28px;
+
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid rgba(250, 204, 21, 0.32);
+  color: #facc15;
+  font-size: 16px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.42);
+}
+
+.profile-hover-info {
+  min-width: 0;
+  padding-top: 34px;
+}
+
+.profile-hover-info span {
+  display: block;
+  margin-bottom: 3px;
+
+  color: #f97316;
+  font-size: 9px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.profile-hover-info strong {
+  display: block;
+
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1.05;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-hover-info p {
+  margin: 4px 0 0;
+
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-hover-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  padding: 0 14px 14px;
+}
+
+.profile-hover-stats div {
+  display: grid;
+  gap: 3px;
+
+  padding: 9px 10px;
+  border-radius: 13px;
+
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.profile-hover-stats span {
+  color: #94a3b8;
+  font-size: 8px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.profile-hover-stats strong {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 1000;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .profile-hover-card {
+    display: none;
+  }
+}
+
+/* =========================
+   PROFILE HOVER CARD - STAT PILLS + FBLTHP
+========================= */
+
+.profile-hover-stat-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 14px;
+}
+
+.profile-hover-stat-pills .stat-pill {
+  min-height: unset;
+  padding: 6px 9px;
+  font-size: 11px;
+}
+
+/* =========================
+   PROFILE HOVER - FBLTHP LIKE LEADERBOARD
+========================= */
+
+.profile-hover-fblthp-leaderboard {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  z-index: 30;
+
+  width: 86px;
+  height: 86px;
+
+  pointer-events: none;
+  overflow: visible;
+
+  transform: rotate(8deg);
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55));
+}
+
+.profile-hover-fblthp-leaderboard .fblthp-badge {
+  position: absolute;
+
+  /* aumenta a arte para ela "sair" da área */
+  width: 92px;
+  height: 92px;
+
+  /* empurra o Fblthp mais para fora do card */
+  right: -8px;
+  top: -8px;
+
+  object-fit: contain;
+}
+
+/* =========================
+   PROFILE HOVER - FBLTHP REALMENTE PRA FORA
+========================= */
+
+.profile-hover-card {
+  overflow: visible !important;
+}
+
+.profile-hover-cover {
+  overflow: hidden !important;
+  border-radius: 18px 18px 0 0 !important;
+}
+
+.profile-hover-fblthp-leaderboard {
+  position: absolute !important;
+
+  /* quanto mais negativo, mais pra fora da moldura */
+  top: -38px !important;
+  right: -38px !important;
+
+  z-index: 999 !important;
+
+  width: 86px !important;
+  height: 86px !important;
+
+  display: block !important;
+  pointer-events: none !important;
+
+  overflow: visible !important;
+  transform: rotate(8deg) !important;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.62)) !important;
+}
+
+.profile-hover-fblthp-leaderboard .fblthp-badge {
+  position: absolute !important;
+
+  width: 96px !important;
+  height: 96px !important;
+
+  right: -8px !important;
+  top: -8px !important;
+
+  object-fit: contain !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* =========================
+   PROFILE HOVER - FBLTHP PINADO NO CANTO
+   isolado da classe global .fblthp-badge
+========================= */
+
+.profile-hover-card {
+  overflow: visible !important;
+}
+
+.profile-hover-cover {
+  overflow: hidden !important;
+  border-radius: 18px 18px 0 0 !important;
+}
+
+/* wrapper fica preso no canto superior direito do card */
+.profile-hover-fblthp-leaderboard {
+  position: absolute !important;
+
+  top: -28px !important;
+  right: -26px !important;
+
+  z-index: 9999 !important;
+
+  width: 74px !important;
+  height: 74px !important;
+
+  display: block !important;
+  pointer-events: none !important;
+  overflow: visible !important;
+
+  transform: rotate(8deg) !important;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.62)) !important;
+}
+
+/* imagem própria do hover, sem herdar nada da leaderboard */
+.profile-hover-fblthp-img {
+  position: absolute !important;
+
+  width: 74px !important;
+  height: 74px !important;
+
+  right: 0 !important;
+  top: 0 !important;
+
+  display: block !important;
+  object-fit: contain !important;
+
+  max-width: none !important;
+  max-height: none !important;
+
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* =========================
+   LEADERBOARD PLAYER ICON
+   mesmo conceito do profile hover
+========================= */
+
+.leaderboard-player-avatar {
+  position: relative;
+  overflow: visible;
+}
+
+.leaderboard-player-avatar > img,
+.leaderboard-player-avatar > .avatar-placeholder {
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.leaderboard-player-icon {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  z-index: 3;
+
+  display: grid;
+  place-items: center;
+
+  width: 24px;
+  height: 24px;
+
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.92);
+  border: 1px solid rgba(250, 204, 21, 0.32);
+  color: #facc15;
+
+  font-size: 14px;
+  line-height: 1;
+
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  pointer-events: none;
+}
+
+.leaderboard-player-icon .ss {
+  font-size: inherit;
+  line-height: 1;
+}

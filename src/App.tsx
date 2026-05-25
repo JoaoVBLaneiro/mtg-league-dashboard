@@ -745,6 +745,8 @@ function LeaderboardCard({
   type,
   onClick,
   onFblthpClick,
+  onProfilePreview,
+  onProfilePreviewClose,
   forceShowWinrate = false,
 }: {
   item: Player | Deck;
@@ -752,6 +754,8 @@ function LeaderboardCard({
   type: "player" | "deck";
   onClick: () => void;
   onFblthpClick?: () => void;
+  onProfilePreview?: (event: React.MouseEvent<HTMLElement>) => void;
+  onProfilePreviewClose?: () => void;
   forceShowWinrate?: boolean;
 }) {
   const isPlayer = type === "player";
@@ -768,6 +772,9 @@ function LeaderboardCard({
   return (
     <motion.div
       onClick={onClick}
+      onMouseEnter={onProfilePreview}
+      onMouseMove={onProfilePreview}
+      onMouseLeave={onProfilePreviewClose}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
@@ -796,7 +803,7 @@ function LeaderboardCard({
       <div className="rank">{medalFor(index)}</div>
 
       {isPlayer ? (
-        <div className="avatar player-avatar">
+        <div className="avatar player-avatar leaderboard-player-avatar">
           {image ? (
             <img src={image} alt={item.name} />
           ) : (
@@ -804,6 +811,12 @@ function LeaderboardCard({
               <Users size={24} />
             </div>
           )}
+
+          {(item as Player).iconeKeyrune ? (
+            <span className="leaderboard-player-icon">
+              <i className={(item as Player).iconeKeyrune} />
+            </span>
+          ) : null}
         </div>
       ) : (
         <CommanderStack deck={item as Deck} variant="card" />
@@ -953,10 +966,14 @@ function PlayerDeckMiniCard({
   title,
   deck,
   onClick,
+  onPreview,
+  onPreviewClose,
 }: {
   title: string;
   deck: DeckMiniInfo;
   onClick: (deckName: string) => void;
+  onPreview?: (deckName: string, event: React.MouseEvent<HTMLElement>) => void;
+  onPreviewClose?: () => void;
 }) {
   if (!deck) return null;
 
@@ -964,6 +981,9 @@ function PlayerDeckMiniCard({
     <button
       className="player-deck-mini-card"
       onClick={() => onClick(deck.nome)}
+      onMouseEnter={(event) => onPreview?.(deck.nome, event)}
+      onMouseMove={(event) => onPreview?.(deck.nome, event)}
+      onMouseLeave={onPreviewClose}
     >
       <MiniCommanderStack deck={deck} />
 
@@ -1009,10 +1029,14 @@ function DeckPilotMiniCard({
   pilot,
   players,
   onClick,
+  onPreview,
+  onPreviewClose,
 }: {
   pilot: RivalInfo;
   players: Player[];
   onClick: (playerName: string) => void;
+  onPreview?: (playerName: string, event: React.MouseEvent<HTMLElement>) => void;
+  onPreviewClose?: () => void;
 }) {
   if (!pilot) return null;
 
@@ -1022,6 +1046,9 @@ function DeckPilotMiniCard({
     <button
       className="deck-pilot-mini-card"
       onClick={() => onClick(pilot.nome)}
+      onMouseEnter={(event) => onPreview?.(pilot.nome, event)}
+      onMouseMove={(event) => onPreview?.(pilot.nome, event)}
+      onMouseLeave={onPreviewClose}
     >
       <div className="deck-pilot-mini-icon">
         {pilotPlayer?.iconeKeyrune ? (
@@ -1050,6 +1077,21 @@ type CardPreviewState = {
   x: number;
   y: number;
 } | null;
+
+type ProfilePreviewState =
+  | {
+      type: "player";
+      item: Player;
+      x: number;
+      y: number;
+    }
+  | {
+      type: "deck";
+      item: Deck;
+      x: number;
+      y: number;
+    }
+  | null;
 
 function SetPreview({
   set,
@@ -1113,6 +1155,113 @@ function CardPreview({
   return (
     <div className="card-hover-preview" style={style}>
       <img src={preview.imageUrl} alt={preview.name} />
+    </div>
+  );
+}
+
+function ProfileHoverCard({
+  preview,
+}: {
+  preview: ProfilePreviewState;
+}) {
+  if (!preview) return null;
+
+  const isPlayer = preview.type === "player";
+  const item = preview.item;
+
+  const playerHasFblthp = isPlayer && (item as Player).hasFblthp;
+
+  const playerFblthpArtUrl = isPlayer
+    ? (item as Player).fblthpArtUrl
+    : "";
+
+  const previewWidth = 320;
+  const previewHeight = 210;
+
+  const shouldOpenLeft = preview.x + previewWidth + 28 > window.innerWidth;
+
+  const style: React.CSSProperties = {
+    left: shouldOpenLeft ? preview.x - previewWidth - 18 : preview.x + 18,
+    top: Math.max(
+      14,
+      Math.min(preview.y - 72, window.innerHeight - previewHeight - 14)
+    ),
+  };
+
+  const headerImage = isPlayer
+    ? (item as Player).headerUrl || (item as Player).photoUrl
+    : (item as Deck).headerUrl || (item as Deck).imageUrl;
+
+  const avatarImage = isPlayer
+    ? (item as Player).photoUrl
+    : (item as Deck).imageUrl;
+
+  const iconClass = isPlayer
+    ? (item as Player).iconeKeyrune
+    : (item as Deck).autor?.iconeKeyrune || "";
+
+  const subtitle = isPlayer
+    ? (item as Player).title || "Jogador"
+    : (item as Deck).commander || "Deck";
+
+  const participationLabel = isPlayer
+    ? `${(item as Player).games} partidas`
+    : `${(item as Deck).appearances} aparições`;
+
+  return (
+    <div className="profile-hover-card" style={style}>
+      <div className="profile-hover-cover">
+        {headerImage ? (
+          <img src={headerImage} alt={`Header de ${item.name}`} />
+        ) : null}
+      </div>
+
+      {playerHasFblthp && playerFblthpArtUrl ? (
+        <div
+          className="profile-hover-fblthp-leaderboard"
+          title="Holder atual do Fblthp"
+        >
+          <img
+            className="profile-hover-fblthp-img"
+            src={playerFblthpArtUrl}
+            alt="Fblthp holder"
+          />
+        </div>
+      ) : null}
+
+      <div className="profile-hover-main">
+        <div className="profile-hover-avatar">
+          {avatarImage ? (
+            <img src={avatarImage} alt={item.name} />
+          ) : iconClass ? (
+            <i className={iconClass} />
+          ) : (
+            <Users size={24} />
+          )}
+        </div>
+
+        {iconClass ? (
+          <div className="profile-hover-icon">
+            <i className={iconClass} />
+          </div>
+        ) : null}
+
+        <div className="profile-hover-info">
+          <span>{isPlayer ? "Jogador" : "Deck"}</span>
+          <strong>{item.name}</strong>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="profile-hover-stats profile-hover-stat-pills">
+        <StatPill variant="winrate" value={item.winrate}>
+          {formatPercent(item.winrate)} WR
+        </StatPill>
+
+        <StatPill variant="games">
+          {participationLabel}
+        </StatPill>
+      </div>
     </div>
   );
 }
@@ -1733,6 +1882,8 @@ function ProfileModal({
   onAuthorIconClick,
   onDecklistClick,
   onCardPreview,
+  onProfilePreview,
+  onProfilePreviewClose,
   onSetPreview,
   onClose,
   forceShowWinrate = false,
@@ -1747,6 +1898,12 @@ function ProfileModal({
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
+  onProfilePreview: (
+    type: "player" | "deck",
+    item: Player | Deck,
+    event: React.MouseEvent<HTMLElement>
+  ) => void;
+  onProfilePreviewClose: () => void;
   forceShowWinrate?: boolean;
   onSetPreview: (
     preview: {
@@ -1794,6 +1951,28 @@ function ProfileModal({
 
     if (deck) {
       onSelectDeck(deck);
+    }
+  }
+
+  function previewPlayerByName(
+    name: string,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    const player = players.find((player) => player.name === name);
+
+    if (player) {
+      onProfilePreview("player", player, event);
+    }
+  }
+
+  function previewDeckByName(
+    name: string,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    const deck = decks.find((deck) => deck.name === name);
+
+    if (deck) {
+      onProfilePreview("deck", deck, event);
     }
   }
 
@@ -1944,12 +2123,16 @@ function ProfileModal({
                   title="Deck favorito"
                   deck={(item as Player).deckFavorito}
                   onClick={openDeckByName}
+                  onPreview={previewDeckByName}
+                  onPreviewClose={onProfilePreviewClose}
                 />
 
                 <PlayerDeckMiniCard
                   title="Melhor deck"
                   deck={(item as Player).melhorDeck}
                   onClick={openDeckByName}
+                  onPreview={previewDeckByName}
+                  onPreviewClose={onProfilePreviewClose}
                 />
               </div>
             ) : null}
@@ -1993,6 +2176,8 @@ function ProfileModal({
                 pilot={(item as Deck).melhorPiloto}
                 players={players}
                 onClick={openPlayerByName}
+                onPreview={previewPlayerByName}
+                onPreviewClose={onProfilePreviewClose}
               />
             </div>
           ) : null}
@@ -2004,6 +2189,17 @@ function ProfileModal({
           <button
             className="rival-name-button"
             onClick={() => openRelatedProfile(rivalData.rivalFrequente!.nome)}
+            onMouseEnter={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.rivalFrequente!.nome, event)
+                : previewDeckByName(rivalData.rivalFrequente!.nome, event)
+            }
+            onMouseMove={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.rivalFrequente!.nome, event)
+                : previewDeckByName(rivalData.rivalFrequente!.nome, event)
+            }
+            onMouseLeave={onProfilePreviewClose}
           >
             {rivalData.rivalFrequente.nome}
           </button>
@@ -2022,6 +2218,17 @@ function ProfileModal({
           <button
             className="rival-name-button"
             onClick={() => openRelatedProfile(rivalData.carrasco!.nome)}
+            onMouseEnter={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.carrasco!.nome, event)
+                : previewDeckByName(rivalData.carrasco!.nome, event)
+            }
+            onMouseMove={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.carrasco!.nome, event)
+                : previewDeckByName(rivalData.carrasco!.nome, event)
+            }
+            onMouseLeave={onProfilePreviewClose}
           >
             {rivalData.carrasco.nome}
           </button>
@@ -2039,6 +2246,17 @@ function ProfileModal({
           <button
             className="rival-name-button"
             onClick={() => openRelatedProfile(rivalData.maiorPato!.nome)}
+            onMouseEnter={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.maiorPato!.nome, event)
+                : previewDeckByName(rivalData.maiorPato!.nome, event)
+            }
+            onMouseMove={(event) =>
+              isPlayer
+                ? previewPlayerByName(rivalData.maiorPato!.nome, event)
+                : previewDeckByName(rivalData.maiorPato!.nome, event)
+            }
+            onMouseLeave={onProfilePreviewClose}
           >
             {rivalData.maiorPato.nome}
           </button>
@@ -3829,6 +4047,8 @@ function DashboardApp() {
 
   const [cardPreview, setCardPreview] = useState<CardPreviewState>(null);
 
+  const [profilePreview, setProfilePreview] = useState<ProfilePreviewState>(null);
+
   const allDecks = useMemo(
     () => normalizeDecks(data.leaderboards.geral.decks),
     [data.leaderboards.geral.decks]
@@ -3978,6 +4198,34 @@ function DashboardApp() {
 
   const hasMoreDecks = decks.length > visibleDecks.length;
 
+  function showProfilePreview(
+    type: "player" | "deck",
+    item: Player | Deck,
+    event: React.MouseEvent<HTMLElement>
+  ) {
+    if (type === "player") {
+      setProfilePreview({
+        type: "player",
+        item: item as Player,
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      return;
+    }
+
+    setProfilePreview({
+      type: "deck",
+      item: item as Deck,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  function hideProfilePreview() {
+    setProfilePreview(null);
+  }
+
   useIdlePageAutoScroll({
     enabled:
       activeView === "ranking" &&
@@ -4060,6 +4308,10 @@ function DashboardApp() {
                     index={index}
                     type="player"
                     onClick={() => setSelectedProfile({ type: "player", item: player })}
+                    onProfilePreview={(event) =>
+                      showProfilePreview("player", player, event)
+                    }
+                    onProfilePreviewClose={hideProfilePreview}
                     onFblthpClick={() => setShowFblthpInfo(true)}
                     forceShowWinrate={activePeriod === "evento"}
                   />
@@ -4103,6 +4355,10 @@ function DashboardApp() {
                     index={index}
                     type="deck"
                     onClick={() => setSelectedProfile({ type: "deck", item: deck })}
+                    onProfilePreview={(event) =>
+                      showProfilePreview("deck", deck, event)
+                    }
+                    onProfilePreviewClose={hideProfilePreview}
                     forceShowWinrate={activePeriod === "evento"}
                   />
                 ))}
@@ -4147,6 +4403,8 @@ function DashboardApp() {
         onSelectDeck={(deck) =>
           setSelectedProfile({ type: "deck", item: deck })
         }
+        onProfilePreview={showProfilePreview}
+        onProfilePreviewClose={hideProfilePreview}
         onFblthpClick={() => setShowFblthpInfo(true)}
         onOriginClick={(origin) => setSelectedOrigin(origin)}
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
@@ -4204,6 +4462,8 @@ function DashboardApp() {
       ) : null}
 
       <CardPreview preview={cardPreview} />
+
+      <ProfileHoverCard preview={profilePreview} />
 
       {setPreview ? (
         <SetPreview
