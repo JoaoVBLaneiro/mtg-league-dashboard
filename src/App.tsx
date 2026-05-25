@@ -1196,9 +1196,9 @@ function ProfileHoverCard({
     ? (item as Player).photoUrl
     : (item as Deck).imageUrl;
 
-  const iconClass = isPlayer
-    ? (item as Player).iconeKeyrune
-    : (item as Deck).autor?.iconeKeyrune || "";
+  const iconClass = isPlayer ? (item as Player).iconeKeyrune : "";
+
+  const deckColors = !isPlayer ? (item as Deck).colors : "";
 
   const subtitle = isPlayer
     ? (item as Player).title || "Jogador"
@@ -1230,17 +1230,35 @@ function ProfileHoverCard({
       ) : null}
 
       <div className="profile-hover-main">
-        <div className="profile-hover-avatar">
-          {avatarImage ? (
-            <img src={avatarImage} alt={item.name} />
-          ) : iconClass ? (
-            <i className={iconClass} />
+        <div
+          className={
+            isPlayer
+              ? "profile-hover-avatar"
+              : "profile-hover-avatar profile-hover-deck-avatar"
+          }
+        >
+          {isPlayer ? (
+            avatarImage ? (
+              <img src={avatarImage} alt={item.name} />
+            ) : iconClass ? (
+              <i className={iconClass} />
+            ) : (
+              <Users size={24} />
+            )
           ) : (
-            <Users size={24} />
+            <>
+              <CommanderStack deck={item as Deck} variant="card" />
+
+              {deckColors ? (
+                <span className="profile-hover-mana-badge">
+                  <ManaPips colors={deckColors} />
+                </span>
+              ) : null}
+            </>
           )}
         </div>
 
-        {iconClass ? (
+        {isPlayer && iconClass ? (
           <div className="profile-hover-icon">
             <i className={iconClass} />
           </div>

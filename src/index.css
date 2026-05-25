@@ -1950,6 +1950,14 @@ footer {
   border: 1px solid rgba(167, 139, 250, 0.42);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.player-profile-floating-icon:hover {
+  transform: translateY(-2px) scale(1.05);
+  border-color: rgba(167, 139, 250, 0.85);
+  background: rgba(167, 139, 250, 0.22);
 }
 
 .player-profile-floating-icon .ss {
@@ -2180,17 +2188,6 @@ footer {
   height: 74px;
 }
 
-.player-profile-floating-icon {
-  cursor: pointer;
-  border: 0;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.player-profile-floating-icon:hover {
-  transform: translateY(-2px) scale(1.05);
-  border-color: rgba(167, 139, 250, 0.85);
-  background: rgba(167, 139, 250, 0.22);
-}
 
 @media (max-width: 700px) {
   .author-decks-modal {
@@ -3259,7 +3256,6 @@ footer {
   position: relative;
   height: 92px;
   overflow: hidden;
-
   border-radius: 18px 18px 0 0;
 
   background:
@@ -3389,51 +3385,6 @@ footer {
   text-overflow: ellipsis;
 }
 
-.profile-hover-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-
-  padding: 0 14px 14px;
-}
-
-.profile-hover-stats div {
-  display: grid;
-  gap: 3px;
-
-  padding: 9px 10px;
-  border-radius: 13px;
-
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-.profile-hover-stats span {
-  color: #94a3b8;
-  font-size: 8px;
-  font-weight: 1000;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.profile-hover-stats strong {
-  color: #f8fafc;
-  font-size: 13px;
-  font-weight: 1000;
-  line-height: 1.05;
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .profile-hover-card {
-    display: none;
-  }
-}
-
-/* =========================
-   PROFILE HOVER CARD - STAT PILLS + FBLTHP
-========================= */
-
 .profile-hover-stat-pills {
   display: flex;
   flex-wrap: wrap;
@@ -3447,139 +3398,48 @@ footer {
   font-size: 11px;
 }
 
+@media (max-width: 720px) {
+  .profile-hover-card {
+    display: none;
+  }
+}
+
 /* =========================
-   PROFILE HOVER - FBLTHP LIKE LEADERBOARD
+   PROFILE HOVER - FBLTHP
 ========================= */
 
 .profile-hover-fblthp-leaderboard {
   position: absolute;
-  top: -30px;
-  right: -30px;
-  z-index: 30;
+  top: -28px;
+  right: -26px;
+  z-index: 9999;
 
-  width: 86px;
-  height: 86px;
+  width: 74px;
+  height: 74px;
 
+  display: block;
   pointer-events: none;
   overflow: visible;
 
   transform: rotate(8deg);
-  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.62));
 }
 
-.profile-hover-fblthp-leaderboard .fblthp-badge {
+.profile-hover-fblthp-img {
   position: absolute;
+  right: 0;
+  top: 0;
 
-  /* aumenta a arte para ela "sair" da área */
-  width: 92px;
-  height: 92px;
-
-  /* empurra o Fblthp mais para fora do card */
-  right: -8px;
-  top: -8px;
+  display: block;
+  width: 74px;
+  height: 74px;
 
   object-fit: contain;
-}
+  max-width: none;
+  max-height: none;
 
-/* =========================
-   PROFILE HOVER - FBLTHP REALMENTE PRA FORA
-========================= */
-
-.profile-hover-card {
-  overflow: visible !important;
-}
-
-.profile-hover-cover {
-  overflow: hidden !important;
-  border-radius: 18px 18px 0 0 !important;
-}
-
-.profile-hover-fblthp-leaderboard {
-  position: absolute !important;
-
-  /* quanto mais negativo, mais pra fora da moldura */
-  top: -38px !important;
-  right: -38px !important;
-
-  z-index: 999 !important;
-
-  width: 86px !important;
-  height: 86px !important;
-
-  display: block !important;
-  pointer-events: none !important;
-
-  overflow: visible !important;
-  transform: rotate(8deg) !important;
-  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.62)) !important;
-}
-
-.profile-hover-fblthp-leaderboard .fblthp-badge {
-  position: absolute !important;
-
-  width: 96px !important;
-  height: 96px !important;
-
-  right: -8px !important;
-  top: -8px !important;
-
-  object-fit: contain !important;
-  max-width: none !important;
-  max-height: none !important;
-}
-
-/* =========================
-   PROFILE HOVER - FBLTHP PINADO NO CANTO
-   isolado da classe global .fblthp-badge
-========================= */
-
-.profile-hover-card {
-  overflow: visible !important;
-}
-
-.profile-hover-cover {
-  overflow: hidden !important;
-  border-radius: 18px 18px 0 0 !important;
-}
-
-/* wrapper fica preso no canto superior direito do card */
-.profile-hover-fblthp-leaderboard {
-  position: absolute !important;
-
-  top: -28px !important;
-  right: -26px !important;
-
-  z-index: 9999 !important;
-
-  width: 74px !important;
-  height: 74px !important;
-
-  display: block !important;
-  pointer-events: none !important;
-  overflow: visible !important;
-
-  transform: rotate(8deg) !important;
-  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.62)) !important;
-}
-
-/* imagem própria do hover, sem herdar nada da leaderboard */
-.profile-hover-fblthp-img {
-  position: absolute !important;
-
-  width: 74px !important;
-  height: 74px !important;
-
-  right: 0 !important;
-  top: 0 !important;
-
-  display: block !important;
-  object-fit: contain !important;
-
-  max-width: none !important;
-  max-height: none !important;
-
-  border: 0 !important;
-  background: transparent !important;
+  border: 0;
+  background: transparent;
 }
 
 /* =========================
@@ -3628,4 +3488,134 @@ footer {
 .leaderboard-player-icon .ss {
   font-size: inherit;
   line-height: 1;
+}
+
+/* =========================
+   PROFILE HOVER - DECK COMMANDER STACK + MANA PIPS
+========================= */
+
+.profile-hover-deck-avatar {
+  position: relative;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.profile-hover-deck-avatar .commander-stack-card {
+  width: 76px;
+  height: 76px;
+}
+
+.profile-hover-deck-avatar .commander-stack-single {
+  justify-content: center;
+}
+
+.profile-hover-deck-avatar .commander-card {
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.48),
+    0 0 0 2px rgba(0, 0, 0, 0.22);
+}
+
+.profile-hover-deck-avatar .commander-stack-single .commander-card-main {
+  width: 58px;
+  height: 80px;
+  border-radius: 8px;
+}
+
+.profile-hover-deck-avatar .commander-card-main {
+  width: 50px;
+  height: 70px;
+  border-radius: 8px;
+}
+
+.profile-hover-deck-avatar .commander-card-secondary {
+  width: 46px;
+  height: 64px;
+  border-radius: 7px;
+}
+
+.profile-hover-mana-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  z-index: 6;
+
+  display: grid;
+  place-items: center;
+
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+
+  pointer-events: none;
+}
+
+.profile-hover-mana-badge .mana-pips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.profile-hover-mana-badge .mana-pip {
+  width: 16px;
+  height: 16px;
+
+  filter:
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.75))
+    drop-shadow(0 0 5px rgba(255, 255, 255, 0.16));
+}
+
+/* 3 cores: triângulo */
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(3)):not(:has(.mana-pip:nth-child(4))) {
+  position: relative;
+  width: 38px;
+  height: 31px;
+  display: block;
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(3)):not(:has(.mana-pip:nth-child(4))) .mana-pip {
+  position: absolute;
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(3)):not(:has(.mana-pip:nth-child(4))) .mana-pip:nth-child(1) {
+  left: 11px;
+  top: 0;
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(3)):not(:has(.mana-pip:nth-child(4))) .mana-pip:nth-child(2) {
+  left: 2px;
+  top: 15px;
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(3)):not(:has(.mana-pip:nth-child(4))) .mana-pip:nth-child(3) {
+  left: 20px;
+  top: 15px;
+}
+
+/* 4+ cores: mini-grade */
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(4)) {
+  display: grid;
+  grid-template-columns: repeat(2, 16px);
+  gap: 1px;
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(5)) {
+  grid-template-columns: repeat(3, 16px);
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(5)) .mana-pip:nth-child(4) {
+  grid-column: 1 / 2;
+  transform: translateX(8px);
+}
+
+.profile-hover-mana-badge .mana-pips:has(.mana-pip:nth-child(5)) .mana-pip:nth-child(5) {
+  grid-column: 2 / 3;
+  transform: translateX(8px);
 }
