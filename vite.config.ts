@@ -10,7 +10,15 @@ export default defineConfig({
 
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
+
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+      },
 
       manifest: {
         name: "Liga Commander",
