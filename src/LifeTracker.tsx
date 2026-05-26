@@ -1930,15 +1930,6 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
           <span>Marcador de Vida</span>
           <strong>MTG Life Tracker</strong>
         </div>
-
-        <button
-          className="life-topbar-button"
-          onClick={() => {
-            window.location.hash = "";
-          }}
-        >
-          Ranking
-        </button>
       </header>
 
       <section className="life-setup-panel">
