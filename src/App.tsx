@@ -339,7 +339,7 @@ function medalFor(index: number) {
   return `#${index + 1}`;
 }
 
-const MIN_PARTICIPATIONS_FOR_WINRATE = 3;
+const MIN_PARTICIPATIONS_FOR_WINRATE = 4;
 
 const PLAYER_CARD_HEIGHT = 129;
 const DECK_CARD_HEIGHT = 154;
