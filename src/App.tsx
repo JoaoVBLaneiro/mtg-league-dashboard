@@ -239,6 +239,89 @@ type Deck = {
   secondaryCommanderType: string;
 };
 
+type PlayerDeckComboStat = {
+  nome: string;
+  deck: string;
+  games: number;
+  wins: number;
+  winrate: number;
+
+  fotoUrl: string;
+  arteUrl: string;
+  comandante: string;
+  comandanteSecundario: string;
+  fotoComandanteSecundario: string;
+  tipoComandanteSecundario: string;
+  cores: string;
+};
+
+type DeckPilotComboStat = {
+  nome: string;
+  jogador: string;
+  games: number;
+  wins: number;
+  winrate: number;
+
+  fotoUrl: string;
+  titulo: string;
+  iconeKeyrune: string;
+};
+
+type ComboSimpleStat = {
+  nome: string;
+  jogador?: string;
+  deck?: string;
+  games: number;
+  wins: number;
+  winrate: number;
+
+  fotoUrl?: string;
+  titulo?: string;
+  iconeKeyrune?: string;
+
+  arteUrl?: string;
+  comandante?: string;
+  comandanteSecundario?: string;
+  fotoComandanteSecundario?: string;
+  tipoComandanteSecundario?: string;
+  cores?: string;
+};
+
+type PlayerDeckStatsData = {
+  players: Record<
+    string,
+    {
+      decks: PlayerDeckComboStat[];
+      mostPlayedDecks: PlayerDeckComboStat[];
+      bestWinrateDecks: PlayerDeckComboStat[];
+
+      authors?: ComboSimpleStat[];
+      mostPlayedAuthors?: ComboSimpleStat[];
+
+      rivals?: ComboSimpleStat[];
+      mostPlayedRivals?: ComboSimpleStat[];
+    }
+  >;
+  decks: Record<
+    string,
+    {
+      pilots: DeckPilotComboStat[];
+      mostPlayedPilots: DeckPilotComboStat[];
+      bestWinratePilots: DeckPilotComboStat[];
+
+      rivals?: ComboSimpleStat[];
+      mostPlayedRivalDecks?: ComboSimpleStat[];
+    }
+  >;
+  minGamesForWinrate: number;
+};
+
+const emptyPlayerDeckStats: PlayerDeckStatsData = {
+  players: {},
+  decks: {},
+  minGamesForWinrate: 2,
+};
+
 type FblthpTransfer = {
   matchId: string;
   from: string;
@@ -289,6 +372,7 @@ type DashboardData = {
     };
   };
   activity: ActivityData;
+  playerDeckStats?: PlayerDeckStatsData;
 };
 
 function formatPercent(value: number | string | undefined) {
@@ -754,7 +838,7 @@ function LeaderboardCard({
   type: "player" | "deck";
   onClick: () => void;
   onFblthpClick?: () => void;
-  onProfilePreview?: (event: React.MouseEvent<HTMLElement>) => void;
+  onProfilePreview?: (event: React.MouseEvent<Element>) => void;
   onProfilePreviewClose?: () => void;
   forceShowWinrate?: boolean;
 }) {
@@ -972,7 +1056,7 @@ function PlayerDeckMiniCard({
   title: string;
   deck: DeckMiniInfo;
   onClick: (deckName: string) => void;
-  onPreview?: (deckName: string, event: React.MouseEvent<HTMLElement>) => void;
+  onPreview?: (deckName: string, event: React.MouseEvent<Element>) => void;
   onPreviewClose?: () => void;
 }) {
   if (!deck) return null;
@@ -1035,7 +1119,7 @@ function DeckPilotMiniCard({
   pilot: RivalInfo;
   players: Player[];
   onClick: (playerName: string) => void;
-  onPreview?: (playerName: string, event: React.MouseEvent<HTMLElement>) => void;
+  onPreview?: (playerName: string, event: React.MouseEvent<Element>) => void;
   onPreviewClose?: () => void;
 }) {
   if (!pilot) return null;
@@ -1318,7 +1402,7 @@ function PlayerFavoritesSection({
 
   function showPreview(
     card: PlayerFavoriteCard,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     onCardPreview({
       imageUrl: card.imagemUrl,
@@ -1460,7 +1544,7 @@ function KeyCardsSection({
 
   function showPreview(
     card: KeyCard,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     onCardPreview({
       imageUrl: card.imagemUrl,
@@ -1599,6 +1683,25 @@ function PlayerProfileIcon({
       onClick={onClick}
     >
       <i className={player.iconeKeyrune} />
+    </button>
+  );
+}
+
+function ProfileComboStatsIcon({
+  isPlayer,
+  onClick,
+}: {
+  isPlayer: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="profile-combo-stats-floating-icon"
+      title={isPlayer ? "Ver estatísticas de decks" : "Ver estatísticas de pilotos"}
+      aria-label={isPlayer ? "Ver estatísticas de decks" : "Ver estatísticas de pilotos"}
+      onClick={onClick}
+    >
+      <i className="ss ss-v11" />
     </button>
   );
 }
@@ -1889,10 +1992,651 @@ function DecklistButton({
   );
 }
 
+type ComboStatKind = "deck" | "pilot";
+type ComboStatMetric = "games" | "wins";
+type ComboStatItem = PlayerDeckComboStat | DeckPilotComboStat | ComboSimpleStat;
+
+const COMBO_CHART_COLORS = [
+  "#a78bfa",
+  "#38bdf8",
+  "#22c55e",
+  "#facc15",
+  "#fb7185",
+  "#f97316",
+  "#14b8a6",
+  "#e879f9",
+  "#60a5fa",
+  "#c084fc",
+  "#4ade80",
+  "#f472b6",
+];
+
+function getComboStatName(item: ComboStatItem) {
+  if ("deck" in item && item.deck) {
+    return item.nome || item.deck;
+  }
+
+  if ("jogador" in item && item.jogador) {
+    return item.nome || item.jogador;
+  }
+
+  return item.nome;
+}
+
+function getComboStatValue(item: ComboStatItem, metric: ComboStatMetric) {
+  return metric === "games" ? Number(item.games || 0) : Number(item.wins || 0);
+}
+
+function polarToCartesian(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  angleInDegrees: number
+) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function describePieSlice(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number
+) {
+  const start = polarToCartesian(centerX, centerY, radius, endAngle);
+  const end = polarToCartesian(centerX, centerY, radius, startAngle);
+
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M",
+    centerX,
+    centerY,
+    "L",
+    start.x,
+    start.y,
+    "A",
+    radius,
+    radius,
+    0,
+    largeArcFlag,
+    0,
+    end.x,
+    end.y,
+    "Z",
+  ].join(" ");
+}
+
+function createDeckFromCombo(combo: PlayerDeckComboStat): Deck {
+  return {
+    name: combo.nome || combo.deck,
+    appearances: combo.games,
+    wins: combo.wins,
+    winrate: combo.winrate,
+    kills: 0,
+    deaths: 0,
+    imageUrl: combo.fotoUrl || "",
+    arteUrl: combo.arteUrl || "",
+    headerUrl: combo.arteUrl || combo.fotoUrl || "",
+    commander: combo.comandante || "",
+    colors: combo.cores || "",
+    bio: "",
+    decklistUrl: "",
+    rivalFrequente: null,
+    carrasco: null,
+    maiorPato: null,
+    melhorPiloto: null,
+    cartasChave: [],
+    autor: null,
+    origem: null,
+    decklistTexto: "",
+    secondaryCommander: combo.comandanteSecundario || "",
+    secondaryCommanderImageUrl: combo.fotoComandanteSecundario || "",
+    secondaryCommanderType: combo.tipoComandanteSecundario || "",
+  };
+}
+
+function ComboDeckHighlightCard({
+  title,
+  combo,
+  onClick,
+  onPreview,
+  onPreviewClose,
+}: {
+  title: string;
+  combo: PlayerDeckComboStat | undefined;
+  onClick: (deckName: string) => void;
+  onPreview: (deckName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewClose: () => void;
+}) {
+  if (!combo) return null;
+
+  const deckName = combo.nome || combo.deck;
+  const deckForStack = createDeckFromCombo(combo);
+
+  return (
+    <button
+      className="combo-highlight-card combo-highlight-card-deck"
+      onClick={() => onClick(deckName)}
+      onMouseEnter={(event) => onPreview(deckName, event)}
+      onMouseMove={(event) => onPreview(deckName, event)}
+      onMouseLeave={onPreviewClose}
+    >
+      <div className="combo-highlight-art">
+        <CommanderStack deck={deckForStack} variant="card" />
+      </div>
+
+      <div className="combo-highlight-info">
+        <span>{title}</span>
+        <strong>{deckName}</strong>
+
+        <p>
+          {combo.comandante ? <span>{combo.comandante}</span> : null}
+
+          {combo.cores ? (
+            <>
+              {combo.comandante ? <span> • </span> : null}
+              <ManaPips colors={combo.cores} />
+            </>
+          ) : null}
+        </p>
+
+        <div className="combo-highlight-pills">
+          <StatPill variant="games">{combo.games} partidas</StatPill>
+          <StatPill variant="wins">{combo.wins} vitórias</StatPill>
+          <StatPill variant="winrate" value={combo.winrate}>
+            {formatPercent(combo.winrate)} WR
+          </StatPill>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function ComboPilotHighlightCard({
+  title,
+  combo,
+  onClick,
+  onPreview,
+  onPreviewClose,
+}: {
+  title: string;
+  combo: DeckPilotComboStat | undefined;
+  onClick: (playerName: string) => void;
+  onPreview: (playerName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewClose: () => void;
+}) {
+  if (!combo) return null;
+
+  const playerName = combo.nome || combo.jogador;
+
+  return (
+    <button
+      className="combo-highlight-card combo-highlight-card-pilot"
+      onClick={() => onClick(playerName)}
+      onMouseEnter={(event) => onPreview(playerName, event)}
+      onMouseMove={(event) => onPreview(playerName, event)}
+      onMouseLeave={onPreviewClose}
+    >
+      <div className="combo-highlight-pilot-avatar">
+        {combo.iconeKeyrune ? (
+          <i className={combo.iconeKeyrune} />
+        ) : combo.fotoUrl ? (
+          <img src={combo.fotoUrl} alt={playerName} />
+        ) : (
+          <Users size={24} />
+        )}
+      </div>
+
+      <div className="combo-highlight-info">
+        <span>{title}</span>
+        <strong>{playerName}</strong>
+
+        {combo.titulo ? <p>{combo.titulo}</p> : null}
+
+        <div className="combo-highlight-pills">
+          <StatPill variant="games">{combo.games} partidas</StatPill>
+          <StatPill variant="wins">{combo.wins} vitórias</StatPill>
+          <StatPill variant="winrate" value={combo.winrate}>
+            {formatPercent(combo.winrate)} WR
+          </StatPill>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function ComboPieChart({
+  title,
+  subtitle,
+  items,
+  metric,
+  kind,
+  onSelect,
+  onPreview,
+  onPreviewClose,
+}: {
+  title: string;
+  subtitle: string;
+  items: ComboStatItem[];
+  metric: ComboStatMetric;
+  kind: ComboStatKind;
+  onSelect: (name: string) => void;
+  onPreview: (name: string, event: React.MouseEvent<Element>) => void;
+  onPreviewClose: () => void;
+}) {
+  const visibleItems = items
+    .filter((item) => getComboStatValue(item, metric) > 0)
+    .slice()
+    .sort((a, b) => {
+      const valueDiff = getComboStatValue(b, metric) - getComboStatValue(a, metric);
+
+      if (valueDiff !== 0) return valueDiff;
+
+      return getComboStatName(a).localeCompare(getComboStatName(b));
+    });
+
+  const total = visibleItems.reduce(
+    (sum, item) => sum + getComboStatValue(item, metric),
+    0
+  );
+
+  if (!visibleItems.length || total <= 0) {
+    return (
+      <div className="combo-pie-card combo-pie-card-empty">
+        <div className="combo-pie-card-header">
+          <strong>{title}</strong>
+          <span>{subtitle}</span>
+        </div>
+
+        <p>Nenhum dado suficiente para montar este gráfico.</p>
+      </div>
+    );
+  }
+
+  let currentAngle = 0;
+
+  const center = 100;
+  const radius = 82;
+
+  return (
+    <div className="combo-pie-card">
+      <div className="combo-pie-card-header">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+
+      <div className="combo-pie-layout">
+        <div className="combo-pie-visual">
+          <svg
+            className="combo-pie-svg"
+            viewBox="0 0 200 200"
+            role="img"
+            aria-label={title}
+          >
+            <circle
+              cx={center}
+              cy={center}
+              r={radius}
+              className="combo-pie-bg"
+            />
+
+            {visibleItems.map((item, index) => {
+              const value = getComboStatValue(item, metric);
+              const percent = value / total;
+              const startAngle = currentAngle;
+              const endAngle = currentAngle + percent * 360;
+              const color = COMBO_CHART_COLORS[index % COMBO_CHART_COLORS.length];
+              const name = getComboStatName(item);
+
+              currentAngle = endAngle;
+
+              if (visibleItems.length === 1) {
+                return (
+                  <circle
+                    key={name}
+                    cx={center}
+                    cy={center}
+                    r={radius}
+                    fill={color}
+                    className="combo-pie-slice"
+                    onClick={() => onSelect(name)}
+                    onMouseEnter={(event) => onPreview(name, event)}
+                    onMouseMove={(event) => onPreview(name, event)}
+                    onMouseLeave={onPreviewClose}
+                  />
+                );
+              }
+
+              return (
+                <path
+                  key={name}
+                  d={describePieSlice(center, center, radius, startAngle, endAngle)}
+                  fill={color}
+                  className="combo-pie-slice"
+                  onClick={() => onSelect(name)}
+                  onMouseEnter={(event) => onPreview(name, event)}
+                  onMouseMove={(event) => onPreview(name, event)}
+                  onMouseLeave={onPreviewClose}
+                />
+              );
+            })}
+
+            <circle
+              cx={center}
+              cy={center}
+              r={44}
+              className="combo-pie-hole"
+            />
+
+            <text
+              x={center}
+              y={center - 4}
+              textAnchor="middle"
+              className="combo-pie-total"
+            >
+              {total}
+            </text>
+
+            <text
+              x={center}
+              y={center + 18}
+              textAnchor="middle"
+              className="combo-pie-total-label"
+            >
+              {metric === "games"
+                ? kind === "deck"
+                  ? "partidas"
+                  : "usos"
+                : "vitórias"}
+            </text>
+          </svg>
+        </div>
+
+        <div className="combo-pie-legend">
+          {visibleItems.map((item, index) => {
+            const value = getComboStatValue(item, metric);
+            const percent = total > 0 ? value / total : 0;
+            const color = COMBO_CHART_COLORS[index % COMBO_CHART_COLORS.length];
+            const name = getComboStatName(item);
+
+            return (
+              <button
+                key={`${metric}-${name}`}
+                className="combo-pie-legend-item"
+                onClick={() => onSelect(name)}
+                onMouseEnter={(event) => onPreview(name, event)}
+                onMouseMove={(event) => onPreview(name, event)}
+                onMouseLeave={onPreviewClose}
+              >
+                <span
+                  className="combo-pie-legend-line"
+                  style={{ "--combo-color": color } as React.CSSProperties}
+                />
+
+                <span className="combo-pie-legend-main">
+                  <strong>{name}</strong>
+                  <small>
+                    {value} {metric === "games" ? "partidas" : "vitórias"} •{" "}
+                    {(percent * 100).toFixed(1)}%
+                  </small>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileComboStatsSection({
+  isPlayer,
+  itemName,
+  playerDeckStats,
+  onSelectDeck,
+  onSelectPlayer,
+  onPreviewDeck,
+  onPreviewPlayer,
+  onPreviewClose,
+}: {
+  isPlayer: boolean;
+  itemName: string;
+  playerDeckStats: PlayerDeckStatsData;
+  onSelectDeck: (deckName: string) => void;
+  onSelectPlayer: (playerName: string) => void;
+  onPreviewDeck: (deckName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewPlayer: (playerName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewClose: () => void;
+}) {
+  if (isPlayer) {
+    const stats = playerDeckStats.players[itemName];
+
+    if (!stats || !stats.decks.length) {
+      return null;
+    }
+
+    const mostPlayedDeck = stats.mostPlayedDecks[0];
+    const bestWinrateDeck = stats.bestWinrateDecks[0];
+
+    return (
+      <section className="profile-section combo-stats-section combo-stats-dashboard">
+        <div className="combo-highlight-grid">
+          <ComboDeckHighlightCard
+            title="Deck mais usado"
+            combo={mostPlayedDeck}
+            onClick={onSelectDeck}
+            onPreview={onPreviewDeck}
+            onPreviewClose={onPreviewClose}
+          />
+
+          <ComboDeckHighlightCard
+            title="Melhor deck por WR"
+            combo={bestWinrateDeck}
+            onClick={onSelectDeck}
+            onPreview={onPreviewDeck}
+            onPreviewClose={onPreviewClose}
+          />
+        </div>
+
+        <div className="combo-pie-grid">
+          <ComboPieChart
+            title="Distribuição de partidas"
+            subtitle="Quanto cada deck representa no total de partidas"
+            items={stats.decks}
+            metric="games"
+            kind="deck"
+            onSelect={onSelectDeck}
+            onPreview={onPreviewDeck}
+            onPreviewClose={onPreviewClose}
+          />
+
+          <ComboPieChart
+            title="Distribuição de vitórias"
+            subtitle="Quanto cada deck representa no total de vitórias"
+            items={stats.decks}
+            metric="wins"
+            kind="deck"
+            onSelect={onSelectDeck}
+            onPreview={onPreviewDeck}
+            onPreviewClose={onPreviewClose}
+          />
+        </div>
+
+        <div className="combo-pie-grid combo-pie-grid-extra">
+  <ComboPieChart
+    title="Autores dos decks usados"
+    subtitle="De quais jogadores vêm os decks que este jogador mais usa"
+    items={stats.authors || []}
+    metric="games"
+    kind="pilot"
+    onSelect={onSelectPlayer}
+    onPreview={onPreviewPlayer}
+    onPreviewClose={onPreviewClose}
+  />
+
+  <ComboPieChart
+    title="Rivais mais frequentes"
+    subtitle="Jogadores que mais aparecem nas partidas junto dele"
+    items={stats.rivals || []}
+    metric="games"
+    kind="pilot"
+    onSelect={onSelectPlayer}
+    onPreview={onPreviewPlayer}
+    onPreviewClose={onPreviewClose}
+  />
+</div>
+      </section>
+    );
+  }
+
+  const stats = playerDeckStats.decks[itemName];
+
+  if (!stats || !stats.pilots.length) {
+    return null;
+  }
+
+  const mostPlayedPilot = stats.mostPlayedPilots[0];
+  const bestWinratePilot = stats.bestWinratePilots[0];
+
+  return (
+    <section className="profile-section combo-stats-section combo-stats-dashboard">
+      <div className="combo-highlight-grid">
+        <ComboPilotHighlightCard
+          title="Piloto mais frequente"
+          combo={mostPlayedPilot}
+          onClick={onSelectPlayer}
+          onPreview={onPreviewPlayer}
+          onPreviewClose={onPreviewClose}
+        />
+
+        <ComboPilotHighlightCard
+          title="Melhor piloto por WR"
+          combo={bestWinratePilot}
+          onClick={onSelectPlayer}
+          onPreview={onPreviewPlayer}
+          onPreviewClose={onPreviewClose}
+        />
+      </div>
+
+      <div className="combo-pie-grid">
+        <ComboPieChart
+          title="Distribuição de usos"
+          subtitle="Quanto cada piloto representa nas aparições do deck"
+          items={stats.pilots}
+          metric="games"
+          kind="pilot"
+          onSelect={onSelectPlayer}
+          onPreview={onPreviewPlayer}
+          onPreviewClose={onPreviewClose}
+        />
+
+        <ComboPieChart
+          title="Distribuição de vitórias"
+          subtitle="Quanto cada piloto representa nas vitórias do deck"
+          items={stats.pilots}
+          metric="wins"
+          kind="pilot"
+          onSelect={onSelectPlayer}
+          onPreview={onPreviewPlayer}
+          onPreviewClose={onPreviewClose}
+        />
+      </div>
+
+      <div className="combo-pie-grid combo-pie-grid-extra">
+  <ComboPieChart
+    title="Decks rivais mais frequentes"
+    subtitle="Decks que mais aparecem na mesma mesa"
+    items={stats.rivals || []}
+    metric="games"
+    kind="deck"
+    onSelect={onSelectDeck}
+    onPreview={onPreviewDeck}
+    onPreviewClose={onPreviewClose}
+  />
+</div>
+    </section>
+  );
+}
+
+function ProfileComboStatsModal({
+  isPlayer,
+  itemName,
+  playerDeckStats,
+  onSelectDeck,
+  onSelectPlayer,
+  onPreviewDeck,
+  onPreviewPlayer,
+  onPreviewClose,
+  onClose,
+}: {
+  isPlayer: boolean;
+  itemName: string;
+  playerDeckStats: PlayerDeckStatsData;
+  onSelectDeck: (deckName: string) => void;
+  onSelectPlayer: (playerName: string) => void;
+  onPreviewDeck: (deckName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewPlayer: (playerName: string, event: React.MouseEvent<Element>) => void;
+  onPreviewClose: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop combo-stats-modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="combo-stats-modal combo-stats-modal-dashboard"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="combo-stats-modal-header">
+          <span>{isPlayer ? "Jogador + Deck" : "Deck + Piloto"}</span>
+
+          <h2>
+            {isPlayer ? "Estatísticas de decks" : "Estatísticas de pilotos"}
+          </h2>
+
+          <p>
+            {isPlayer
+              ? `Desempenho de ${itemName} com cada deck.`
+              : `Desempenho dos jogadores usando ${itemName}.`}
+          </p>
+        </div>
+
+        <ProfileComboStatsSection
+          isPlayer={isPlayer}
+          itemName={itemName}
+          playerDeckStats={playerDeckStats}
+          onSelectDeck={(deckName) => {
+            onClose();
+            onSelectDeck(deckName);
+          }}
+          onSelectPlayer={(playerName) => {
+            onClose();
+            onSelectPlayer(playerName);
+          }}
+          onPreviewDeck={onPreviewDeck}
+          onPreviewPlayer={onPreviewPlayer}
+          onPreviewClose={onPreviewClose}
+        />
+      </motion.div>
+    </div>
+  );
+}
+
 function ProfileModal({
   selected,
   players,
   decks,
+  playerDeckStats,
   onSelectPlayer,
   onSelectDeck,
   onFblthpClick,
@@ -1909,6 +2653,7 @@ function ProfileModal({
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
   players: Player[];
   decks: Deck[];
+  playerDeckStats: PlayerDeckStatsData;
   onSelectPlayer: (player: Player) => void;
   onSelectDeck: (deck: Deck) => void;
   onFblthpClick: () => void;
@@ -1919,7 +2664,7 @@ function ProfileModal({
   onProfilePreview: (
     type: "player" | "deck",
     item: Player | Deck,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) => void;
   onProfilePreviewClose: () => void;
   forceShowWinrate?: boolean;
@@ -1936,6 +2681,12 @@ function ProfileModal({
   ) => void;
   onClose: () => void;
 }) {
+  const [isComboStatsModalOpen, setIsComboStatsModalOpen] = useState(false);
+
+  useEffect(() => {
+    setIsComboStatsModalOpen(false);
+  }, [selected?.type, selected?.item.name]);
+
   if (!selected) return null;
 
   const isPlayer = selected.type === "player";
@@ -1956,6 +2707,16 @@ function ProfileModal({
 
   const shouldShowProfileWinrate = forceShowWinrate || hasEnoughParticipations(profileParticipations);
 
+  const hasComboStats = isPlayer
+  ? Boolean(
+      playerDeckStats.players[item.name]?.mostPlayedDecks?.length ||
+        playerDeckStats.players[item.name]?.bestWinrateDecks?.length
+    )
+  : Boolean(
+      playerDeckStats.decks[item.name]?.mostPlayedPilots?.length ||
+        playerDeckStats.decks[item.name]?.bestWinratePilots?.length
+    );
+
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
 
@@ -1974,7 +2735,7 @@ function ProfileModal({
 
   function previewPlayerByName(
     name: string,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     const player = players.find((player) => player.name === name);
 
@@ -1985,7 +2746,7 @@ function ProfileModal({
 
   function previewDeckByName(
     name: string,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     const deck = decks.find((deck) => deck.name === name);
 
@@ -2014,46 +2775,55 @@ function ProfileModal({
           <div className="profile-cover profile-cover-empty" />
         )}
 
-        {isPlayer ? (
-          <PlayerProfileIcon
-            player={item as Player}
-            onClick={() => onAuthorIconClick(item as Player)}
-          />
-        ) : null}
+        <div className="profile-side-actions">
+  {hasComboStats ? (
+    <ProfileComboStatsIcon
+      isPlayer={isPlayer}
+      onClick={() => setIsComboStatsModalOpen(true)}
+    />
+  ) : null}
 
-        {!isPlayer && ((item as Deck).autor || (item as Deck).origem) ? (
-          <DeckProfileBadges
-            author={(item as Deck).autor}
-            origin={(item as Deck).origem}
-            onSelectAuthor={openPlayerByName}
-            onOriginClick={() => {
-              const origin = (item as Deck).origem;
+  {isPlayer ? (
+    <PlayerProfileIcon
+      player={item as Player}
+      onClick={() => onAuthorIconClick(item as Player)}
+    />
+  ) : null}
 
-              if (origin) {
-                onOriginClick(origin);
-              }
-            }}
-          />
-        ) : null}
+  {!isPlayer && ((item as Deck).autor || (item as Deck).origem) ? (
+    <DeckProfileBadges
+      author={(item as Deck).autor}
+      origin={(item as Deck).origem}
+      onSelectAuthor={openPlayerByName}
+      onOriginClick={() => {
+        const origin = (item as Deck).origem;
 
-        {hasFblthp && fblthpArtUrl ? (
-          <button
-            className="fblthp-profile-badge fblthp-profile-icon-only"
-            onClick={onFblthpClick}
-            title={`Tem o Fblthp${
-              (item as Player).fblthpSince
-                ? ` desde ${(item as Player).fblthpSince}`
-                : ""
-            }`}
-            aria-label={`Tem o Fblthp${
-              (item as Player).fblthpSince
-                ? ` desde ${(item as Player).fblthpSince}`
-                : ""
-            }`}
-          >
-            <img src={fblthpArtUrl} alt="Fblthp holder" />
-          </button>
-        ) : null}
+        if (origin) {
+          onOriginClick(origin);
+        }
+      }}
+    />
+  ) : null}
+</div>
+
+{hasFblthp && fblthpArtUrl ? (
+    <button
+      className="fblthp-profile-badge fblthp-profile-icon-only"
+      onClick={onFblthpClick}
+      title={`Tem o Fblthp${
+        (item as Player).fblthpSince
+          ? ` desde ${(item as Player).fblthpSince}`
+          : ""
+      }`}
+      aria-label={`Tem o Fblthp${
+        (item as Player).fblthpSince
+          ? ` desde ${(item as Player).fblthpSince}`
+          : ""
+      }`}
+    >
+      <img src={fblthpArtUrl} alt="Fblthp holder" />
+    </button>
+  ) : null}
 
         <div className="profile-header">
           {isPlayer ? (
@@ -2346,6 +3116,22 @@ function ProfileModal({
             })() : null}
           </div>
         ) : null}
+
+
+        {isComboStatsModalOpen ? (
+          <ProfileComboStatsModal
+            isPlayer={isPlayer}
+            itemName={item.name}
+            playerDeckStats={playerDeckStats}
+            onSelectDeck={openDeckByName}
+            onSelectPlayer={openPlayerByName}
+            onPreviewDeck={previewDeckByName}
+            onPreviewPlayer={previewPlayerByName}
+            onPreviewClose={onProfilePreviewClose}
+            onClose={() => setIsComboStatsModalOpen(false)}
+          />
+        ) : null}
+
       </motion.div>
     </div>
   );
@@ -3834,7 +4620,7 @@ function DecklistModal({
 
   function showPreview(
     card: ResolvedDeckCard,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     onCardPreview({
       imageUrl: card.imageUrl,
@@ -4219,7 +5005,7 @@ function DashboardApp() {
   function showProfilePreview(
     type: "player" | "deck",
     item: Player | Deck,
-    event: React.MouseEvent<HTMLElement>
+    event: React.MouseEvent<Element>
   ) {
     if (type === "player") {
       setProfilePreview({
@@ -4415,6 +5201,7 @@ function DashboardApp() {
         selected={selectedProfile}
         players={players}
         decks={allDecks}
+        playerDeckStats={data?.playerDeckStats || emptyPlayerDeckStats}
         onSelectPlayer={(player) =>
           setSelectedProfile({ type: "player", item: player })
         }
