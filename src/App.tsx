@@ -272,6 +272,8 @@ type ComboSimpleStat = {
   jogador?: string;
   deck?: string;
   games: number;
+  decidedGames?: number;
+  hasWinrate?: boolean;
   wins: number;
   winrate: number;
 
@@ -300,6 +302,9 @@ type PlayerDeckStatsData = {
 
       rivals?: ComboSimpleStat[];
       mostPlayedRivals?: ComboSimpleStat[];
+
+      winrateVsDecks?: ComboSimpleStat[];
+      winrateVsPlayers?: ComboSimpleStat[];
     }
   >;
   decks: Record<
@@ -311,6 +316,9 @@ type PlayerDeckStatsData = {
 
       rivals?: ComboSimpleStat[];
       mostPlayedRivalDecks?: ComboSimpleStat[];
+
+      winrateVsDecks?: ComboSimpleStat[];
+      winrateVsPlayers?: ComboSimpleStat[];
     }
   >;
   minGamesForWinrate: number;
@@ -1996,6 +2004,145 @@ type ComboStatKind = "deck" | "pilot";
 type ComboStatMetric = "games" | "wins";
 type ComboStatItem = PlayerDeckComboStat | DeckPilotComboStat | ComboSimpleStat;
 
+type ComboStatsHoverPreview = {
+  item: ComboStatItem;
+  kind: ComboStatKind;
+  contextName: string;
+  label: string;
+  x: number;
+  y: number;
+} | null;
+
+function findByNormalizedName<T extends { name: string }>(
+  items: T[],
+  name: string
+) {
+  const normalizedName = name.trim().toLowerCase();
+
+  return items.find(
+    (item) => item.name.trim().toLowerCase() === normalizedName
+  );
+}
+
+function buildFallbackDeckFromCombo(item: ComboStatItem): Deck {
+  const deckItem = item as PlayerDeckComboStat & ComboSimpleStat;
+
+  return {
+    name: getComboStatName(item),
+    appearances: item.games,
+    wins: item.wins,
+    winrate: item.winrate,
+    kills: 0,
+    deaths: 0,
+    imageUrl: deckItem.fotoUrl || "",
+    arteUrl: deckItem.arteUrl || "",
+    headerUrl: deckItem.arteUrl || deckItem.fotoUrl || "",
+    commander: deckItem.comandante || "",
+    colors: deckItem.cores || "",
+    bio: "",
+    decklistUrl: "",
+    rivalFrequente: null,
+    carrasco: null,
+    maiorPato: null,
+    melhorPiloto: null,
+    cartasChave: [],
+    autor: null,
+    origem: null,
+    decklistTexto: "",
+    secondaryCommander: deckItem.comandanteSecundario || "",
+    secondaryCommanderImageUrl: deckItem.fotoComandanteSecundario || "",
+    secondaryCommanderType: deckItem.tipoComandanteSecundario || "",
+  };
+}
+
+function buildFallbackPlayerFromCombo(item: ComboStatItem): Player {
+  const playerItem = item as DeckPilotComboStat & ComboSimpleStat;
+
+  return {
+    name: getComboStatName(item),
+    games: item.games,
+    wins: item.wins,
+    winrate: item.winrate,
+    kills: 0,
+    deaths: 0,
+    photoUrl: playerItem.fotoUrl || "",
+    headerUrl: playerItem.fotoUrl || "",
+    title: playerItem.titulo || "",
+    bio: "",
+    rivalFrequente: null,
+    carrasco: null,
+    maiorPato: null,
+    deckFavorito: null,
+    melhorDeck: null,
+    hasFblthp: false,
+    fblthpSince: "",
+    fblthpArtUrl: "",
+    iconeKeyrune: playerItem.iconeKeyrune || "",
+    profileExtras: emptyPlayerProfileExtras,
+  };
+}
+
+function ComboStatsHoverCard({
+  preview,
+  players,
+  decks,
+}: {
+  preview: ComboStatsHoverPreview;
+  players: Player[];
+  decks: Deck[];
+}) {
+  if (!preview) return null;
+
+  const { item, kind, x, y } = preview;
+
+  const name = getComboStatName(item);
+
+  if (kind === "deck") {
+    const baseDeck =
+      findByNormalizedName(decks, name) || buildFallbackDeckFromCombo(item);
+
+    const deckPreview: Deck = {
+      ...baseDeck,
+      appearances: item.games,
+      wins: item.wins,
+      winrate: item.winrate,
+    };
+
+    return (
+      <ProfileHoverCard
+        preview={{
+          type: "deck",
+          item: deckPreview,
+          x,
+          y,
+        }}
+      />
+    );
+  }
+
+  const basePlayer =
+    findByNormalizedName(players, name) || buildFallbackPlayerFromCombo(item);
+
+  const playerPreview: Player = {
+    ...basePlayer,
+    games: item.games,
+    wins: item.wins,
+    winrate: item.winrate,
+  };
+
+  return (
+    <ProfileHoverCard
+      preview={{
+        type: "player",
+        item: playerPreview,
+        x,
+        y,
+      }}
+    />
+  );
+}
+
+
 const COMBO_CHART_COLORS = [
   "#a78bfa",
   "#38bdf8",
@@ -2111,7 +2258,12 @@ function ComboDeckHighlightCard({
   title: string;
   combo: PlayerDeckComboStat | undefined;
   onClick: (deckName: string) => void;
-  onPreview: (deckName: string, event: React.MouseEvent<Element>) => void;
+  onPreview: (
+    combo: PlayerDeckComboStat,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) => void;
   onPreviewClose: () => void;
 }) {
   if (!combo) return null;
@@ -2123,8 +2275,8 @@ function ComboDeckHighlightCard({
     <button
       className="combo-highlight-card combo-highlight-card-deck"
       onClick={() => onClick(deckName)}
-      onMouseEnter={(event) => onPreview(deckName, event)}
-      onMouseMove={(event) => onPreview(deckName, event)}
+      onMouseEnter={(event) => onPreview(combo, "deck", title, event)}
+      onMouseMove={(event) => onPreview(combo, "deck", title, event)}
       onMouseLeave={onPreviewClose}
     >
       <div className="combo-highlight-art">
@@ -2168,7 +2320,12 @@ function ComboPilotHighlightCard({
   title: string;
   combo: DeckPilotComboStat | undefined;
   onClick: (playerName: string) => void;
-  onPreview: (playerName: string, event: React.MouseEvent<Element>) => void;
+  onPreview: (
+    combo: DeckPilotComboStat,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) => void;
   onPreviewClose: () => void;
 }) {
   if (!combo) return null;
@@ -2179,8 +2336,8 @@ function ComboPilotHighlightCard({
     <button
       className="combo-highlight-card combo-highlight-card-pilot"
       onClick={() => onClick(playerName)}
-      onMouseEnter={(event) => onPreview(playerName, event)}
-      onMouseMove={(event) => onPreview(playerName, event)}
+      onMouseEnter={(event) => onPreview(combo, "pilot", title, event)}
+      onMouseMove={(event) => onPreview(combo, "pilot", title, event)}
       onMouseLeave={onPreviewClose}
     >
       <div className="combo-highlight-pilot-avatar">
@@ -2227,7 +2384,12 @@ function ComboPieChart({
   metric: ComboStatMetric;
   kind: ComboStatKind;
   onSelect: (name: string) => void;
-  onPreview: (name: string, event: React.MouseEvent<Element>) => void;
+  onPreview: (
+    item: ComboStatItem,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) => void;
   onPreviewClose: () => void;
 }) {
   const visibleItems = items
@@ -2306,8 +2468,8 @@ function ComboPieChart({
                     fill={color}
                     className="combo-pie-slice"
                     onClick={() => onSelect(name)}
-                    onMouseEnter={(event) => onPreview(name, event)}
-                    onMouseMove={(event) => onPreview(name, event)}
+                    onMouseEnter={(event) => onPreview(item, kind, title, event)}
+                    onMouseMove={(event) => onPreview(item, kind, title, event)}
                     onMouseLeave={onPreviewClose}
                   />
                 );
@@ -2320,8 +2482,8 @@ function ComboPieChart({
                   fill={color}
                   className="combo-pie-slice"
                   onClick={() => onSelect(name)}
-                  onMouseEnter={(event) => onPreview(name, event)}
-                  onMouseMove={(event) => onPreview(name, event)}
+                  onMouseEnter={(event) => onPreview(item, kind, title, event)}
+                  onMouseMove={(event) => onPreview(item, kind, title, event)}
                   onMouseLeave={onPreviewClose}
                 />
               );
@@ -2370,8 +2532,8 @@ function ComboPieChart({
                 key={`${metric}-${name}`}
                 className="combo-pie-legend-item"
                 onClick={() => onSelect(name)}
-                onMouseEnter={(event) => onPreview(name, event)}
-                onMouseMove={(event) => onPreview(name, event)}
+                onMouseEnter={(event) => onPreview(item, kind, title, event)}
+                onMouseMove={(event) => onPreview(item, kind, title, event)}
                 onMouseLeave={onPreviewClose}
               >
                 <span
@@ -2395,24 +2557,176 @@ function ComboPieChart({
   );
 }
 
+function ComboWinrateBarChart({
+  title,
+  subtitle,
+  items,
+  kind,
+  onSelect,
+  onPreview,
+  onPreviewClose,
+}: {
+  title: string;
+  subtitle: string;
+  items: ComboStatItem[];
+  kind: ComboStatKind;
+  onSelect: (name: string) => void;
+  onPreview: (
+    item: ComboStatItem,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) => void;
+  onPreviewClose: () => void;
+}) {
+  const visibleItems = items
+  .filter((item) => Number(item.games || 0) >= 3)
+  .slice()
+  .sort((a, b) => {
+  const aHasWinrate =
+    (a as ComboSimpleStat).hasWinrate !== undefined
+      ? Boolean((a as ComboSimpleStat).hasWinrate)
+      : Number((a as ComboSimpleStat).decidedGames ?? a.games) > 0;
+
+  const bHasWinrate =
+    (b as ComboSimpleStat).hasWinrate !== undefined
+      ? Boolean((b as ComboSimpleStat).hasWinrate)
+      : Number((b as ComboSimpleStat).decidedGames ?? b.games) > 0;
+
+  if (aHasWinrate !== bHasWinrate) {
+    return Number(bHasWinrate) - Number(aHasWinrate);
+  }
+
+  if (aHasWinrate && bHasWinrate && a.winrate !== b.winrate) {
+    return a.winrate - b.winrate;
+  }
+
+  if (b.games !== a.games) return b.games - a.games;
+  if (a.wins !== b.wins) return a.wins - b.wins;
+
+  return getComboStatName(a).localeCompare(getComboStatName(b));
+})
+
+  if (!visibleItems.length) {
+    return (
+      <div className="combo-winrate-card combo-winrate-card-empty">
+        <div className="combo-winrate-card-header">
+          <strong>{title}</strong>
+          <span>{subtitle}</span>
+        </div>
+
+        <p>Nenhum confronto direto suficiente para montar este gráfico.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="combo-winrate-card">
+      <div className="combo-winrate-card-header">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+
+      <div className="combo-winrate-list">
+        {visibleItems.map((item) => {
+  const name = getComboStatName(item);
+  const decidedGames = Number((item as ComboSimpleStat).decidedGames ?? item.games);
+  const hasWinrate =
+    (item as ComboSimpleStat).hasWinrate !== undefined
+      ? Boolean((item as ComboSimpleStat).hasWinrate)
+      : decidedGames > 0;
+
+  const percent = hasWinrate
+    ? Math.max(0, Math.min(100, item.winrate * 100))
+    : 0;
+
+  return (
+    <button
+      key={`${name}-${item.games}-${item.wins}-${decidedGames}`}
+      className={
+        hasWinrate
+          ? "combo-winrate-row"
+          : "combo-winrate-row combo-winrate-row-unresolved"
+      }
+      onClick={() => onSelect(name)}
+      onMouseEnter={(event) => onPreview(item, kind, title, event)}
+      onMouseMove={(event) => onPreview(item, kind, title, event)}
+      onMouseLeave={onPreviewClose}
+    >
+      <div className="combo-winrate-row-top">
+        <strong>{name}</strong>
+
+        <span>
+          {item.wins}V / {item.games}J
+        </span>
+      </div>
+
+      <div className="combo-winrate-bar-shell">
+        {hasWinrate ? (
+          <div
+            className="combo-winrate-bar-fill"
+            style={
+              {
+                width: `${percent}%`,
+                "--combo-winrate-color": getWinrateColor(item.winrate),
+              } as React.CSSProperties
+            }
+          />
+        ) : (
+          <div className="combo-winrate-bar-unresolved">
+            Ø
+          </div>
+        )}
+      </div>
+
+      <div className="combo-winrate-row-bottom">
+        {hasWinrate ? (
+          <StatPill variant="winrate" value={item.winrate}>
+            {formatPercent(item.winrate)} WR
+          </StatPill>
+        ) : (
+          <span className="stat-pill stat-pill-unresolved">
+            Ø WR
+          </span>
+        )}
+
+        <small>
+          {hasWinrate
+            ? `${decidedGames} jogo${decidedGames === 1 ? "" : "s"} decidido${
+                decidedGames === 1 ? "" : "s"
+              } entre eles`
+            : "ninguém venceu o outro ainda"}
+        </small>
+      </div>
+    </button>
+  );
+})}
+      </div>
+    </div>
+  );
+}
+
 function ProfileComboStatsSection({
   isPlayer,
   itemName,
   playerDeckStats,
   onSelectDeck,
   onSelectPlayer,
-  onPreviewDeck,
-  onPreviewPlayer,
-  onPreviewClose,
+  onComboPreview,
+  onComboPreviewClose,
 }: {
   isPlayer: boolean;
   itemName: string;
   playerDeckStats: PlayerDeckStatsData;
   onSelectDeck: (deckName: string) => void;
   onSelectPlayer: (playerName: string) => void;
-  onPreviewDeck: (deckName: string, event: React.MouseEvent<Element>) => void;
-  onPreviewPlayer: (playerName: string, event: React.MouseEvent<Element>) => void;
-  onPreviewClose: () => void;
+  onComboPreview: (
+    item: ComboStatItem,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) => void;
+  onComboPreviewClose: () => void;
 }) {
   if (isPlayer) {
     const stats = playerDeckStats.players[itemName];
@@ -2431,16 +2745,16 @@ function ProfileComboStatsSection({
             title="Deck mais usado"
             combo={mostPlayedDeck}
             onClick={onSelectDeck}
-            onPreview={onPreviewDeck}
-            onPreviewClose={onPreviewClose}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
           />
 
           <ComboDeckHighlightCard
             title="Melhor deck por WR"
             combo={bestWinrateDeck}
             onClick={onSelectDeck}
-            onPreview={onPreviewDeck}
-            onPreviewClose={onPreviewClose}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
           />
         </div>
 
@@ -2452,8 +2766,8 @@ function ProfileComboStatsSection({
             metric="games"
             kind="deck"
             onSelect={onSelectDeck}
-            onPreview={onPreviewDeck}
-            onPreviewClose={onPreviewClose}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
           />
 
           <ComboPieChart
@@ -2463,34 +2777,56 @@ function ProfileComboStatsSection({
             metric="wins"
             kind="deck"
             onSelect={onSelectDeck}
-            onPreview={onPreviewDeck}
-            onPreviewClose={onPreviewClose}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
           />
         </div>
 
         <div className="combo-pie-grid combo-pie-grid-extra">
-  <ComboPieChart
-    title="Autores dos decks usados"
-    subtitle="De quais jogadores vêm os decks que este jogador mais usa"
-    items={stats.authors || []}
-    metric="games"
-    kind="pilot"
-    onSelect={onSelectPlayer}
-    onPreview={onPreviewPlayer}
-    onPreviewClose={onPreviewClose}
-  />
+          <ComboPieChart
+            title="Autores dos decks usados"
+            subtitle="De quais jogadores vêm os decks que este jogador mais usa"
+            items={stats.authors || []}
+            metric="games"
+            kind="pilot"
+            onSelect={onSelectPlayer}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
+          />
 
-  <ComboPieChart
-    title="Rivais mais frequentes"
-    subtitle="Jogadores que mais aparecem nas partidas junto dele"
-    items={stats.rivals || []}
-    metric="games"
-    kind="pilot"
-    onSelect={onSelectPlayer}
-    onPreview={onPreviewPlayer}
-    onPreviewClose={onPreviewClose}
-  />
-</div>
+          <ComboPieChart
+            title="Rivais mais frequentes"
+            subtitle="Jogadores que mais aparecem nas partidas junto dele"
+            items={stats.rivals || []}
+            metric="games"
+            kind="pilot"
+            onSelect={onSelectPlayer}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
+          />
+        </div>
+
+        <div className="combo-winrate-grid">
+          <ComboWinrateBarChart
+            title="WinRate contra Decks"
+            subtitle="Confrontos diretos em que este jogador ou o deck adversário venceu"
+            items={stats.winrateVsDecks || []}
+            kind="deck"
+            onSelect={onSelectDeck}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
+          />
+
+          <ComboWinrateBarChart
+            title="WinRate contra Jogadores"
+            subtitle="Confrontos diretos em que este jogador ou o adversário venceu"
+            items={stats.winrateVsPlayers || []}
+            kind="pilot"
+            onSelect={onSelectPlayer}
+            onPreview={onComboPreview}
+            onPreviewClose={onComboPreviewClose}
+          />
+        </div>
       </section>
     );
   }
@@ -2511,16 +2847,16 @@ function ProfileComboStatsSection({
           title="Piloto mais frequente"
           combo={mostPlayedPilot}
           onClick={onSelectPlayer}
-          onPreview={onPreviewPlayer}
-          onPreviewClose={onPreviewClose}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
         />
 
         <ComboPilotHighlightCard
           title="Melhor piloto por WR"
           combo={bestWinratePilot}
           onClick={onSelectPlayer}
-          onPreview={onPreviewPlayer}
-          onPreviewClose={onPreviewClose}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
         />
       </div>
 
@@ -2532,8 +2868,8 @@ function ProfileComboStatsSection({
           metric="games"
           kind="pilot"
           onSelect={onSelectPlayer}
-          onPreview={onPreviewPlayer}
-          onPreviewClose={onPreviewClose}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
         />
 
         <ComboPieChart
@@ -2543,23 +2879,45 @@ function ProfileComboStatsSection({
           metric="wins"
           kind="pilot"
           onSelect={onSelectPlayer}
-          onPreview={onPreviewPlayer}
-          onPreviewClose={onPreviewClose}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
         />
       </div>
 
       <div className="combo-pie-grid combo-pie-grid-extra">
-  <ComboPieChart
-    title="Decks rivais mais frequentes"
-    subtitle="Decks que mais aparecem na mesma mesa"
-    items={stats.rivals || []}
-    metric="games"
-    kind="deck"
-    onSelect={onSelectDeck}
-    onPreview={onPreviewDeck}
-    onPreviewClose={onPreviewClose}
-  />
-</div>
+        <ComboPieChart
+          title="Decks rivais mais frequentes"
+          subtitle="Decks que mais aparecem na mesma mesa"
+          items={stats.rivals || []}
+          metric="games"
+          kind="deck"
+          onSelect={onSelectDeck}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
+        />
+      </div>
+
+      <div className="combo-winrate-grid">
+        <ComboWinrateBarChart
+          title="WinRate contra Decks"
+          subtitle="Confrontos diretos em que este deck ou o deck adversário venceu"
+          items={stats.winrateVsDecks || []}
+          kind="deck"
+          onSelect={onSelectDeck}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
+        />
+
+        <ComboWinrateBarChart
+          title="WinRate contra Jogadores"
+          subtitle="Confrontos diretos em que este deck ou o jogador adversário venceu"
+          items={stats.winrateVsPlayers || []}
+          kind="pilot"
+          onSelect={onSelectPlayer}
+          onPreview={onComboPreview}
+          onPreviewClose={onComboPreviewClose}
+        />
+      </div>
     </section>
   );
 }
@@ -2568,25 +2926,46 @@ function ProfileComboStatsModal({
   isPlayer,
   itemName,
   playerDeckStats,
+  players,
+  decks,
   onSelectDeck,
   onSelectPlayer,
-  onPreviewDeck,
-  onPreviewPlayer,
-  onPreviewClose,
   onClose,
 }: {
   isPlayer: boolean;
   itemName: string;
   playerDeckStats: PlayerDeckStatsData;
+  players: Player[];
+  decks: Deck[];
   onSelectDeck: (deckName: string) => void;
   onSelectPlayer: (playerName: string) => void;
-  onPreviewDeck: (deckName: string, event: React.MouseEvent<Element>) => void;
-  onPreviewPlayer: (playerName: string, event: React.MouseEvent<Element>) => void;
-  onPreviewClose: () => void;
   onClose: () => void;
 }) {
+  const [comboPreview, setComboPreview] =
+    useState<ComboStatsHoverPreview>(null);
+
+  function showComboPreview(
+    item: ComboStatItem,
+    kind: ComboStatKind,
+    label: string,
+    event: React.MouseEvent<Element>
+  ) {
+    setComboPreview({
+      item,
+      kind,
+      contextName: itemName,
+      label,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
   return (
-    <div className="modal-backdrop combo-stats-modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop combo-stats-modal-backdrop"
+      onClick={onClose}
+      onMouseLeave={() => setComboPreview(null)}
+    >
       <motion.div
         className="combo-stats-modal combo-stats-modal-dashboard"
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -2611,7 +2990,7 @@ function ProfileComboStatsModal({
           </p>
         </div>
 
-        <ProfileComboStatsSection
+       <ProfileComboStatsSection
           isPlayer={isPlayer}
           itemName={itemName}
           playerDeckStats={playerDeckStats}
@@ -2623,11 +3002,16 @@ function ProfileComboStatsModal({
             onClose();
             onSelectPlayer(playerName);
           }}
-          onPreviewDeck={onPreviewDeck}
-          onPreviewPlayer={onPreviewPlayer}
-          onPreviewClose={onPreviewClose}
+          onComboPreview={showComboPreview}
+          onComboPreviewClose={() => setComboPreview(null)}
         />
       </motion.div>
+
+      <ComboStatsHoverCard
+        preview={comboPreview}
+        players={players}
+        decks={decks}
+      />
     </div>
   );
 }
@@ -3123,11 +3507,10 @@ function ProfileModal({
             isPlayer={isPlayer}
             itemName={item.name}
             playerDeckStats={playerDeckStats}
+            players={players}
+            decks={decks}
             onSelectDeck={openDeckByName}
             onSelectPlayer={openPlayerByName}
-            onPreviewDeck={previewDeckByName}
-            onPreviewPlayer={previewPlayerByName}
-            onPreviewClose={onProfilePreviewClose}
             onClose={() => setIsComboStatsModalOpen(false)}
           />
         ) : null}
