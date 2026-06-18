@@ -4834,3 +4834,582 @@ footer {
   background: rgba(161, 161, 170, 0.13);
   border-color: rgba(161, 161, 170, 0.25);
 }
+
+/* =========================
+   PLAYER TROPHIES
+========================= */
+
+.trophy-badge {
+  --trophy-primary: #a1a1aa;
+  --trophy-secondary: #71717a;
+  --trophy-highlight: #e4e4e7;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  width: fit-content;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  color: #ffffff;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--trophy-highlight) 24%, transparent), transparent 55%),
+    rgba(255, 255, 255, 0.055);
+
+  border: 1px solid color-mix(in srgb, var(--trophy-primary) 42%, transparent);
+
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.trophy-badge-common {
+  --trophy-primary: #a1a1aa;
+  --trophy-secondary: #71717a;
+  --trophy-highlight: #e4e4e7;
+}
+
+.trophy-badge-uncommon {
+  --trophy-primary: #22c55e;
+  --trophy-secondary: #15803d;
+  --trophy-highlight: #bbf7d0;
+}
+
+.trophy-badge-rare {
+  --trophy-primary: #38bdf8;
+  --trophy-secondary: #2563eb;
+  --trophy-highlight: #bae6fd;
+}
+
+.trophy-badge-mythic {
+  --trophy-primary: #f97316;
+  --trophy-secondary: #dc2626;
+  --trophy-highlight: #fed7aa;
+}
+
+.trophy-icon-svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--trophy-primary) 42%, transparent));
+}
+
+.trophy-icon-svg stop:nth-child(1) {
+  stop-color: var(--trophy-highlight);
+}
+
+.trophy-icon-svg stop:nth-child(2) {
+  stop-color: var(--trophy-primary);
+}
+
+.trophy-icon-svg stop:nth-child(3) {
+  stop-color: var(--trophy-secondary);
+}
+
+.trophy-icon-main,
+.trophy-icon-side,
+.trophy-icon-stem,
+.trophy-icon-base {
+  fill: url("#trophy-gradient-common");
+}
+
+.trophy-icon-svg-common .trophy-icon-main,
+.trophy-icon-svg-common .trophy-icon-side,
+.trophy-icon-svg-common .trophy-icon-stem,
+.trophy-icon-svg-common .trophy-icon-base {
+  fill: url("#trophy-gradient-common");
+}
+
+.trophy-icon-svg-uncommon .trophy-icon-main,
+.trophy-icon-svg-uncommon .trophy-icon-side,
+.trophy-icon-svg-uncommon .trophy-icon-stem,
+.trophy-icon-svg-uncommon .trophy-icon-base {
+  fill: url("#trophy-gradient-uncommon");
+}
+
+.trophy-icon-svg-rare .trophy-icon-main,
+.trophy-icon-svg-rare .trophy-icon-side,
+.trophy-icon-svg-rare .trophy-icon-stem,
+.trophy-icon-svg-rare .trophy-icon-base {
+  fill: url("#trophy-gradient-rare");
+}
+
+.trophy-icon-svg-mythic .trophy-icon-main,
+.trophy-icon-svg-mythic .trophy-icon-side,
+.trophy-icon-svg-mythic .trophy-icon-stem,
+.trophy-icon-svg-mythic .trophy-icon-base {
+  fill: url("#trophy-gradient-mythic");
+}
+
+.trophy-icon-shadow {
+  fill: rgba(0, 0, 0, 0.28);
+}
+
+.trophy-icon-shine {
+  fill: rgba(255, 255, 255, 0.38);
+}
+
+.trophy-badge-value {
+  font-size: 12px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.trophy-badge-compact {
+  padding: 3px 7px;
+  gap: 4px;
+}
+
+.trophy-badge-compact .trophy-icon-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.trophy-badge-compact .trophy-badge-value {
+  font-size: 11px;
+}
+
+.leaderboard-trophy-line {
+  display: flex;
+  align-items: center;
+
+  margin-top: 7px;
+}
+
+.profile-hover-stat-pills .trophy-badge {
+  align-self: center;
+}
+
+.profile-trophy-soft-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-top: 10px;
+
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.combo-stats-trophy-record {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: fit-content;
+
+  margin: 12px auto 0;
+  padding: 10px 14px;
+
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.052);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.combo-stats-trophy-record div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.combo-stats-trophy-record span {
+  color: #a1a1aa;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.combo-stats-trophy-record strong {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.combo-stats-trophy-record small {
+  color: #d4d4d8;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* =========================
+   TROPHY POSITION REFINES
+========================= */
+
+.name-with-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.leaderboard-title-trophy {
+  display: inline-flex;
+  align-items: center;
+
+  margin-left: 6px;
+}
+
+.leaderboard-title-trophy .trophy-badge {
+  transform: translateY(-1px);
+}
+
+.profile-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  gap: 10px;
+}
+
+.profile-title-row h2 {
+  margin: 0;
+}
+
+.trophy-badge {
+  position: relative;
+}
+
+.trophy-badge-tooltip {
+  pointer-events: none;
+
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  z-index: 80;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  min-width: 150px;
+
+  padding: 8px 10px;
+
+  border-radius: 12px;
+
+  background: rgba(2, 6, 23, 0.96);
+  border: 1px solid color-mix(in srgb, var(--trophy-primary) 45%, transparent);
+
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.trophy-badge-tooltip::after {
+  content: "";
+
+  position: absolute;
+  left: 50%;
+  top: 100%;
+
+  width: 8px;
+  height: 8px;
+
+  background: rgba(2, 6, 23, 0.96);
+  border-right: 1px solid color-mix(in srgb, var(--trophy-primary) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--trophy-primary) 45%, transparent);
+
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.trophy-badge-tooltip strong {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 1000;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.trophy-badge-tooltip small {
+  color: #a1a1aa;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.trophy-badge:hover .trophy-badge-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.combo-stats-trophy-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  gap: 10px;
+
+  width: fit-content;
+
+  margin: 14px auto 0;
+  padding: 10px 12px;
+
+  border-radius: 18px;
+
+  background:
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.08), transparent 48%),
+    rgba(255, 255, 255, 0.052);
+
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.combo-stats-trophy-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  min-width: 74px;
+
+  text-align: left;
+}
+
+.combo-stats-trophy-summary span {
+  color: #a1a1aa;
+  font-size: 9px;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.combo-stats-trophy-summary strong {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+@media (max-width: 720px) {
+  .combo-stats-trophy-summary {
+    width: 100%;
+  }
+
+  .combo-stats-trophy-summary > div {
+    min-width: 0;
+    flex: 1 1 80px;
+  }
+}
+
+/* Troféus alinhados à direita */
+
+.leaderboard-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  width: 100%;
+}
+
+.leaderboard-title-row .name-with-title {
+  min-width: 0;
+  flex: 1 1 auto;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  margin: 0;
+}
+
+.leaderboard-title-row .player-name,
+.leaderboard-title-row .inline-title {
+  min-width: 0;
+}
+
+.leaderboard-title-trophy {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  margin-left: auto;
+  padding-left: 18px;
+}
+
+.profile-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+
+  width: 100%;
+}
+
+.profile-title-text {
+  min-width: 0;
+  flex: 1 1 auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.profile-title-text h2 {
+  margin: 0;
+}
+
+.profile-title-text span {
+  margin-top: 4px;
+
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.profile-title-trophy {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  margin-left: auto;
+  padding-left: 22px;
+}
+
+/* Toggle do ranking de jogadores */
+
+.section-icon-toggle {
+  appearance: none;
+
+  display: grid;
+  place-items: center;
+
+  width: 100%;
+  height: 100%;
+
+  padding: 0;
+
+  color: #ffffff;
+  background: transparent;
+  border: 0;
+
+  cursor: pointer;
+}
+
+.section-icon-toggle svg {
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+.section-icon-toggle:hover svg {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.38));
+}
+
+.section-icon-toggle-active {
+  color: #facc15;
+}
+
+.section-icon-toggle-active svg {
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.42));
+}
+
+/* =========================
+   PLAYER + DECK TROPHY MASTERY
+========================= */
+
+.deck-mastery-trophy-badge {
+  --mastery-primary: #facc15;
+  --mastery-secondary: #f97316;
+  --mastery-bg: rgba(250, 204, 21, 0.12);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  width: fit-content;
+
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  color: #ffffff;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.16), transparent 50%),
+    var(--mastery-bg);
+
+  border: 1px solid color-mix(in srgb, var(--mastery-primary) 45%, transparent);
+
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 0 18px color-mix(in srgb, var(--mastery-primary) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.deck-mastery-trophy-badge-positive {
+  --mastery-primary: #facc15;
+  --mastery-secondary: #f97316;
+  --mastery-bg: rgba(250, 204, 21, 0.13);
+}
+
+.deck-mastery-trophy-badge-negative {
+  --mastery-primary: #ef4444;
+  --mastery-secondary: #991b1b;
+  --mastery-bg: rgba(239, 68, 68, 0.14);
+
+  color: #fecaca;
+}
+
+.deck-mastery-trophy-badge-zero {
+  --mastery-primary: #a1a1aa;
+  --mastery-secondary: #52525b;
+  --mastery-bg: rgba(161, 161, 170, 0.11);
+
+  color: #e4e4e7;
+}
+
+.deck-mastery-trophy-badge .trophy-icon-svg {
+  width: 16px;
+  height: 16px;
+}
+
+.deck-mastery-trophy-badge span {
+  font-size: 12px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.deck-mastery-trophy-badge-compact {
+  padding: 4px 8px;
+}
+
+.deck-mastery-trophy-badge-compact .trophy-icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.deck-mastery-trophy-badge-compact span {
+  font-size: 11px;
+}
+
+.profile-hover-context-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+
+  z-index: 6;
+
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}

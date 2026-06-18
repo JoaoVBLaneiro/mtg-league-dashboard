@@ -26,6 +26,52 @@ type DeckOriginInfo = {
   keyruneClass: string;
 } | null;
 
+type RawPlayerTrophy = {
+  "Posição"?: number | string;
+  "Jogador"?: string;
+  "Troféus"?: number | string;
+  "Partidas"?: number | string;
+  "Vitórias"?: number | string;
+  "Derrotas"?: number | string;
+  "WinRate"?: number | string;
+  "Kills"?: number | string;
+  "Melhor Troféus"?: number | string;
+  "Pior Troféus"?: number | string;
+  "Última Variação"?: number | string;
+  "Última Partida ID"?: string;
+  "Última Partida Data"?: string;
+};
+
+type PlayerTrophyInfo = {
+  position: number;
+  trophies: number;
+  games: number;
+  wins: number;
+  losses: number;
+  winrate: number;
+  kills: number;
+  bestTrophies: number;
+  worstTrophies: number;
+  lastDelta: number;
+  lastMatchId: string;
+  lastMatchDate: string;
+};
+
+const emptyPlayerTrophyInfo: PlayerTrophyInfo = {
+  position: 0,
+  trophies: 0,
+  games: 0,
+  wins: 0,
+  losses: 0,
+  winrate: 0,
+  kills: 0,
+  bestTrophies: 0,
+  worstTrophies: 0,
+  lastDelta: 0,
+  lastMatchId: "",
+  lastMatchDate: "",
+};
+
 type ViewKey = "ranking" | "activity";
 
 type ActivityPeriodKey = "geral" | "semana" | "mes" | "semestre" | "custom";
@@ -210,6 +256,7 @@ type Player = {
   fblthpArtUrl: string;
   iconeKeyrune: string;
   profileExtras: PlayerProfileExtras;
+  trophy: PlayerTrophyInfo;
 };
 
 type Deck = {
@@ -253,6 +300,14 @@ type PlayerDeckComboStat = {
   fotoComandanteSecundario: string;
   tipoComandanteSecundario: string;
   cores: string;
+
+  deckTrophies?: number;
+  deckTrophyGames?: number;
+  deckTrophyWins?: number;
+  deckTrophyLosses?: number;
+  deckTrophyBest?: number;
+  deckTrophyWorst?: number;
+  deckTrophyLastDelta?: number;
 };
 
 type DeckPilotComboStat = {
@@ -381,11 +436,50 @@ type DashboardData = {
   };
   activity: ActivityData;
   playerDeckStats?: PlayerDeckStatsData;
+  playerTrophies?: RawPlayerTrophy[];
 };
 
 function formatPercent(value: number | string | undefined) {
   const number = Number(value || 0);
   return `${(number * 100).toFixed(1)}%`;
+}
+
+function normalizeNameKey(name: string) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function buildPlayerTrophyMap(rows: RawPlayerTrophy[] = []) {
+  const map: Record<string, PlayerTrophyInfo> = {};
+
+  rows.forEach((row) => {
+    const playerName = String(row["Jogador"] || "").trim();
+
+    if (!playerName) return;
+
+    map[normalizeNameKey(playerName)] = {
+      position: Number(row["Posição"] || 0),
+      trophies: Number(row["Troféus"] || 0),
+      games: Number(row["Partidas"] || 0),
+      wins: Number(row["Vitórias"] || 0),
+      losses: Number(row["Derrotas"] || 0),
+      winrate: Number(row["WinRate"] || 0),
+      kills: Number(row["Kills"] || 0),
+      bestTrophies: Number(row["Melhor Troféus"] || 0),
+      worstTrophies: Number(row["Pior Troféus"] || 0),
+      lastDelta: Number(row["Última Variação"] || 0),
+      lastMatchId: String(row["Última Partida ID"] || ""),
+      lastMatchDate: String(row["Última Partida Data"] || ""),
+    };
+  });
+
+  return map;
+}
+
+function getTrophyRarity(trophies: number) {
+  if (trophies >= 900) return "mythic";
+  if (trophies >= 500) return "rare";
+  if (trophies >= 200) return "uncommon";
+  return "common";
 }
 
 function getWinrateColor(value: number | string | undefined) {
@@ -479,6 +573,7 @@ function normalizePlayers(
       fblthpArtUrl: item.fblthpArtUrl || "",
       iconeKeyrune: item.iconeKeyrune || "",
       profileExtras: item.profileExtras || emptyPlayerProfileExtras,
+      trophy: emptyPlayerTrophyInfo,
     }))
     .sort((a, b) => {
       if (sortMode === "wins") {
@@ -685,6 +780,137 @@ function StatPill({
   return (
     <span className={`stat-pill stat-pill-${variant}`} style={dynamicStyle}>
       {children}
+    </span>
+  );
+}
+
+function TrophyIconSvg({
+  rarity,
+}: {
+  rarity: "common" | "uncommon" | "rare" | "mythic";
+}) {
+  return (
+    <svg
+      className={`trophy-icon-svg trophy-icon-svg-${rarity}`}
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={`trophy-gradient-${rarity}`} x1="8" y1="8" x2="56" y2="58">
+          <stop offset="0%" />
+          <stop offset="50%" />
+          <stop offset="100%" />
+        </linearGradient>
+      </defs>
+
+      <path
+        className="trophy-icon-shadow"
+        d="M22 57h20c2.5 0 4-1.3 4-3.2 0-2.2-1.8-3.8-4.4-3.8h-3.2c-1.1-1.8-1.6-4.1-1.6-6.8v-1.1c7.2-2 12.4-8.1 13.1-15.7h2.3c5.4 0 9.8-4.5 9.8-10V10c0-2.1-1.7-3.8-3.8-3.8h-8.8V5.6C49.4 3.6 47.8 2 45.8 2H18.2c-2 0-3.6 1.6-3.6 3.6v.6H5.8C3.7 6.2 2 7.9 2 10v6.4c0 5.5 4.4 10 9.8 10h2.3c.7 7.6 5.9 13.7 13.1 15.7v1.1c0 2.7-.5 5-1.6 6.8h-3.2c-2.6 0-4.4 1.6-4.4 3.8 0 1.9 1.5 3.2 4 3.2Z"
+      />
+
+      <path
+        className="trophy-icon-main"
+        d="M18.5 6h27v17.2c0 7.8-5.8 14.4-13.5 15.5-7.7-1.1-13.5-7.7-13.5-15.5V6Z"
+      />
+
+      <path
+        className="trophy-icon-side"
+        d="M14.7 12H7.5v4.4c0 3.2 2.5 5.8 5.6 5.8h1.6V12Z"
+      />
+
+      <path
+        className="trophy-icon-side"
+        d="M49.3 12h7.2v4.4c0 3.2-2.5 5.8-5.6 5.8h-1.6V12Z"
+      />
+
+      <path
+        className="trophy-icon-stem"
+        d="M29 38h6v9.5h-6V38Z"
+      />
+
+      <path
+        className="trophy-icon-base"
+        d="M23.5 50h17c2.1 0 3.5 1.3 3.5 3H20c0-1.7 1.4-3 3.5-3Z"
+      />
+
+      <path
+        className="trophy-icon-shine"
+        d="M24 9.5h7.8c-4.7 4.2-6.5 10.8-5.2 18.9-2.2-2.7-3.4-6.1-3.4-10.1V10.4c0-.5.3-.9.8-.9Z"
+      />
+    </svg>
+  );
+}
+
+function TrophyBadge({
+  trophy,
+  compact = false,
+  showTooltip = true,
+}: {
+  trophy: PlayerTrophyInfo;
+  compact?: boolean;
+  showTooltip?: boolean;
+}) {
+  const rarity = getTrophyRarity(trophy.trophies);
+
+  const deltaLabel =
+    trophy.lastDelta > 0
+      ? `+${trophy.lastDelta}`
+      : String(trophy.lastDelta);
+
+  return (
+    <span
+      className={`trophy-badge trophy-badge-${rarity} ${
+        compact ? "trophy-badge-compact" : ""
+      }`}
+      title={
+        showTooltip
+          ? `Recorde: ${trophy.bestTrophies} troféus • Última variação: ${deltaLabel}`
+          : `${trophy.trophies} troféus`
+      }
+    >
+      <TrophyIconSvg rarity={rarity} />
+
+      <span className="trophy-badge-value">
+        {trophy.trophies}
+      </span>
+
+      {showTooltip ? (
+        <span className="trophy-badge-tooltip">
+          <strong>Recorde: {trophy.bestTrophies}</strong>
+          <small>Última variação: {deltaLabel}</small>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function DeckMasteryTrophyBadge({
+  value,
+  compact = false,
+}: {
+  value: number;
+  compact?: boolean;
+}) {
+  const isNegative = value < 0;
+  const isPositive = value > 0;
+  const rarity = isNegative ? "common" : getTrophyRarity(Math.abs(value));
+
+  const label = isPositive ? `+${value}` : String(value);
+
+  return (
+    <span
+      className={`deck-mastery-trophy-badge ${
+        isNegative
+          ? "deck-mastery-trophy-badge-negative"
+          : isPositive
+            ? "deck-mastery-trophy-badge-positive"
+            : "deck-mastery-trophy-badge-zero"
+      } ${compact ? "deck-mastery-trophy-badge-compact" : ""}`}
+      title={`Saldo de troféus com este deck: ${label}`}
+    >
+      <TrophyIconSvg rarity={rarity} />
+
+      <span>{label}</span>
     </span>
   );
 }
@@ -915,13 +1141,25 @@ function LeaderboardCard({
       )}
 
       <div className="card-info">
-        <h3 className="name-with-title">
-          <span className="player-name">{item.name}</span>
+        <div className="leaderboard-title-row">
+  <h3 className="name-with-title">
+    <span className="player-name">{item.name}</span>
 
-          {isPlayer && (item as Player).title ? (
-            <span className="inline-title">{(item as Player).title}</span>
-          ) : null}
-        </h3>
+    {isPlayer && (item as Player).title ? (
+      <span className="inline-title">{(item as Player).title}</span>
+    ) : null}
+  </h3>
+
+  {isPlayer ? (
+    <span className="leaderboard-title-trophy">
+      <TrophyBadge
+        trophy={(item as Player).trophy}
+        compact
+        showTooltip={false}
+      />
+    </span>
+  ) : null}
+</div>
 
         <div className="stats">
           {shouldShowWinrate ? (
@@ -1253,8 +1491,10 @@ function CardPreview({
 
 function ProfileHoverCard({
   preview,
+  contextBadge = null,
 }: {
   preview: ProfilePreviewState;
+  contextBadge?: React.ReactNode;
 }) {
   if (!preview) return null;
 
@@ -1371,7 +1611,21 @@ function ProfileHoverCard({
         <StatPill variant="games">
           {participationLabel}
         </StatPill>
+
+        {isPlayer ? (
+          <TrophyBadge
+            trophy={(item as Player).trophy}
+            compact
+            showTooltip={false}
+          />
+        ) : null}
       </div>
+
+      {contextBadge ? (
+        <div className="profile-hover-context-badge">
+          {contextBadge}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2079,6 +2333,7 @@ function buildFallbackPlayerFromCombo(item: ComboStatItem): Player {
     fblthpArtUrl: "",
     iconeKeyrune: playerItem.iconeKeyrune || "",
     profileExtras: emptyPlayerProfileExtras,
+    trophy: emptyPlayerTrophyInfo, 
   };
 }
 
@@ -2108,6 +2363,10 @@ function ComboStatsHoverCard({
       winrate: item.winrate,
     };
 
+    const playerDeckItem = item as PlayerDeckComboStat;
+    const hasDeckTrophyInfo =
+      typeof playerDeckItem.deckTrophies === "number";
+
     return (
       <ProfileHoverCard
         preview={{
@@ -2116,6 +2375,14 @@ function ComboStatsHoverCard({
           x,
           y,
         }}
+        contextBadge={
+          hasDeckTrophyInfo ? (
+            <DeckMasteryTrophyBadge
+              value={Number(playerDeckItem.deckTrophies || 0)}
+              compact
+            />
+          ) : null
+        }
       />
     );
   }
@@ -2944,6 +3211,13 @@ function ProfileComboStatsModal({
   const [comboPreview, setComboPreview] =
     useState<ComboStatsHoverPreview>(null);
 
+    const modalPlayer = isPlayer
+  ? players.find(
+      (player) =>
+        normalizeNameKey(player.name) === normalizeNameKey(itemName)
+    )
+  : null;
+
   function showComboPreview(
     item: ComboStatItem,
     kind: ComboStatKind,
@@ -2977,18 +3251,46 @@ function ProfileComboStatsModal({
         </button>
 
         <div className="combo-stats-modal-header">
-          <span>{isPlayer ? "Jogador + Deck" : "Deck + Piloto"}</span>
+  <span>{isPlayer ? "Jogador + Deck" : "Deck + Piloto"}</span>
 
-          <h2>
-            {isPlayer ? "Estatísticas de decks" : "Estatísticas de pilotos"}
-          </h2>
+  <h2>
+    {isPlayer ? "Estatísticas de decks" : "Estatísticas de pilotos"}
+  </h2>
 
-          <p>
-            {isPlayer
-              ? `Desempenho de ${itemName} com cada deck.`
-              : `Desempenho dos jogadores usando ${itemName}.`}
-          </p>
-        </div>
+  <p>
+    {isPlayer
+      ? `Desempenho de ${itemName} com cada deck.`
+      : `Desempenho dos jogadores usando ${itemName}.`}
+  </p>
+
+  {modalPlayer ? (
+    <div className="combo-stats-trophy-summary">
+      <TrophyBadge
+        trophy={modalPlayer.trophy}
+        showTooltip={false}
+      />
+
+      <div>
+        <span>Troféus atuais</span>
+        <strong>{modalPlayer.trophy.trophies}</strong>
+      </div>
+
+      <div>
+        <span>Recorde</span>
+        <strong>{modalPlayer.trophy.bestTrophies}</strong>
+      </div>
+
+      <div>
+        <span>Última variação</span>
+        <strong>
+          {modalPlayer.trophy.lastDelta > 0
+            ? `+${modalPlayer.trophy.lastDelta}`
+            : modalPlayer.trophy.lastDelta}
+        </strong>
+      </div>
+    </div>
+  ) : null}
+</div>
 
        <ProfileComboStatsSection
           isPlayer={isPlayer}
@@ -3229,7 +3531,21 @@ function ProfileModal({
               {isPlayer ? "Jogador" : "Deck"}
             </span>
 
-            <h2>{item.name}</h2>
+            <div className="profile-title-row">
+  <div className="profile-title-text">
+    <h2>{item.name}</h2>
+
+    {isPlayer && (item as Player).title ? (
+      <span>{(item as Player).title}</span>
+    ) : null}
+  </div>
+
+  {isPlayer ? (
+    <div className="profile-title-trophy">
+      <TrophyBadge trophy={(item as Player).trophy} />
+    </div>
+  ) : null}
+</div>
 
             {isPlayer && (item as Player).title ? (
               <p className="profile-subtitle">{(item as Player).title}</p>
@@ -5200,6 +5516,10 @@ function DashboardApp() {
 
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("geral");
 
+  const [playerRankingMode, setPlayerRankingMode] = useState<
+    "performance" | "trophies"
+  >("performance");
+
   const [showAllPlayers, setShowAllPlayers] = useState(false);
 
   const [showAllDecks, setShowAllDecks] = useState(false);
@@ -5342,7 +5662,7 @@ function DashboardApp() {
     selectedProfile,
   ]);
 
-  const activeLeaderboard =
+    const activeLeaderboard =
   data.leaderboards?.[activePeriod] ?? {
     label: "Geral",
     players: [],
@@ -5351,9 +5671,30 @@ function DashboardApp() {
 
   const leaderboardSortMode = activePeriod === "evento" ? "wins" : "winrate";
 
+  const isPlayerTrophyRanking = playerRankingMode === "trophies";
+
+const playerSectionSubtitle = isPlayerTrophyRanking
+  ? "Ordenado por troféus; desempate por vitórias e número de partidas."
+  : activePeriod === "evento"
+    ? "Ordenado por vitórias no dia; desempate por número de partidas."
+    : "Ordenado por winrate; desempate por número de partidas.";
+
+  const playerTrophyMap = useMemo(
+    () => buildPlayerTrophyMap(data.playerTrophies || []),
+    [data.playerTrophies]
+  );
+
   const players = useMemo(
-    () => normalizePlayers(activeLeaderboard.players, leaderboardSortMode),
-    [activeLeaderboard.players, leaderboardSortMode]
+    () =>
+      normalizePlayers(activeLeaderboard.players, leaderboardSortMode).map(
+        (player) => ({
+          ...player,
+          trophy:
+            playerTrophyMap[normalizeNameKey(player.name)] ||
+            emptyPlayerTrophyInfo,
+        })
+      ),
+    [activeLeaderboard.players, leaderboardSortMode, playerTrophyMap]
   );
 
   const decks = useMemo(
@@ -5364,19 +5705,45 @@ function DashboardApp() {
   const shouldFilterLowParticipationPlayers =
   activePeriod === "geral" || activePeriod === "semestre";
 
-  const eligiblePlayers = players.filter((player) =>
-    hasEnoughParticipations(player.games)
-  );
+  const sortedPlayers = useMemo(() => {
+  if (!isPlayerTrophyRanking) {
+    return players;
+  }
 
-  const visiblePlayers =
-    shouldFilterLowParticipationPlayers && !showAllPlayers
-      ? eligiblePlayers
-      : players;
+  return players.slice().sort((a, b) => {
+    if (b.trophy.trophies !== a.trophy.trophies) {
+      return b.trophy.trophies - a.trophy.trophies;
+    }
 
-  const hasMorePlayers =
-    shouldFilterLowParticipationPlayers &&
-    players.length > visiblePlayers.length;
+    if (b.trophy.bestTrophies !== a.trophy.bestTrophies) {
+      return b.trophy.bestTrophies - a.trophy.bestTrophies;
+    }
 
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
+    }
+
+    if (b.games !== a.games) {
+      return b.games - a.games;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}, [players, isPlayerTrophyRanking]);
+
+const eligiblePlayers = sortedPlayers.filter((player) =>
+  hasEnoughParticipations(player.games)
+);
+
+const visiblePlayers =
+  shouldFilterLowParticipationPlayers && !showAllPlayers
+    ? eligiblePlayers
+    : sortedPlayers;
+
+const hasMorePlayers =
+  shouldFilterLowParticipationPlayers &&
+  sortedPlayers.length > visiblePlayers.length;
+  
   const initialDeckLimit = getBalancedDeckLimit(visiblePlayers.length);
 
   const visibleDecks = showAllDecks
@@ -5480,14 +5847,41 @@ function DashboardApp() {
           <>
             <div className="leaderboards-grid">
               <Section
-                icon={<Users size={22} />}
-                title={`Melhores jogadores - ${activeLeaderboard.label}`}
-                subtitle={
-                  activePeriod === "evento"
-                    ? "Ordenado por vitórias no dia; desempate por número de partidas."
-                    : "Ordenado por winrate; desempate por número de partidas."
-                }
-              >
+  icon={
+    <button
+      className={
+        isPlayerTrophyRanking
+          ? "section-icon-toggle section-icon-toggle-active"
+          : "section-icon-toggle"
+      }
+      type="button"
+      onClick={() => {
+        setPlayerRankingMode((current) =>
+          current === "performance" ? "trophies" : "performance"
+        );
+        setShowAllPlayers(false);
+      }}
+      title={
+        isPlayerTrophyRanking
+          ? "Voltar para ranking por desempenho"
+          : "Ordenar jogadores por troféus"
+      }
+      aria-label={
+        isPlayerTrophyRanking
+          ? "Voltar para ranking por desempenho"
+          : "Ordenar jogadores por troféus"
+      }
+    >
+      {isPlayerTrophyRanking ? (
+        <Trophy size={22} />
+      ) : (
+        <Users size={22} />
+      )}
+    </button>
+  }
+  title={`Melhores jogadores - ${activeLeaderboard.label}`}
+  subtitle={playerSectionSubtitle}
+>
                 {visiblePlayers.map((player, index) => (
                   <LeaderboardCard
                     key={player.name}
@@ -5511,12 +5905,12 @@ function DashboardApp() {
                   >
                     Mostrar mais jogadores
                     <span>
-                      {players.length - visiblePlayers.length} restantes
+                      {sortedPlayers.length - visiblePlayers.length} restantes
                     </span>
                   </button>
                 ) : shouldFilterLowParticipationPlayers &&
                   showAllPlayers &&
-                  players.length > eligiblePlayers.length ? (
+                sortedPlayers.length > eligiblePlayers.length ? (
                   <button
                     className="show-more-decks-button show-less-decks-button"
                     onClick={() => setShowAllPlayers(false)}
