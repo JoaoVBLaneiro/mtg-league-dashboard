@@ -286,6 +286,23 @@ type Deck = {
   secondaryCommanderType: string;
 };
 
+type ColorUsageStat = {
+  code: string;
+  label: string;
+  count: number;
+  isTop: boolean;
+};
+
+type PlayerTopCardUsage = {
+  name: string;
+  uses: number;
+  deckCount: number;
+  deckNames: string[];
+  imageUrl: string;
+  scryfallUrl: string;
+  edhrecRank: number;
+};
+
 type PlayerDeckComboStat = {
   nome: string;
   deck: string;
@@ -412,6 +429,7 @@ type PeriodKey = "geral" | "evento" | "mes" | "semestre";
 type DashboardData = {
   updatedAt: string | null;
   fblthp: FblthpState | null;
+  playerTopCardsBlacklist?: string[];
   leaderboards: {
     geral: {
       label: string;
@@ -438,6 +456,15 @@ type DashboardData = {
   playerDeckStats?: PlayerDeckStatsData;
   playerTrophies?: RawPlayerTrophy[];
 };
+
+function isPlayerTopCardBlacklisted(cardName: string, blacklist: string[]) {
+  const normalizedCardName = normalizeCardNameForCompare(cardName);
+
+  return blacklist.some(
+    (blacklistedCard) =>
+      normalizeCardNameForCompare(blacklistedCard) === normalizedCardName
+  );
+}
 
 function formatPercent(value: number | string | undefined) {
   const number = Number(value || 0);
@@ -737,6 +764,71 @@ function normalizeDeckColors(colors: string | undefined): string[] {
   }
 
   return [];
+}
+
+function getColorLabel(color: string) {
+  const labels: Record<string, string> = {
+    W: "Branco",
+    U: "Azul",
+    B: "Preto",
+    R: "Vermelho",
+    G: "Verde",
+    C: "Incolor",
+  };
+
+  return labels[color] || color;
+}
+
+function buildColorUsageStatsFromDecks(
+  decks: Array<{
+    cores?: string;
+    colors?: string;
+    games?: number;
+    appearances?: number;
+    aparicoes?: number;
+  }>
+): ColorUsageStat[] {
+  const colorCounts: Record<string, number> = {
+    W: 0,
+    U: 0,
+    B: 0,
+    R: 0,
+    G: 0,
+    C: 0,
+  };
+
+  decks.forEach((deck) => {
+    const rawColors = deck.cores || deck.colors || "";
+    const colors = normalizeDeckColors(rawColors);
+
+    const weight = Number(
+      deck.games ?? deck.appearances ?? deck.aparicoes ?? 0
+    );
+
+    colors.forEach((color) => {
+      colorCounts[color] = (colorCounts[color] || 0) + weight;
+    });
+  });
+
+  const usedColors = Object.entries(colorCounts)
+    .filter(([, count]) => count > 0)
+    .map(([code, count]) => ({
+      code,
+      label: getColorLabel(code),
+      count,
+      isTop: false,
+    }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.code.localeCompare(b.code);
+    });
+
+  const topCount = usedColors[0]?.count ?? 0;
+
+  return usedColors.map((color) => ({
+    ...color,
+    isTop: color.count === topCount,
+  }));
 }
 
 function ManaPips({ colors }: { colors: string | undefined }) {
@@ -1990,6 +2082,7 @@ type ResolvedDeckCard = ParsedDeckCard & {
   scryfallUrl: string;
   typeLine: string;
   category: DecklistCategory;
+  edhrecRank: number;
 };
 
 const DECKLIST_CATEGORY_LABELS: Record<DecklistCategory, string> = {
@@ -2167,6 +2260,7 @@ async function resolveCardFromScryfall(
         imageUrl: parsed.imageUrl || "",
         scryfallUrl: parsed.scryfallUrl || "",
         typeLine: parsed.typeLine || "",
+        edhrecRank: Number(parsed.edhrecRank || 999999),
         category: getDecklistCategory({
           cardName: card.name,
           commanderName,
@@ -2183,19 +2277,19 @@ async function resolveCardFromScryfall(
   );
 
   if (!response.ok) {
-    return {
-      ...card,
-      imageUrl: "",
-      scryfallUrl: `https://scryfall.com/search?q=${encodeURIComponent(card.name)}`,
+  return {
+    ...card,
+    imageUrl: "",
+    scryfallUrl: `https://scryfall.com/search?q=${encodeURIComponent(card.name)}`,
+    typeLine: "",
+    edhrecRank: 999999,
+    category: getDecklistCategory({
+      cardName: card.name,
+      commanderName,
       typeLine: "",
-      category: getDecklistCategory({
-        cardName: card.name,
-        commanderName,
-        typeLine: "",
-      }),
-    };
-  }
-
+    }),
+  };
+}
   const data = await response.json();
 
   const imageUrl =
@@ -2213,6 +2307,7 @@ async function resolveCardFromScryfall(
     imageUrl,
     scryfallUrl,
     typeLine,
+    edhrecRank: Number(data.edhrec_rank || 999999),
   };
 
   localStorage.setItem(cacheKey, JSON.stringify(resolved));
@@ -2973,6 +3068,396 @@ function ComboWinrateBarChart({
   );
 }
 
+function ColorUsageStatusCard({
+  title,
+  subtitle,
+  colors,
+  mode = "usage",
+}: {
+  title: string;
+  subtitle: string;
+  colors: ColorUsageStat[];
+  mode?: "usage" | "identity";
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const topColors = colors.filter((color) => color.isTop);
+  const visibleTopColors = topColors.length ? topColors : colors;
+  const topCount = visibleTopColors[0]?.count ?? 0;
+
+  if (!colors.length) {
+    return (
+      <div className="color-usage-mini-card color-usage-mini-card-empty">
+        <div>
+          <strong>{title}</strong>
+          <span>Nenhuma cor encontrada.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        isOpen
+          ? "color-usage-mini-card color-usage-mini-card-open"
+          : "color-usage-mini-card"
+      }
+    >
+      <div className="color-usage-mini-header">
+        <div>
+          <strong>{title}</strong>
+          <span>{subtitle}</span>
+        </div>
+
+        <div className="color-usage-mini-pips">
+          {visibleTopColors.map((color) => (
+            <button
+              key={color.code}
+              type="button"
+              className="color-usage-mini-pip-button"
+              onClick={() => setIsOpen((current) => !current)}
+              title={
+                isOpen
+                  ? "Fechar detalhes das cores"
+                  : "Abrir detalhes das cores"
+              }
+            >
+              <img
+                className="mana-pip color-usage-mini-pip"
+                src={`https://svgs.scryfall.io/card-symbols/${color.code}.svg`}
+                alt={color.label}
+              />
+
+              {mode === "usage" ? (
+                <span>
+                  {color.count} uso{color.count === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isOpen ? (
+        <div className="color-usage-detail-card">
+          <div className="color-usage-detail-header">
+            <div>
+              <span>
+                {mode === "usage" ? "Cor mais usada" : "Cores do deck"}
+              </span>
+
+              <strong>
+                {visibleTopColors.map((color) => color.label).join(", ")}
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              className="color-usage-detail-close"
+              onClick={() => setIsOpen(false)}
+              aria-label="Fechar detalhes das cores"
+            >
+              ×
+            </button>
+          </div>
+
+          <p>
+            {mode === "usage"
+              ? `${topCount} uso${topCount === 1 ? "" : "s"} em partidas`
+              : "Identidade de cor cadastrada para este deck"}
+          </p>
+
+          {mode === "usage" ? (
+            <div className="color-usage-breakdown">
+              {colors.map((color) => (
+                <div
+                  key={color.code}
+                  className={
+                    color.isTop
+                      ? "color-usage-row color-usage-row-top"
+                      : "color-usage-row"
+                  }
+                >
+                  <img
+                    className="mana-pip color-usage-pip-small"
+                    src={`https://svgs.scryfall.io/card-symbols/${color.code}.svg`}
+                    alt={color.label}
+                    title={color.label}
+                  />
+
+                  <strong>{color.label}</strong>
+
+                  <span>
+                    {color.count} uso{color.count === 1 ? "" : "s"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PlayerTopCardsStatusCard({
+  playerDecks,
+  decks,
+  blacklist,
+}: {
+  playerDecks: PlayerDeckComboStat[];
+  decks: Deck[];
+  blacklist: string[];
+}) {
+  const [cards, setCards] = useState<PlayerTopCardUsage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const cacheKey = useMemo(() => {
+    const signature = playerDecks
+      .map((playerDeck) => {
+        const deckName = playerDeck.deck || playerDeck.nome;
+
+        const deck = decks.find(
+          (item) => normalizeNameKey(item.name) === normalizeNameKey(deckName)
+        );
+
+        return [
+          deckName,
+          playerDeck.games,
+          deck?.decklistTexto?.length || 0,
+          deck?.commander || "",
+          deck?.secondaryCommander || "",
+        ].join(":");
+      })
+      .join("|");
+
+    return `player-top-cards-${normalizeNameKey(signature)}-${normalizeNameKey(
+  blacklist.join("|")
+)}`;
+  }, [playerDecks, decks, blacklist]);
+
+  useEffect(() => {
+    const cached = localStorage.getItem(cacheKey);
+
+    if (!cached) {
+      setCards([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+
+      if (Array.isArray(parsed)) {
+        setCards(parsed);
+      }
+    } catch {
+      localStorage.removeItem(cacheKey);
+      setCards([]);
+    }
+  }, [cacheKey]);
+
+  async function openTopCards() {
+    setIsOpen(true);
+
+    if (cards.length || loading) {
+      return;
+    }
+
+    setLoading(true);
+
+    const result = await buildPlayerTopNonlandCards({
+      playerDecks,
+      decks,
+      blacklist,
+    });
+
+    localStorage.setItem(cacheKey, JSON.stringify(result));
+
+    setCards(result);
+    setLoading(false);
+  }
+
+  const topCard = cards[0];
+
+  if (!topCard && !isOpen) {
+    return (
+      <div className="player-top-cards-mini-card">
+        <button
+          className="player-top-cards-mini-button"
+          type="button"
+          onClick={openTopCards}
+          title="Calcular Top 10 cartas mais usadas"
+        >
+          <strong>Cartas mais usadas</strong>
+
+          <div className="player-top-cards-mini-image player-top-cards-mini-empty">
+            <Wand2 size={24} />
+          </div>
+
+          <span>Abrir</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        isOpen
+          ? "player-top-cards-mini-card player-top-cards-mini-card-open"
+          : "player-top-cards-mini-card"
+      }
+    >
+      {!isOpen ? (
+        <button
+          className="player-top-cards-mini-button"
+          type="button"
+          onClick={openTopCards}
+          title="Abrir Top 10 cartas mais usadas"
+        >
+          <strong>Cartas mais usadas</strong>
+
+          <div className="player-top-cards-mini-image">
+            {topCard?.imageUrl ? (
+              <img src={topCard.imageUrl} alt={topCard.name} />
+            ) : (
+              <div className="avatar-placeholder">
+                <Wand2 size={24} />
+              </div>
+            )}
+          </div>
+
+          <span>
+            {topCard
+              ? `${topCard.uses} uso${topCard.uses === 1 ? "" : "s"}`
+              : "Abrir"}
+          </span>
+        </button>
+      ) : (
+        <div className="player-top-cards-detail-card">
+          <div className="player-top-cards-detail-header">
+            <div>
+              <span>Cartas mais usadas</span>
+
+              <strong>
+                {topCard ? topCard.name : "Calculando..."}
+              </strong>
+
+              <small>
+                {topCard
+                  ? `${topCard.uses} uso${topCard.uses === 1 ? "" : "s"} no total`
+                  : "Resolvendo cartas candidatas"}
+              </small>
+            </div>
+
+            <button
+              type="button"
+              className="player-top-cards-detail-close"
+              onClick={() => setIsOpen(false)}
+              aria-label="Fechar Top 10 cartas mais usadas"
+            >
+              ×
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="player-top-cards-loading-box">
+              <Wand2 size={24} />
+              <span>Carregando cartas...</span>
+            </div>
+          ) : null}
+
+          {!loading && !cards.length ? (
+            <p className="player-top-cards-empty">
+              Nenhuma decklist suficiente para calcular este status.
+            </p>
+          ) : null}
+
+          {topCard ? (
+            <div className="player-top-cards-featured">
+              <div className="player-top-cards-featured-image">
+                {topCard.imageUrl ? (
+                  <img src={topCard.imageUrl} alt={topCard.name} />
+                ) : (
+                  <div className="avatar-placeholder">
+                    <Wand2 size={30} />
+                  </div>
+                )}
+              </div>
+
+              <div className="player-top-cards-featured-info">
+                <span>#1 carta mais usada</span>
+                <strong>{topCard.name}</strong>
+                <small>
+                  Aparece em {topCard.deckCount} deck
+                  {topCard.deckCount === 1 ? "" : "s"}
+                </small>
+              </div>
+            </div>
+          ) : null}
+
+          {cards.length ? (
+            <div className="player-top-cards-list">
+              {cards.map((card, index) => {
+                const content = (
+                  <>
+                    <span className="player-top-card-rank">#{index + 1}</span>
+
+                    <div className="player-top-card-thumb">
+                      {card.imageUrl ? (
+                        <img src={card.imageUrl} alt={card.name} />
+                      ) : (
+                        <div className="avatar-placeholder">
+                          <Wand2 size={16} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="player-top-card-info">
+                      <strong>{card.name}</strong>
+
+                      <span>
+                        {card.uses} uso{card.uses === 1 ? "" : "s"}
+                      </span>
+
+                      <small title={card.deckNames.join(", ")}>
+                        Em {card.deckCount} deck
+                        {card.deckCount === 1 ? "" : "s"}
+                      </small>
+                    </div>
+                  </>
+                );
+
+                if (card.scryfallUrl) {
+                  return (
+                    <a
+                      key={card.name}
+                      className="player-top-card-row"
+                      href={card.scryfallUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {content}
+                    </a>
+                  );
+                }
+
+                return (
+                  <div key={card.name} className="player-top-card-row">
+                    {content}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProfileComboStatsSection({
   isPlayer,
   itemName,
@@ -2996,17 +3481,17 @@ function ProfileComboStatsSection({
   onComboPreviewClose: () => void;
 }) {
   if (isPlayer) {
-    const stats = playerDeckStats.players[itemName];
+  const stats = playerDeckStats.players[itemName];
 
-    if (!stats || !stats.decks.length) {
-      return null;
-    }
+  if (!stats || !stats.decks.length) {
+    return null;
+  }
 
-    const mostPlayedDeck = stats.mostPlayedDecks[0];
-    const bestWinrateDeck = stats.bestWinrateDecks[0];
+  const mostPlayedDeck = stats.mostPlayedDecks[0];
+  const bestWinrateDeck = stats.bestWinrateDecks[0];
 
-    return (
-      <section className="profile-section combo-stats-section combo-stats-dashboard">
+  return (
+    <section className="profile-section combo-stats-section combo-stats-dashboard">
         <div className="combo-highlight-grid">
           <ComboDeckHighlightCard
             title="Deck mais usado"
@@ -3195,6 +3680,7 @@ function ProfileComboStatsModal({
   playerDeckStats,
   players,
   decks,
+  playerTopCardsBlacklist,
   onSelectDeck,
   onSelectPlayer,
   onClose,
@@ -3204,6 +3690,7 @@ function ProfileComboStatsModal({
   playerDeckStats: PlayerDeckStatsData;
   players: Player[];
   decks: Deck[];
+  playerTopCardsBlacklist: string[];
   onSelectDeck: (deckName: string) => void;
   onSelectPlayer: (playerName: string) => void;
   onClose: () => void;
@@ -3217,6 +3704,12 @@ function ProfileComboStatsModal({
         normalizeNameKey(player.name) === normalizeNameKey(itemName)
     )
   : null;
+
+  const modalStats = isPlayer ? playerDeckStats.players[itemName] : null;
+
+  const headerColorStats = modalStats
+    ? buildColorUsageStatsFromDecks(modalStats.decks || [])
+    : [];
 
   function showComboPreview(
     item: ComboStatItem,
@@ -3264,6 +3757,7 @@ function ProfileComboStatsModal({
   </p>
 
   {modalPlayer ? (
+  <div className="combo-stats-header-status-row">
     <div className="combo-stats-trophy-summary">
       <TrophyBadge
         trophy={modalPlayer.trophy}
@@ -3289,7 +3783,25 @@ function ProfileComboStatsModal({
         </strong>
       </div>
     </div>
-  ) : null}
+
+    {modalStats && modalStats.decks.length ? (
+      <div className="combo-stats-mini-status-group">
+        <ColorUsageStatusCard
+          title="Cor mais usada"
+          subtitle=""
+          colors={headerColorStats}
+          mode="usage"
+        />
+
+        <PlayerTopCardsStatusCard
+          playerDecks={modalStats.decks || []}
+          decks={decks}
+          blacklist={playerTopCardsBlacklist}
+        />
+      </div>
+    ) : null}
+  </div>
+) : null}
 </div>
 
        <ProfileComboStatsSection
@@ -3322,6 +3834,7 @@ function ProfileModal({
   selected,
   players,
   decks,
+  playerTopCardsBlacklist,
   playerDeckStats,
   onSelectPlayer,
   onSelectDeck,
@@ -3340,6 +3853,7 @@ function ProfileModal({
   players: Player[];
   decks: Deck[];
   playerDeckStats: PlayerDeckStatsData;
+  playerTopCardsBlacklist: string[];
   onSelectPlayer: (player: Player) => void;
   onSelectDeck: (deck: Deck) => void;
   onFblthpClick: () => void;
@@ -3546,10 +4060,6 @@ function ProfileModal({
     </div>
   ) : null}
 </div>
-
-            {isPlayer && (item as Player).title ? (
-              <p className="profile-subtitle">{(item as Player).title}</p>
-            ) : null}
 
             {!isPlayer &&
               ((item as Deck).commander ||
@@ -3825,6 +4335,7 @@ function ProfileModal({
             playerDeckStats={playerDeckStats}
             players={players}
             decks={decks}
+            playerTopCardsBlacklist={playerTopCardsBlacklist}
             onSelectDeck={openDeckByName}
             onSelectPlayer={openPlayerByName}
             onClose={() => setIsComboStatsModalOpen(false)}
@@ -5305,6 +5816,439 @@ function saveResolvedDecklistToCache(deck: Deck, cards: ResolvedDeckCard[]) {
   localStorage.setItem(cacheKey, JSON.stringify(cards));
 }
 
+function getDeckCommanderCompareName(deck: Deck) {
+  return [deck.commander, deck.secondaryCommander]
+    .filter(Boolean)
+    .join("/");
+}
+
+
+function isKnownLandName(cardName: string) {
+  const normalized = normalizeCardNameForCompare(cardName);
+
+  const knownLands = new Set([
+    "plains",
+    "island",
+    "swamp",
+    "mountain",
+    "forest",
+    "wastes",
+    "snow-covered plains",
+    "snow-covered island",
+    "snow-covered swamp",
+    "snow-covered mountain",
+    "snow-covered forest",
+
+    "command tower",
+    "exotic orchard",
+    "path of ancestry",
+    "reflecting pool",
+    "mana confluence",
+    "city of brass",
+    "forbidden orchard",
+    "ancient tomb",
+    "reliquary tower",
+    "rogue's passage",
+    "war room",
+    "bojuka bog",
+    "scavenger grounds",
+    "strip mine",
+    "wasteland",
+    "ghost quarter",
+    "field of ruin",
+    "myriad landscape",
+    "temple of the false god",
+    "evolving wilds",
+    "terramorphic expanse",
+    "fabled passage",
+    "prismatic vista",
+
+    "hallowed fountain",
+    "watery grave",
+    "blood crypt",
+    "stomping ground",
+    "temple garden",
+    "godless shrine",
+    "steam vents",
+    "overgrown tomb",
+    "sacred foundry",
+    "breeding pool",
+
+    "prairie stream",
+    "sunken hollow",
+    "smoldering marsh",
+    "cinder glade",
+    "canopy vista",
+    "shambling vent",
+    "wandering fumarole",
+    "hissing quagmire",
+    "needle spires",
+    "lumbering falls",
+
+    "glacial fortress",
+    "drowned catacomb",
+    "dragonskull summit",
+    "rootbound crag",
+    "sunpetal grove",
+    "isolated chapel",
+    "sulfur falls",
+    "woodland cemetery",
+    "clifftop retreat",
+    "hinterland harbor",
+
+    "adarkar wastes",
+    "underground river",
+    "sulfurous springs",
+    "karplusan forest",
+    "brushland",
+    "caves of koilos",
+    "shivan reef",
+    "llanowar wastes",
+    "battlefield forge",
+    "yavimaya coast",
+
+    "deserted beach",
+    "shipwreck marsh",
+    "haunted ridge",
+    "rockfall vale",
+    "overgrown farmland",
+    "shattered sanctum",
+    "stormcarved coast",
+    "deathcap glade",
+    "sundown pass",
+    "dreamroot cascade",
+
+    "seachrome coast",
+    "darkslick shores",
+    "blackcleave cliffs",
+    "copperline gorge",
+    "razorverge thicket",
+    "concealed courtyard",
+    "spirebluff canal",
+    "blooming marsh",
+    "inspiring vantage",
+    "botanical sanctum",
+
+    "flooded strand",
+    "polluted delta",
+    "bloodstained mire",
+    "wooded foothills",
+    "windswept heath",
+    "marsh flats",
+    "scalding tarn",
+    "verdant catacombs",
+    "arid mesa",
+    "misty rainforest",
+
+    "azorius chancery",
+    "dimir aqueduct",
+    "rakdos carnarium",
+    "gruul turf",
+    "selesnya sanctuary",
+    "orzhov basilica",
+    "izzet boilerworks",
+    "golgari rot farm",
+    "boros garrison",
+    "simic growth chamber",
+
+    "arcane sanctum",
+    "crumbling necropolis",
+    "savage lands",
+    "jungle shrine",
+    "seaside citadel",
+    "sandsteppe citadel",
+    "mystic monastery",
+    "opulent palace",
+    "nomad outpost",
+    "frontier bivouac",
+  ]);
+
+  return knownLands.has(normalized);
+}
+
+function mapScryfallCardDataToCandidate(
+  candidate: {
+    name: string;
+    uses: number;
+    deckNames: Set<string>;
+  },
+  data: any
+) {
+  const imageUrl =
+    data.image_uris?.normal ||
+    data.card_faces?.[0]?.image_uris?.normal ||
+    "";
+
+  const scryfallUrl =
+    data.scryfall_uri ||
+    getScryfallCardSearchUrl(candidate.name);
+
+  const typeLine = data.type_line || "";
+
+  return {
+    ...candidate,
+    name: data.name || candidate.name,
+    imageUrl,
+    scryfallUrl,
+    typeLine,
+    edhrecRank: Number(data.edhrec_rank || 999999),
+  };
+}
+
+async function resolvePlayerTopCardCandidates(
+  candidates: Array<{
+    name: string;
+    uses: number;
+    deckNames: Set<string>;
+  }>
+) {
+  if (!candidates.length) {
+    return [];
+  }
+
+  const cacheHits: Array<{
+    name: string;
+    uses: number;
+    deckNames: Set<string>;
+    imageUrl: string;
+    scryfallUrl: string;
+    typeLine: string;
+    edhrecRank: number;
+  }> = [];
+
+  const missingCandidates: Array<{
+    name: string;
+    uses: number;
+    deckNames: Set<string>;
+  }> = [];
+
+  candidates.forEach((candidate) => {
+    const cacheKey = getDecklistCacheKey(candidate.name);
+    const cached = localStorage.getItem(cacheKey);
+
+    if (!cached) {
+      missingCandidates.push(candidate);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+      const cachedTypeLine = String(parsed.typeLine || "").trim();
+
+      if (!cachedTypeLine) {
+        localStorage.removeItem(cacheKey);
+        missingCandidates.push(candidate);
+        return;
+      }
+
+      cacheHits.push({
+        ...candidate,
+        imageUrl: parsed.imageUrl || "",
+        scryfallUrl: parsed.scryfallUrl || getScryfallCardSearchUrl(candidate.name),
+        typeLine: cachedTypeLine,
+        edhrecRank: Number(parsed.edhrecRank || 999999),
+      });
+    } catch {
+      localStorage.removeItem(cacheKey);
+      missingCandidates.push(candidate);
+    }
+  });
+
+  if (!missingCandidates.length) {
+    return cacheHits;
+  }
+
+  const response = await fetch("https://api.scryfall.com/cards/collection", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      identifiers: missingCandidates.map((candidate) => ({
+        name: candidate.name,
+      })),
+    }),
+  });
+
+  if (!response.ok) {
+    return [
+      ...cacheHits,
+      ...missingCandidates.map((candidate) => ({
+        ...candidate,
+        imageUrl: "",
+        scryfallUrl: getScryfallCardSearchUrl(candidate.name),
+        typeLine: "",
+        edhrecRank: 999999,
+      })),
+    ];
+  }
+
+  const collection = await response.json();
+
+  const returnedCards = Array.isArray(collection.data)
+    ? collection.data
+    : [];
+
+  const returnedMap: Record<string, any> = {};
+
+  returnedCards.forEach((cardData: any) => {
+    const normalized = normalizeCardNameForCompare(cardData.name || "");
+
+    if (normalized) {
+      returnedMap[normalized] = cardData;
+    }
+  });
+
+  const resolvedFromApi = missingCandidates.map((candidate) => {
+    const normalizedCandidateName = normalizeCardNameForCompare(candidate.name);
+    const cardData = returnedMap[normalizedCandidateName];
+
+    if (!cardData) {
+      return {
+        ...candidate,
+        imageUrl: "",
+        scryfallUrl: getScryfallCardSearchUrl(candidate.name),
+        typeLine: "",
+        edhrecRank: 999999,
+      };
+    }
+
+    const resolved = mapScryfallCardDataToCandidate(candidate, cardData);
+
+    localStorage.setItem(
+      getDecklistCacheKey(candidate.name),
+      JSON.stringify({
+        imageUrl: resolved.imageUrl,
+        scryfallUrl: resolved.scryfallUrl,
+        typeLine: resolved.typeLine,
+        edhrecRank: resolved.edhrecRank,
+      })
+    );
+
+    return resolved;
+  });
+
+  return [...cacheHits, ...resolvedFromApi];
+}
+
+async function buildPlayerTopNonlandCards({
+  playerDecks,
+  decks,
+  blacklist,
+}: {
+  playerDecks: PlayerDeckComboStat[];
+  decks: Deck[];
+  blacklist: string[];
+}): Promise<PlayerTopCardUsage[]> {
+  const rawCardMap: Record<
+    string,
+    {
+      name: string;
+      uses: number;
+      deckNames: Set<string>;
+    }
+  > = {};
+
+  for (const playerDeck of playerDecks) {
+    const deckName = playerDeck.deck || playerDeck.nome;
+    const gamesWithDeck = Number(playerDeck.games || 0);
+
+    if (!deckName || gamesWithDeck <= 0) {
+      continue;
+    }
+
+    const deck = decks.find(
+      (item) => normalizeNameKey(item.name) === normalizeNameKey(deckName)
+    );
+
+    if (!deck || !deck.decklistTexto.trim()) {
+      continue;
+    }
+
+    const parsedCards = parseDecklistText(deck.decklistTexto);
+    const commanderCompareName = getDeckCommanderCompareName(deck);
+
+    parsedCards.forEach((card) => {
+  if (!card.name) {
+    return;
+  }
+
+  if (isPlayerTopCardBlacklisted(card.name, blacklist)) {
+    return;
+  }
+
+  if (isCommanderCard(card.name, commanderCompareName)) {
+    return;
+  }
+
+  if (isKnownLandName(card.name)) {
+    return;
+  }
+
+  const cardKey = normalizeCardNameForCompare(card.name);
+
+      if (!cardKey) {
+        return;
+      }
+
+      if (!rawCardMap[cardKey]) {
+        rawCardMap[cardKey] = {
+          name: card.name,
+          uses: 0,
+          deckNames: new Set<string>(),
+        };
+      }
+
+      rawCardMap[cardKey].uses += Number(card.quantity || 1) * gamesWithDeck;
+      rawCardMap[cardKey].deckNames.add(deck.name);
+    });
+  }
+
+  const candidates = Object.values(rawCardMap)
+    .sort((a, b) => {
+      if (b.uses !== a.uses) return b.uses - a.uses;
+      if (b.deckNames.size !== a.deckNames.size) {
+        return b.deckNames.size - a.deckNames.size;
+      }
+
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, 75);
+
+  const resolvedCandidates = await resolvePlayerTopCardCandidates(candidates);
+
+  return resolvedCandidates
+  .filter((item) => {
+    const typeLine = String(item.typeLine || "").toLowerCase();
+
+    if (isPlayerTopCardBlacklisted(item.name, blacklist)) {
+      return false;
+    }
+
+    return !typeLine.includes("land");
+  })
+    .map((item) => {
+      const deckNames = Array.from(item.deckNames);
+
+      return {
+        name: item.name,
+        uses: item.uses,
+        deckCount: deckNames.length,
+        deckNames,
+        imageUrl: item.imageUrl,
+        scryfallUrl: item.scryfallUrl,
+        edhrecRank: item.edhrecRank,
+      };
+    })
+    .sort((a, b) => {
+  if (b.uses !== a.uses) return b.uses - a.uses;
+  if (a.edhrecRank !== b.edhrecRank) return a.edhrecRank - b.edhrecRank;
+  if (b.deckCount !== a.deckCount) return b.deckCount - a.deckCount;
+  return a.name.localeCompare(b.name);
+})
+    .slice(0, 10);
+}
+
 function DecklistModal({
   deck,
   onClose,
@@ -5979,6 +6923,7 @@ const hasMorePlayers =
         players={players}
         decks={allDecks}
         playerDeckStats={data?.playerDeckStats || emptyPlayerDeckStats}
+        playerTopCardsBlacklist={data.playerTopCardsBlacklist || []}
         onSelectPlayer={(player) =>
           setSelectedProfile({ type: "player", item: player })
         }
