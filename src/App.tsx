@@ -233,6 +233,11 @@ type RawDeck = {
   secondaryCommanderImageUrl?: string;
   tipoComandanteSecundario?: string;
   secondaryCommanderType?: string;
+  bracket?: string;
+  powerLevel?: number | string | null;
+  saltLevel?: number | string | null;
+  powerVotes?: number | string;
+  saltVotes?: number | string;
 };
 
 type Player = {
@@ -284,6 +289,11 @@ type Deck = {
   secondaryCommander: string;
   secondaryCommanderImageUrl: string;
   secondaryCommanderType: string;
+  bracket?: string;
+  powerLevel?: number | null;
+  saltLevel?: number | null;
+  powerVotes?: number;
+  saltVotes?: number;
 };
 
 type ColorUsageStat = {
@@ -502,6 +512,46 @@ function buildPlayerTrophyMap(rows: RawPlayerTrophy[] = []) {
   return map;
 }
 
+function formatDeckLevel(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "—";
+  }
+
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+}
+
+function DeckPowerInfoCard({ deck }: { deck: Deck }) {
+  const hasBracket = Boolean(deck.bracket);
+  const hasPower = deck.powerLevel !== null && deck.powerLevel !== undefined;
+  const hasSalt = deck.saltLevel !== null && deck.saltLevel !== undefined;
+
+  if (!hasBracket && !hasPower && !hasSalt) {
+    return null;
+  }
+
+  return (
+    <div className="deck-power-info-card">
+      <div className="deck-power-info-row">
+        <span>Bracket</span>
+        <strong>{deck.bracket || "—"}</strong>
+      </div>
+
+      <div className="deck-power-info-row">
+        <span>Power-Level</span>
+        <strong>{formatDeckLevel(deck.powerLevel)}</strong>
+      </div>
+
+      <div className="deck-power-info-row">
+        <span>Salt-Level</span>
+        <strong>{formatDeckLevel(deck.saltLevel)}</strong>
+      </div>
+    </div>
+  );
+}
+
 function getTrophyRarity(trophies: number) {
   if (trophies >= 900) return "mythic";
   if (trophies >= 500) return "rare";
@@ -671,6 +721,17 @@ function normalizeDecks(
         item.fotoComandanteSecundario || item.secondaryCommanderImageUrl || "",
       secondaryCommanderType:
         item.tipoComandanteSecundario || item.secondaryCommanderType || "",
+      bracket: item.bracket || "",
+      powerLevel:
+        item.powerLevel === null || item.powerLevel === undefined || item.powerLevel === ""
+          ? null
+          : Number(item.powerLevel),
+      saltLevel:
+        item.saltLevel === null || item.saltLevel === undefined || item.saltLevel === ""
+          ? null
+          : Number(item.saltLevel),
+      powerVotes: Number(item.powerVotes || 0),
+      saltVotes: Number(item.saltVotes || 0),
     }))
     .sort((a, b) => {
       if (sortMode === "wins") {
@@ -4091,6 +4152,10 @@ function ProfileModal({
                   ) : null}
                 </p>
               ) : null}
+
+            {!isPlayer ? (
+              <DeckPowerInfoCard deck={item as Deck} />
+            ) : null}
           </div>
         </div>
 

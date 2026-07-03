@@ -6610,3 +6610,33 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.deck-power-info-card {
+  width: fit-content;
+  min-width: 190px;
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(10px);
+}
+
+.deck-power-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 0.82rem;
+}
+
+.deck-power-info-row span {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.deck-power-info-row strong {
+  color: #fff;
+  font-weight: 800;
+}
