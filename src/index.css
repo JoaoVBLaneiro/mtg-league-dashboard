@@ -6640,3 +6640,47 @@ footer {
   color: #fff;
   font-weight: 800;
 }
+
+.deck-power-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.deck-power-info-header span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-power-info-button {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.deck-power-info-button:hover {
+  border-color: rgba(125, 211, 252, 0.9);
+  background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+}
+
+.deck-power-info-button-disabled {
+  opacity: 0.45;
+  cursor: help;
+}

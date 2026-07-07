@@ -234,6 +234,7 @@ type RawDeck = {
   tipoComandanteSecundario?: string;
   secondaryCommanderType?: string;
   bracket?: string;
+  bracketUrl?: string;
   powerLevel?: number | string | null;
   saltLevel?: number | string | null;
   powerVotes?: number | string;
@@ -290,6 +291,7 @@ type Deck = {
   secondaryCommanderImageUrl: string;
   secondaryCommanderType: string;
   bracket?: string;
+  bracketUrl?: string;
   powerLevel?: number | null;
   saltLevel?: number | null;
   powerVotes?: number;
@@ -527,13 +529,49 @@ function DeckPowerInfoCard({ deck }: { deck: Deck }) {
   const hasBracket = Boolean(deck.bracket);
   const hasPower = deck.powerLevel !== null && deck.powerLevel !== undefined;
   const hasSalt = deck.saltLevel !== null && deck.saltLevel !== undefined;
+  const hasBracketUrl = Boolean(deck.bracketUrl);
 
   if (!hasBracket && !hasPower && !hasSalt) {
     return null;
   }
 
+  const infoTitle = [
+    `Power-Level calculado com ${deck.powerVotes || 0} voto${Number(deck.powerVotes || 0) === 1 ? "" : "s"} válido${Number(deck.powerVotes || 0) === 1 ? "" : "s"}.`,
+    `Salt-Level calculado com ${deck.saltVotes || 0} voto${Number(deck.saltVotes || 0) === 1 ? "" : "s"} válido${Number(deck.saltVotes || 0) === 1 ? "" : "s"}.`,
+    hasBracketUrl
+      ? "Clique para abrir a justificativa/calculadora de bracket."
+      : ""
+  ].join("\n");
+
+  const infoButton = hasBracketUrl ? (
+    <a
+      className="deck-power-info-button"
+      href={deck.bracketUrl}
+      target="_blank"
+      rel="noreferrer"
+      title={infoTitle}
+      aria-label="Abrir justificativa da bracket"
+      onClick={(event) => event.stopPropagation()}
+    >
+      i
+    </a>
+  ) : (
+    <span
+      className="deck-power-info-button deck-power-info-button-disabled"
+      title={infoTitle}
+      aria-label="Informações da votação"
+    >
+      i
+    </span>
+  );
+
   return (
     <div className="deck-power-info-card">
+      <div className="deck-power-info-header">
+        <span>Power Check</span>
+        {infoButton}
+      </div>
+
       <div className="deck-power-info-row">
         <span>Bracket</span>
         <strong>{deck.bracket || "—"}</strong>
@@ -722,6 +760,7 @@ function normalizeDecks(
       secondaryCommanderType:
         item.tipoComandanteSecundario || item.secondaryCommanderType || "",
       bracket: item.bracket || "",
+      bracketUrl: item.bracketUrl || "",
       powerLevel:
         item.powerLevel === null || item.powerLevel === undefined || item.powerLevel === ""
           ? null
