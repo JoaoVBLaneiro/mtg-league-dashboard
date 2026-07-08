@@ -1315,6 +1315,8 @@ function PlayerAchievementsSection({
   achievements: Array<PlayerAchievement | null | undefined>;
   onAchievementClick: (achievement: PlayerAchievement) => void;
 }) {
+  const [showLockedAchievements, setShowLockedAchievements] = useState(false);
+
   const safeAchievements = achievements.filter(
     (achievement): achievement is PlayerAchievement => Boolean(achievement)
   );
@@ -1323,9 +1325,23 @@ function PlayerAchievementsSection({
     return null;
   }
 
-  const unlockedCount = safeAchievements.filter(
+  const unlockedAchievements = safeAchievements.filter(
     (achievement) => achievement.unlocked
-  ).length;
+  );
+
+  const lockedAchievements = safeAchievements.filter(
+    (achievement) => !achievement.unlocked
+  );
+
+  const visibleAchievements = showLockedAchievements
+    ? safeAchievements
+    : unlockedAchievements;
+
+  const unlockedCount = unlockedAchievements.length;
+
+    if (!visibleAchievements.length && !lockedAchievements.length) {
+    return null;
+  }
 
   return (
     <div className="profile-section player-achievements-section">
@@ -1338,7 +1354,7 @@ function PlayerAchievementsSection({
       </div>
 
       <div className="player-achievements-grid">
-        {safeAchievements.map((achievement) => {
+        {visibleAchievements.map((achievement) => {
           const progress = Math.max(
             0,
             Math.min(100, Number(achievement.progress || 0))
@@ -1396,6 +1412,18 @@ function PlayerAchievementsSection({
             </button>
           );
         })}
+
+        {lockedAchievements.length > 0 ? (
+          <button
+            className="achievements-show-more-button"
+            type="button"
+            onClick={() => setShowLockedAchievements((current) => !current)}
+          >
+            {showLockedAchievements
+              ? "Mostrar menos"
+              : `Mostrar mais (${lockedAchievements.length})`}
+          </button>
+        ) : null}
       </div>
     </div>
   );
