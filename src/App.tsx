@@ -1,5 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trophy, Users, Wand2, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  Wand2,
+  RefreshCw,
+  AlertTriangle,
+  Flame,
+  Skull,
+  Star,
+  Sparkles,
+  Sword,
+  Eye,
+  Crown,
+  Shield,
+  Zap,
+  Target,
+  BookOpen,
+  Hammer,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
@@ -40,6 +58,23 @@ type RawPlayerTrophy = {
   "Última Variação"?: number | string;
   "Última Partida ID"?: string;
   "Última Partida Data"?: string;
+};
+
+type AchievementTier = "common" | "uncommon" | "rare" | "mythic";
+
+type PlayerAchievement = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  tier: AchievementTier;
+  value: number;
+  target: number;
+  progress: number;
+  unlocked: boolean;
+  manual: boolean;
+  date?: string;
+  note?: string;
 };
 
 type PlayerTrophyInfo = {
@@ -195,6 +230,7 @@ type RawPlayer = {
   fblthpArtUrl?: string;
   iconeKeyrune?: string;
   profileExtras?: PlayerProfileExtras;
+  achievements?: PlayerAchievement[];
 };
 
 type RawDeck = {
@@ -263,6 +299,7 @@ type Player = {
   iconeKeyrune: string;
   profileExtras: PlayerProfileExtras;
   trophy: PlayerTrophyInfo;
+  achievements: PlayerAchievement[];
 };
 
 type Deck = {
@@ -689,6 +726,9 @@ function normalizePlayers(
       iconeKeyrune: item.iconeKeyrune || "",
       profileExtras: item.profileExtras || emptyPlayerProfileExtras,
       trophy: emptyPlayerTrophyInfo,
+      achievements: Array.isArray(item.achievements)
+      ? item.achievements.filter((achievement): achievement is PlayerAchievement => Boolean(achievement))
+      : [],
     }))
     .sort((a, b) => {
       if (sortMode === "wins") {
@@ -1073,6 +1113,291 @@ function TrophyBadge({
         </span>
       ) : null}
     </span>
+  );
+}
+
+function getAchievementIcon(icon: string) {
+  const normalizedIcon = String(icon || "").trim().toLowerCase();
+
+  const iconMap: Record<string, React.ReactNode> = {
+    trophy: <Trophy size={20} />,
+    flame: <Flame size={20} />,
+    skull: <Skull size={20} />,
+    star: <Star size={20} />,
+    sparkles: <Sparkles size={20} />,
+    sword: <Sword size={20} />,
+    swords: <Sword size={20} />,
+    eye: <Eye size={20} />,
+    crown: <Crown size={20} />,
+    shield: <Shield size={20} />,
+    zap: <Zap size={20} />,
+    target: <Target size={20} />,
+    book: <BookOpen size={20} />,
+    hammer: <Hammer size={20} />,
+  };
+
+  return iconMap[normalizedIcon] || <Star size={20} />;
+}
+
+function getAchievementTierLabel(tier: AchievementTier) {
+  const labels: Record<AchievementTier, string> = {
+    common: "Comum",
+    uncommon: "Incomum",
+    rare: "Rara",
+    mythic: "Mítica",
+  };
+
+  return labels[tier] || "Comum";
+}
+
+function getAchievementTierRank(tier: AchievementTier) {
+  const ranks: Record<AchievementTier, number> = {
+    common: 1,
+    uncommon: 2,
+    rare: 3,
+    mythic: 4,
+  };
+
+  return ranks[tier] || 0;
+}
+
+function getTopUnlockedAchievements(achievements: Array<PlayerAchievement | null | undefined> = []) {
+  return achievements
+    .filter((achievement): achievement is PlayerAchievement => {
+      return Boolean(achievement && achievement.unlocked);
+    })
+    .slice()
+    .sort((a, b) => {
+      if (getAchievementTierRank(b.tier) !== getAchievementTierRank(a.tier)) {
+        return getAchievementTierRank(b.tier) - getAchievementTierRank(a.tier);
+      }
+
+      if (Number(b.progress || 0) !== Number(a.progress || 0)) {
+        return Number(b.progress || 0) - Number(a.progress || 0);
+      }
+
+      if (Number(b.value || 0) !== Number(a.value || 0)) {
+        return Number(b.value || 0) - Number(a.value || 0);
+      }
+
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    })
+    .slice(0, 3);
+}
+
+function PlayerTopAchievementBadges({
+  achievements,
+  onAchievementClick,
+}: {
+  achievements: PlayerAchievement[];
+  onAchievementClick: (achievement: PlayerAchievement) => void;
+}) {
+  const topAchievements = getTopUnlockedAchievements(achievements);
+
+  if (!topAchievements.length) {
+    return null;
+  }
+
+  return (
+    <div className="profile-top-achievements">
+      {topAchievements.map((achievement) => {
+        const progress = Math.max(
+          0,
+          Math.min(100, Number(achievement.progress || 0))
+        );
+
+        const title = [
+          achievement.name,
+          `Raridade: ${getAchievementTierLabel(achievement.tier)}`,
+          `Progresso: ${achievement.value}/${achievement.target} (${progress}%)`,
+          achievement.description,
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        return (
+          <button
+            key={achievement.id}
+            className={`profile-top-achievement-badge profile-top-achievement-badge-${achievement.tier}`}
+            title={title}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAchievementClick(achievement);
+            }}
+          >
+            {getAchievementIcon(achievement.icon)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AchievementDetailsModal({
+  achievement,
+  onClose,
+}: {
+  achievement: PlayerAchievement;
+  onClose: () => void;
+}) {
+  const progress = Math.max(
+    0,
+    Math.min(100, Number(achievement.progress || 0))
+  );
+
+  return (
+    <div
+      className="achievement-details-backdrop"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClose();
+      }}
+    >
+      <motion.div
+        className={`achievement-details-modal achievement-details-modal-${achievement.tier}`}
+        initial={{ opacity: 0, scale: 0.94, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          className="achievement-details-close"
+          type="button"
+          onClick={onClose}
+        >
+          ×
+        </button>
+
+        <div className="achievement-details-icon">
+          {getAchievementIcon(achievement.icon)}
+        </div>
+
+        <div className="achievement-details-content">
+          <span>{getAchievementTierLabel(achievement.tier)}</span>
+
+          <h3>{achievement.name}</h3>
+
+          <p>{achievement.description}</p>
+
+          <div className="achievement-details-progress-row">
+            <strong>
+              {achievement.value}/{achievement.target}
+            </strong>
+
+            <small>{progress}% concluído</small>
+          </div>
+
+          <div className="achievement-details-progress-bar">
+            <div style={{ width: `${progress}%` }} />
+          </div>
+
+          {achievement.manual ? (
+            <div className="achievement-details-manual">
+              Conquista manual
+            </div>
+          ) : null}
+
+          {achievement.note ? (
+            <p className="achievement-details-note">
+              {achievement.note}
+            </p>
+          ) : null}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function PlayerAchievementsSection({
+  achievements,
+  onAchievementClick,
+}: {
+  achievements: Array<PlayerAchievement | null | undefined>;
+  onAchievementClick: (achievement: PlayerAchievement) => void;
+}) {
+  const safeAchievements = achievements.filter(
+    (achievement): achievement is PlayerAchievement => Boolean(achievement)
+  );
+
+  if (!safeAchievements.length) {
+    return null;
+  }
+
+  const unlockedCount = safeAchievements.filter(
+    (achievement) => achievement.unlocked
+  ).length;
+
+  return (
+    <div className="profile-section player-achievements-section">
+      <div className="player-achievements-title-row">
+        <h3>Conquistas</h3>
+
+        <span>
+          {unlockedCount}/{achievements.length} desbloqueadas
+        </span>
+      </div>
+
+      <div className="player-achievements-grid">
+        {safeAchievements.map((achievement) => {
+          const progress = Math.max(
+            0,
+            Math.min(100, Number(achievement.progress || 0))
+          );
+
+          const title = [
+            achievement.name,
+            achievement.description,
+            `${achievement.value}/${achievement.target}`,
+            `${progress}% concluído`,
+            `Raridade: ${getAchievementTierLabel(achievement.tier)}`,
+            achievement.manual ? "Conquista manual" : "",
+            achievement.note || "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          return (
+            <button
+              key={achievement.id}
+              className={`achievement-card achievement-card-${achievement.tier} ${
+                achievement.unlocked ? "achievement-card-unlocked" : "achievement-card-locked"
+              }`}
+              title={title}
+              type="button"
+              onClick={() => onAchievementClick(achievement)}
+            >
+              <div className="achievement-icon">
+                {getAchievementIcon(achievement.icon)}
+              </div>
+
+              <div className="achievement-info">
+                <div className="achievement-name-row">
+                  <strong>{achievement.name}</strong>
+
+                  {achievement.manual ? (
+                    <span className="achievement-manual-tag">Manual</span>
+                  ) : null}
+                </div>
+
+                <p>{achievement.description}</p>
+
+                <div className="achievement-progress-row">
+                  <span>
+                    {achievement.value}/{achievement.target}
+                  </span>
+
+                  <span>{progress}%</span>
+                </div>
+
+                <div className="achievement-progress-bar">
+                  <div style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -2529,6 +2854,7 @@ function buildFallbackPlayerFromCombo(item: ComboStatItem): Player {
     iconeKeyrune: playerItem.iconeKeyrune || "",
     profileExtras: emptyPlayerProfileExtras,
     trophy: emptyPlayerTrophyInfo, 
+    achievements: [],
   };
 }
 
@@ -3982,9 +4308,11 @@ function ProfileModal({
   onClose: () => void;
 }) {
   const [isComboStatsModalOpen, setIsComboStatsModalOpen] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState<PlayerAchievement | null>(null);
 
   useEffect(() => {
-    setIsComboStatsModalOpen(false);
+  setIsComboStatsModalOpen(false);
+  setSelectedAchievement(null);
   }, [selected?.type, selected?.item.name]);
 
   if (!selected) return null;
@@ -4155,8 +4483,15 @@ function ProfileModal({
   </div>
 
   {isPlayer ? (
-    <div className="profile-title-trophy">
-      <TrophyBadge trophy={(item as Player).trophy} />
+    <div className="profile-title-badges">
+      <div className="profile-title-trophy">
+        <TrophyBadge trophy={(item as Player).trophy} />
+      </div>
+
+      <PlayerTopAchievementBadges
+        achievements={(item as Player).achievements}
+        onAchievementClick={setSelectedAchievement}
+      />
     </div>
   ) : null}
 </div>
@@ -4387,6 +4722,13 @@ function ProfileModal({
           />
         ) : null}
 
+        {isPlayer ? (
+          <PlayerAchievementsSection
+            achievements={(item as Player).achievements}
+            onAchievementClick={setSelectedAchievement}
+          />
+        ) : null}
+
         {!isPlayer && (item as Deck).cartasChave?.length ? (
           <KeyCardsSection
             cards={(item as Deck).cartasChave}
@@ -4443,6 +4785,13 @@ function ProfileModal({
             onSelectDeck={openDeckByName}
             onSelectPlayer={openPlayerByName}
             onClose={() => setIsComboStatsModalOpen(false)}
+          />
+        ) : null}
+
+        {selectedAchievement ? (
+          <AchievementDetailsModal
+            achievement={selectedAchievement}
+            onClose={() => setSelectedAchievement(null)}
           />
         ) : null}
 
