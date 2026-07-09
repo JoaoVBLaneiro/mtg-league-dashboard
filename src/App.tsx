@@ -62,6 +62,38 @@ type RawPlayerTrophy = {
 
 type AchievementTier = "common" | "uncommon" | "rare" | "mythic";
 
+type AchievementDeckDetail = NonNullable<DeckMiniInfo> & {
+  date?: string;
+  matchId?: string;
+  contextLabel?: string;
+  locked?: boolean;
+};
+
+type AchievementPlayerDetail = {
+  nome: string;
+  iconeKeyrune?: string;
+  fotoUrl?: string;
+  titulo?: string;
+  date?: string;
+  matchId?: string;
+  contextLabel?: string;
+};
+
+type AchievementTableWinDetail = {
+  matchId?: string;
+  date?: string;
+  winnerDeck: AchievementDeckDetail;
+  defeatedDecks: AchievementDeckDetail[];
+};
+
+type AchievementDetails = {
+  title?: string;
+  description?: string;
+  decks?: AchievementDeckDetail[];
+  players?: AchievementPlayerDetail[];
+  tableWins?: AchievementTableWinDetail[];
+};
+
 type PlayerAchievement = {
   id: string;
   name: string;
@@ -75,6 +107,7 @@ type PlayerAchievement = {
   manual: boolean;
   date?: string;
   note?: string;
+  details?: AchievementDetails | null;
 };
 
 type PlayerTrophyInfo = {
@@ -1236,9 +1269,13 @@ function PlayerTopAchievementBadges({
 
 function AchievementDetailsModal({
   achievement,
+  onDeckClick,
+  onPlayerClick,
   onClose,
 }: {
   achievement: PlayerAchievement;
+  onDeckClick: (deckName: string) => void;
+  onPlayerClick: (playerName: string) => void;
   onClose: () => void;
 }) {
   const progress = Math.max(
@@ -1302,6 +1339,56 @@ function AchievementDetailsModal({
               {achievement.note}
             </p>
           ) : null}
+
+          {achievement.details?.decks?.length ||
+            achievement.details?.players?.length ||
+            achievement.details?.tableWins?.length ? (
+              <div className="achievement-details-evidence">
+                <div className="achievement-details-evidence-header">
+                  <strong>{achievement.details.title || "Como foi obtida"}</strong>
+
+                  {achievement.details.description ? (
+                    <span>{achievement.details.description}</span>
+                  ) : null}
+                </div>
+
+                {achievement.details.decks?.length ? (
+                  <div className="achievement-details-deck-grid">
+                    {achievement.details.decks.map((deck, index) => (
+                      <AchievementDeckMiniCard
+                        key={`${deck.nome}-${deck.date || ""}-${index}`}
+                        deck={deck}
+                        onClick={onDeckClick}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {achievement.details.players?.length ? (
+                  <div className="achievement-details-player-grid">
+                    {achievement.details.players.map((player, index) => (
+                      <AchievementPlayerMiniCard
+                        key={`${player.nome}-${player.date || ""}-${index}`}
+                        player={player}
+                        onClick={onPlayerClick}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {achievement.details.tableWins?.length ? (
+                  <div className="achievement-details-table-wins">
+                    {achievement.details.tableWins.map((tableWin, index) => (
+                      <AchievementTableWinCard
+                        key={`${tableWin.matchId || "match"}-${index}`}
+                        tableWin={tableWin}
+                        onDeckClick={onDeckClick}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
         </div>
       </motion.div>
     </div>
@@ -1897,6 +1984,132 @@ function PlayerDeckMiniCard({
         ) : null}
       </div>
     </button>
+  );
+}
+
+function AchievementPlayerMiniCard({
+  player,
+  onClick,
+}: {
+  player: AchievementPlayerDetail;
+  onClick: (playerName: string) => void;
+}) {
+  return (
+    <button
+      className="achievement-player-mini-card"
+      type="button"
+      onClick={() => onClick(player.nome)}
+    >
+      <div className="achievement-player-mini-avatar">
+        {player.fotoUrl ? (
+          <img src={player.fotoUrl} alt={player.nome} />
+        ) : player.iconeKeyrune ? (
+          <i className={player.iconeKeyrune} />
+        ) : (
+          <Users size={22} />
+        )}
+      </div>
+
+      <div className="achievement-player-mini-info">
+        <span>{player.contextLabel || "Jogador derrotado"}</span>
+        <strong>{player.nome}</strong>
+
+        {player.titulo ? <p>{player.titulo}</p> : null}
+
+        {player.date ? <small>{player.date}</small> : null}
+      </div>
+    </button>
+  );
+}
+
+function AchievementDeckMiniCard({
+  deck,
+  onClick,
+}: {
+  deck: AchievementDeckDetail;
+  onClick: (deckName: string) => void;
+}) {
+  return (
+    <div
+      className={`achievement-evidence-card-wrap ${
+        deck.locked ? "achievement-evidence-card-wrap-locked" : ""
+      }`}
+    >
+      <PlayerDeckMiniCard
+        title={deck.contextLabel || ""}
+        deck={deck}
+        onClick={onClick}
+      />
+
+      {deck.date ? (
+        <span className="achievement-evidence-date">
+          {deck.date}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function AchievementDefeatedCommanderCard({
+  deck,
+  onClick,
+}: {
+  deck: AchievementDeckDetail;
+  onClick: (deckName: string) => void;
+}) {
+  return (
+    <button
+      className="achievement-defeated-commander-card"
+      type="button"
+      onClick={() => onClick(deck.nome)}
+      title={deck.comandante || deck.nome}
+    >
+      <div className="achievement-defeated-commander-image">
+        {deck.fotoUrl ? (
+          <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+        ) : (
+          <Wand2 size={18} />
+        )}
+      </div>
+
+      <span>{deck.nome}</span>
+    </button>
+  );
+}
+
+function AchievementTableWinCard({
+  tableWin,
+  onDeckClick,
+}: {
+  tableWin: AchievementTableWinDetail;
+  onDeckClick: (deckName: string) => void;
+}) {
+  return (
+    <div className="achievement-table-win-card">
+      <div className="achievement-table-win-main">
+        <PlayerDeckMiniCard
+          title="Deck vencedor"
+          deck={tableWin.winnerDeck}
+          onClick={onDeckClick}
+        />
+
+        {tableWin.date ? (
+          <span className="achievement-table-win-date">
+            {tableWin.date}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="achievement-table-defeated-list">
+        {tableWin.defeatedDecks.map((deck, index) => (
+          <AchievementDefeatedCommanderCard
+            key={`${deck.nome}-${index}`}
+            deck={deck}
+            onClick={onDeckClick}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -4819,6 +5032,14 @@ function ProfileModal({
         {selectedAchievement ? (
           <AchievementDetailsModal
             achievement={selectedAchievement}
+            onDeckClick={(deckName) => {
+              setSelectedAchievement(null);
+              openDeckByName(deckName);
+            }}
+            onPlayerClick={(playerName) => {
+              setSelectedAchievement(null);
+              openPlayerByName(playerName);
+            }}
             onClose={() => setSelectedAchievement(null)}
           />
         ) : null}
