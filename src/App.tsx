@@ -377,12 +377,6 @@ type Deck = {
   saltVotes?: number;
 };
 
-type RegisteredDeckColorGroup = {
-  key: string;
-  label: string;
-  decks: Deck[];
-};
-
 type MissingDeckColorCombination = {
   key: string;
   label: string;
@@ -1451,13 +1445,15 @@ function AchievementDetailsModal({
   const missingAchievements =
     achievement.details?.missingAchievements || [];
 
+  const achievementDetails = achievement.details;
+
   const hasAchievementEvidence = Boolean(
-    achievement.details &&
+    achievementDetails &&
       (
-        achievement.details.description ||
-        achievement.details.decks?.length ||
-        achievement.details.players?.length ||
-        achievement.details.tableWins?.length ||
+        achievementDetails.description ||
+        achievementDetails.decks?.length ||
+        achievementDetails.players?.length ||
+        achievementDetails.tableWins?.length ||
         missingAchievements.length
       )
   );
@@ -1533,80 +1529,80 @@ function AchievementDetailsModal({
             </p>
           ) : null}
 
-          {hasAchievementEvidence ? (
-              <div className="achievement-details-evidence">
-                <div className="achievement-details-evidence-header">
-                  <strong>{achievement.details.title || "Como foi obtida"}</strong>
+          {hasAchievementEvidence && achievementDetails ? (
+            <div className="achievement-details-evidence">
+              <div className="achievement-details-evidence-header">
+                <strong>{achievementDetails.title || "Como foi obtida"}</strong>
 
-                  {achievement.details.description ? (
-                    <span>{achievement.details.description}</span>
-                  ) : null}
-                </div>
-
-                {achievement.details.decks?.length ? (
-                  <div className="achievement-details-deck-grid">
-                    {achievement.details.decks.map((deck, index) => (
-                      <AchievementDeckMiniCard
-                        key={`${deck.nome}-${deck.date || ""}-${index}`}
-                        deck={deck}
-                        onClick={onDeckClick}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {achievement.details.players?.length ? (
-                  <div className="achievement-details-player-grid">
-                    {achievement.details.players.map((player, index) => (
-                      <AchievementPlayerMiniCard
-                        key={`${player.nome}-${player.date || ""}-${index}`}
-                        player={player}
-                        onClick={onPlayerClick}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {achievement.details.tableWins?.length ? (
-                  <div className="achievement-details-table-wins">
-                    {achievement.details.tableWins.map((tableWin, index) => (
-                      <AchievementTableWinCard
-                        key={`${tableWin.matchId || "match"}-${index}`}
-                        tableWin={tableWin}
-                        onDeckClick={onDeckClick}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-
-                {missingAchievements.length ? (
-                  <div className="achievement-details-missing-grid">
-                    {missingAchievements.map((missingAchievement) => (
-                      <button
-                        key={missingAchievement.id}
-                        className={`achievement-details-missing-card achievement-details-missing-card-${missingAchievement.tier}`}
-                        type="button"
-                        onClick={() => openMissingAchievement(missingAchievement.id)}
-                        title={`Abrir conquista: ${missingAchievement.name}`}
-                      >
-                        <strong>{missingAchievement.name}</strong>
-
-                        <span>
-                          {missingAchievement.value}/{missingAchievement.target}
-                        </span>
-
-                        <small>
-                          máximo:{" "}
-                          {missingAchievement.maxTier
-                            ? getAchievementTierLabel(missingAchievement.maxTier)
-                            : "—"}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
+                {achievementDetails.description ? (
+                  <span>{achievementDetails.description}</span>
                 ) : null}
               </div>
-            ) : null}
+
+              {achievementDetails.decks?.length ? (
+                <div className="achievement-details-deck-grid">
+                  {achievementDetails.decks.map((deck, index) => (
+                    <AchievementDeckMiniCard
+                      key={`${deck.nome}-${deck.date || ""}-${index}`}
+                      deck={deck}
+                      onClick={onDeckClick}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {achievementDetails.players?.length ? (
+                <div className="achievement-details-player-grid">
+                  {achievementDetails.players.map((player, index) => (
+                    <AchievementPlayerMiniCard
+                      key={`${player.nome}-${player.date || ""}-${index}`}
+                      player={player}
+                      onClick={onPlayerClick}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {achievementDetails.tableWins?.length ? (
+                <div className="achievement-details-table-wins">
+                  {achievementDetails.tableWins.map((tableWin, index) => (
+                    <AchievementTableWinCard
+                      key={`${tableWin.matchId || "match"}-${index}`}
+                      tableWin={tableWin}
+                      onDeckClick={onDeckClick}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {missingAchievements.length ? (
+                <div className="achievement-details-missing-grid">
+                  {missingAchievements.map((missingAchievement) => (
+                    <button
+                      key={missingAchievement.id}
+                      className={`achievement-details-missing-card achievement-details-missing-card-${missingAchievement.tier}`}
+                      type="button"
+                      onClick={() => openMissingAchievement(missingAchievement.id)}
+                      title={`Abrir conquista: ${missingAchievement.name}`}
+                    >
+                      <strong>{missingAchievement.name}</strong>
+
+                      <span>
+                        {missingAchievement.value}/{missingAchievement.target}
+                      </span>
+
+                      <small>
+                        máximo:{" "}
+                        {missingAchievement.maxTier
+                          ? getAchievementTierLabel(missingAchievement.maxTier)
+                          : "—"}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </motion.div>
     </div>
@@ -5252,6 +5248,8 @@ function ProfileModal({
         {selectedAchievement ? (
           <AchievementDetailsModal
             achievement={selectedAchievement}
+            allAchievements={isPlayer ? (item as Player).achievements : []}
+            onAchievementClick={setSelectedAchievement}
             onDeckClick={(deckName) => {
               setSelectedAchievement(null);
               openDeckByName(deckName);
