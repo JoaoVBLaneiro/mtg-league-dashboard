@@ -60,7 +60,7 @@ type RawPlayerTrophy = {
   "Última Partida Data"?: string;
 };
 
-type AchievementTier = "common" | "uncommon" | "rare" | "mythic";
+type AchievementTier = "common" | "uncommon" | "rare" | "mythic" | "legendary";
 
 type AchievementDeckDetail = NonNullable<DeckMiniInfo> & {
   date?: string;
@@ -77,6 +77,7 @@ type AchievementPlayerDetail = {
   date?: string;
   matchId?: string;
   contextLabel?: string;
+  locked?: boolean;
 };
 
 type AchievementTableWinDetail = {
@@ -92,6 +93,14 @@ type AchievementDetails = {
   decks?: AchievementDeckDetail[];
   players?: AchievementPlayerDetail[];
   tableWins?: AchievementTableWinDetail[];
+  missingAchievements?: {
+    id: string;
+    name: string;
+    tier: AchievementTier;
+    value: number;
+    target: number;
+    maxTier?: AchievementTier;
+  }[];
 };
 
 type PlayerAchievement = {
@@ -366,6 +375,17 @@ type Deck = {
   saltLevel?: number | null;
   powerVotes?: number;
   saltVotes?: number;
+};
+
+type RegisteredDeckColorGroup = {
+  key: string;
+  label: string;
+  decks: Deck[];
+};
+
+type MissingDeckColorCombination = {
+  key: string;
+  label: string;
 };
 
 type ColorUsageStat = {
@@ -894,6 +914,7 @@ function normalizeDeckColors(colors: string | undefined): string[] {
     colorless: ["C"],
     incolor: ["C"],
     incoloro: ["C"],
+    c: ["C"],
     azorius: ["W", "U"],
     dimir: ["U", "B"],
     rakdos: ["B", "R"],
@@ -950,6 +971,144 @@ function getColorLabel(color: string) {
   };
 
   return labels[color] || color;
+}
+
+const MTG_COLOR_ORDER = ["W", "U", "B", "R", "G"];
+
+const COLOR_COMBINATION_LABELS: Record<string, string> = {
+  C: "Incolor",
+
+  W: "Branco",
+  U: "Azul",
+  B: "Preto",
+  R: "Vermelho",
+  G: "Verde",
+
+  WU: "Azorius",
+  WB: "Orzhov",
+  WR: "Boros",
+  WG: "Selesnya",
+  UB: "Dimir",
+  UR: "Izzet",
+  UG: "Simic",
+  BR: "Rakdos",
+  BG: "Golgari",
+  RG: "Gruul",
+
+  WUB: "Esper",
+  WUR: "Jeskai",
+  WUG: "Bant",
+  WBR: "Mardu",
+  WBG: "Abzan",
+  WRG: "Naya",
+  UBR: "Grixis",
+  UBG: "Sultai",
+  URG: "Temur",
+  BRG: "Jund",
+
+  WUBR: "Yore-Tiller",
+  WUBG: "Witch-Maw",
+  WURG: "Ink-Treader",
+  WBRG: "Dune-Brood",
+  UBRG: "Glint-Eye",
+
+  WUBRG: "WUBRG",
+};
+
+function normalizeColorCombinationKey(colors: string | undefined) {
+  const parsedColors = normalizeDeckColors(colors);
+
+  if (parsedColors.includes("C")) {
+    return "C";
+  }
+
+  const uniqueColors = Array.from(new Set(parsedColors)).filter((color) =>
+    MTG_COLOR_ORDER.includes(color)
+  );
+
+  return MTG_COLOR_ORDER.filter((color) => uniqueColors.includes(color)).join("");
+}
+
+function getColorCombinationLabel(colorKey: string) {
+  return COLOR_COMBINATION_LABELS[colorKey] || colorKey || "Sem cores";
+}
+
+function getColorCombinationSortValue(colorKey: string) {
+  if (colorKey === "C") {
+    return 0;
+  }
+
+  const colorCount = colorKey.length;
+
+  const colorOrderValue = MTG_COLOR_ORDER.reduce((total, color, index) => {
+    return total + (colorKey.includes(color) ? Math.pow(2, index) : 0);
+  }, 0);
+
+  return colorCount * 100 + colorOrderValue;
+}
+
+function buildAllMtgColorCombinations() {
+  const combinations: MissingDeckColorCombination[] = [
+    {
+      key: "C",
+      label: "Incolor",
+    },
+  ];
+
+  const maxMask = Math.pow(2, MTG_COLOR_ORDER.length);
+
+  for (let mask = 1; mask < maxMask; mask++) {
+    const key = MTG_COLOR_ORDER.filter((_, index) => {
+      return Boolean(mask & (1 << index));
+    }).join("");
+
+    combinations.push({
+      key,
+      label: getColorCombinationLabel(key),
+    });
+  }
+
+  return combinations.sort(
+    (a, b) => getColorCombinationSortValue(a.key) - getColorCombinationSortValue(b.key)
+  );
+}
+
+function buildRegisteredDeckColorGroups(decks: Deck[]) {
+  const groupsMap: Record<string, Deck[]> = {};
+
+  decks.forEach((deck) => {
+    const key = normalizeColorCombinationKey(deck.colors) || "C";
+
+    if (!groupsMap[key]) {
+      groupsMap[key] = [];
+    }
+
+    groupsMap[key].push(deck);
+  });
+
+  return Object.keys(groupsMap)
+    .map((key) => ({
+      key,
+      label: getColorCombinationLabel(key),
+      decks: groupsMap[key]
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort(
+      (a, b) => getColorCombinationSortValue(a.key) - getColorCombinationSortValue(b.key)
+    );
+}
+
+function buildMissingDeckColorCombinations(decks: Deck[]) {
+  const existingKeys = new Set(
+    decks
+      .map((deck) => normalizeColorCombinationKey(deck.colors))
+      .filter(Boolean)
+  );
+
+  return buildAllMtgColorCombinations().filter(
+    (combination) => !existingKeys.has(combination.key)
+  );
 }
 
 function buildColorUsageStatsFromDecks(
@@ -1178,6 +1337,7 @@ function getAchievementTierLabel(tier: AchievementTier) {
     uncommon: "Incomum",
     rare: "Rara",
     mythic: "Mítica",
+    legendary: "Lendária",
   };
 
   return labels[tier] || "Comum";
@@ -1189,6 +1349,7 @@ function getAchievementTierRank(tier: AchievementTier) {
     uncommon: 2,
     rare: 3,
     mythic: 4,
+    legendary: 5
   };
 
   return ranks[tier] || 0;
@@ -1269,11 +1430,15 @@ function PlayerTopAchievementBadges({
 
 function AchievementDetailsModal({
   achievement,
+  allAchievements,
+  onAchievementClick,
   onDeckClick,
   onPlayerClick,
   onClose,
 }: {
   achievement: PlayerAchievement;
+  allAchievements: PlayerAchievement[];
+  onAchievementClick: (achievement: PlayerAchievement) => void;
   onDeckClick: (deckName: string) => void;
   onPlayerClick: (playerName: string) => void;
   onClose: () => void;
@@ -1282,6 +1447,30 @@ function AchievementDetailsModal({
     0,
     Math.min(100, Number(achievement.progress || 0))
   );
+
+  const missingAchievements =
+    achievement.details?.missingAchievements || [];
+
+  const hasAchievementEvidence = Boolean(
+    achievement.details &&
+      (
+        achievement.details.description ||
+        achievement.details.decks?.length ||
+        achievement.details.players?.length ||
+        achievement.details.tableWins?.length ||
+        missingAchievements.length
+      )
+  );
+
+  function openMissingAchievement(achievementId: string) {
+    const foundAchievement = allAchievements.find(
+      (item) => item.id === achievementId
+    );
+
+    if (foundAchievement) {
+      onAchievementClick(foundAchievement);
+    }
+  }
 
   return (
     <div
@@ -1292,7 +1481,11 @@ function AchievementDetailsModal({
       }}
     >
       <motion.div
-        className={`achievement-details-modal achievement-details-modal-${achievement.tier}`}
+        className={`achievement-details-modal achievement-details-modal-${achievement.tier} ${
+          achievement.unlocked
+            ? "achievement-details-modal-unlocked"
+            : "achievement-details-modal-locked"
+        }`}
         initial={{ opacity: 0, scale: 0.94, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         onClick={(event) => event.stopPropagation()}
@@ -1340,9 +1533,7 @@ function AchievementDetailsModal({
             </p>
           ) : null}
 
-          {achievement.details?.decks?.length ||
-            achievement.details?.players?.length ||
-            achievement.details?.tableWins?.length ? (
+          {hasAchievementEvidence ? (
               <div className="achievement-details-evidence">
                 <div className="achievement-details-evidence-header">
                   <strong>{achievement.details.title || "Como foi obtida"}</strong>
@@ -1384,6 +1575,33 @@ function AchievementDetailsModal({
                         tableWin={tableWin}
                         onDeckClick={onDeckClick}
                       />
+                    ))}
+                  </div>
+                ) : null}
+
+                {missingAchievements.length ? (
+                  <div className="achievement-details-missing-grid">
+                    {missingAchievements.map((missingAchievement) => (
+                      <button
+                        key={missingAchievement.id}
+                        className={`achievement-details-missing-card achievement-details-missing-card-${missingAchievement.tier}`}
+                        type="button"
+                        onClick={() => openMissingAchievement(missingAchievement.id)}
+                        title={`Abrir conquista: ${missingAchievement.name}`}
+                      >
+                        <strong>{missingAchievement.name}</strong>
+
+                        <span>
+                          {missingAchievement.value}/{missingAchievement.target}
+                        </span>
+
+                        <small>
+                          máximo:{" "}
+                          {missingAchievement.maxTier
+                            ? getAchievementTierLabel(missingAchievement.maxTier)
+                            : "—"}
+                        </small>
+                      </button>
                     ))}
                   </div>
                 ) : null}
@@ -1996,7 +2214,9 @@ function AchievementPlayerMiniCard({
 }) {
   return (
     <button
-      className="achievement-player-mini-card"
+      className={`achievement-player-mini-card ${
+        player.locked ? "achievement-player-mini-card-locked" : ""
+      }`}
       type="button"
       onClick={() => onClick(player.nome)}
     >
@@ -6185,6 +6405,136 @@ function getDecklistHostInfo(url: string) {
   };
 }
 
+function RegisteredDecksModal({
+  decks,
+  onSelectDeck,
+  onClose,
+}: {
+  decks: Deck[];
+  onSelectDeck: (deck: Deck) => void;
+  onClose: () => void;
+}) {
+  const deckGroups = useMemo(
+    () => buildRegisteredDeckColorGroups(decks),
+    [decks]
+  );
+
+  const missingCombinations = useMemo(
+    () => buildMissingDeckColorCombinations(decks),
+    [decks]
+  );
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="registered-decks-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" type="button" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="registered-decks-header">
+          <div className="registered-decks-icon">
+            <Wand2 size={28} />
+          </div>
+
+          <div>
+            <span className="profile-type">Decks cadastrados</span>
+            <h2>Biblioteca de decks</h2>
+
+            <p>
+              Todos os decks cadastrados, agrupados por identidade de cor.
+            </p>
+          </div>
+        </div>
+
+        <div className="registered-decks-summary">
+          <strong>{decks.length}</strong>
+          <span>decks cadastrados</span>
+
+          <strong>{deckGroups.length}</strong>
+          <span>combinações usadas</span>
+
+          <strong>{missingCombinations.length}</strong>
+          <span>combinações vazias</span>
+        </div>
+
+        <div className="registered-decks-groups">
+          {deckGroups.map((group) => (
+            <section className="registered-decks-group" key={group.key}>
+              <div className="registered-decks-group-header">
+                <div>
+                  <h3>{group.label}</h3>
+                  <span>
+                    {group.decks.length} deck
+                    {group.decks.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                <ManaPips colors={group.key} />
+              </div>
+
+              <div className="registered-decks-grid">
+                {group.decks.map((deck) => (
+                  <button
+                    className="registered-deck-card"
+                    key={deck.name}
+                    type="button"
+                    onClick={() => onSelectDeck(deck)}
+                  >
+                    <div className="registered-deck-image">
+                      {deck.imageUrl ? (
+                        <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+                      ) : (
+                        <Wand2 size={20} />
+                      )}
+                    </div>
+
+                    <div className="registered-deck-info">
+                      <strong>{deck.name}</strong>
+
+                      <span>
+                        {deck.commander || "Comandante não informado"}
+                        {deck.secondaryCommander
+                          ? ` + ${deck.secondaryCommander}`
+                          : ""}
+                      </span>
+
+                      <ManaPips colors={deck.colors} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <section className="registered-decks-missing-section">
+          <div className="registered-decks-missing-header">
+            <h3>Combinações sem deck cadastrado</h3>
+            <span>{missingCombinations.length} faltando</span>
+          </div>
+
+          <div className="registered-decks-missing-grid">
+            {missingCombinations.map((combination) => (
+              <div
+                className="registered-decks-missing-pill"
+                key={combination.key}
+              >
+                <ManaPips colors={combination.key} />
+                <strong>{combination.label}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      </motion.div>
+    </div>
+  );
+}
+
 function FblthpInfoModal({
   fblthp,
   onClose,
@@ -7183,6 +7533,8 @@ function DashboardApp() {
 
   const [showFblthpInfo, setShowFblthpInfo] = useState(false);
 
+  const [showRegisteredDecksModal, setShowRegisteredDecksModal] = useState(false);
+
   const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
 
@@ -7279,6 +7631,11 @@ function DashboardApp() {
         return;
       }
 
+      if (showRegisteredDecksModal) {
+        setShowRegisteredDecksModal(false);
+        return;
+      }
+
       if (selectedOrigin) {
         setSelectedOrigin(null);
         return;
@@ -7303,6 +7660,7 @@ function DashboardApp() {
   }, [
     selectedDecklist,
     showFblthpInfo,
+    showRegisteredDecksModal,
     selectedOrigin,
     selectedAuthor,
     selectedProfile,
@@ -7567,7 +7925,17 @@ const hasMorePlayers =
               </Section>
 
               <Section
-                icon={<Wand2 size={22} />}
+                icon={
+                  <button
+                    className="section-icon-toggle"
+                    type="button"
+                    onClick={() => setShowRegisteredDecksModal(true)}
+                    title="Ver todos os decks cadastrados por cores"
+                    aria-label="Ver todos os decks cadastrados por cores"
+                  >
+                    <Wand2 size={22} />
+                  </button>
+                }
                 title={`Melhores decks - ${activeLeaderboard.label}`}
                 subtitle={
                   activePeriod === "evento"
@@ -7676,6 +8044,17 @@ const hasMorePlayers =
         <FblthpInfoModal
           fblthp={data.fblthp}
           onClose={() => setShowFblthpInfo(false)}
+        />
+      ) : null}
+
+      {showRegisteredDecksModal ? (
+        <RegisteredDecksModal
+          decks={allDecks}
+          onSelectDeck={(deck) => {
+            setShowRegisteredDecksModal(false);
+            setSelectedProfile({ type: "deck", item: deck });
+          }}
+          onClose={() => setShowRegisteredDecksModal(false)}
         />
       ) : null}
 
