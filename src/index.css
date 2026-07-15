@@ -8346,3 +8346,34 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.achievement-scryfall-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 18px;
+  margin-left: 6px;
+  border-radius: 3px;
+  color: #dbeafe;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(147, 197, 253, 0.34);
+  font-size: 10px;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: middle;
+  transform: translateY(-1px);
+  opacity: 0.82;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+.achievement-scryfall-link:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  border-color: rgba(191, 219, 254, 0.78);
+  background: rgba(59, 130, 246, 0.22);
+}

@@ -117,6 +117,7 @@ type PlayerAchievement = {
   date?: string;
   note?: string;
   details?: AchievementDetails | null;
+  scryfallUrl?: string;
 };
 
 type PlayerTrophyInfo = {
@@ -1325,6 +1326,32 @@ function getAchievementIcon(icon: string) {
   return iconMap[normalizedIcon] || <Star size={20} />;
 }
 
+function AchievementScryfallLink({
+  url,
+  cardName,
+}: {
+  url?: string;
+  cardName: string;
+}) {
+  if (!url) {
+    return null;
+  }
+
+  return (
+    <a
+      className="achievement-scryfall-link"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      title={`Abrir ${cardName} no Scryfall`}
+      aria-label={`Abrir ${cardName} no Scryfall`}
+      onClick={(event) => event.stopPropagation()}
+    >
+      ▣
+    </a>
+  );
+}
+
 function getAchievementTierLabel(tier: AchievementTier) {
   const labels: Record<AchievementTier, string> = {
     common: "Comum",
@@ -1501,7 +1528,14 @@ function AchievementDetailsModal({
         <div className="achievement-details-content">
           <span>{getAchievementTierLabel(achievement.tier)}</span>
 
-          <h3>{achievement.name}</h3>
+          <h3>
+            {achievement.name}
+
+            <AchievementScryfallLink
+              url={achievement.scryfallUrl}
+              cardName={achievement.name}
+            />
+          </h3>
 
           <p>{achievement.description}</p>
 
@@ -1689,7 +1723,9 @@ function PlayerAchievementsSection({
 
               <div className="achievement-info">
                 <div className="achievement-name-row">
-                  <strong>{achievement.name}</strong>
+                  <strong>
+                    {achievement.name}
+                  </strong>
 
                   {achievement.manual ? (
                     <span className="achievement-manual-tag">Manual</span>
