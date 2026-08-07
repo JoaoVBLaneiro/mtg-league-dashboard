@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Trophy,
   Users,
@@ -17,6 +18,10 @@ import {
   Target,
   BookOpen,
   Hammer,
+  Printer,
+  Check,
+  Search,
+  ArrowUpDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
@@ -318,6 +323,8 @@ type RawDeck = {
   saltLevel?: number | string | null;
   powerVotes?: number | string;
   saltVotes?: number | string;
+  facilidadeUso?: number | string | null;
+  easeOfUse?: number | string | null;
 };
 
 type Player = {
@@ -376,6 +383,7 @@ type Deck = {
   saltLevel?: number | null;
   powerVotes?: number;
   saltVotes?: number;
+  easeOfUse?: number | null;
 };
 
 type MissingDeckColorCombination = {
@@ -526,6 +534,10 @@ type PeriodKey = "geral" | "evento" | "mes" | "semestre";
 type DashboardData = {
   updatedAt: string | null;
   fblthp: FblthpState | null;
+  catalog?: {
+    players?: RawPlayer[];
+    decks?: RawDeck[];
+  };
   playerTopCardsBlacklist?: string[];
   leaderboards: {
     geral: {
@@ -859,6 +871,16 @@ function normalizeDecks(
           : Number(item.saltLevel),
       powerVotes: Number(item.powerVotes || 0),
       saltVotes: Number(item.saltVotes || 0),
+      easeOfUse:
+        item.facilidadeUso === null ||
+        item.facilidadeUso === undefined ||
+        item.facilidadeUso === ""
+          ? item.easeOfUse === null ||
+            item.easeOfUse === undefined ||
+            item.easeOfUse === ""
+            ? null
+            : Number(item.easeOfUse)
+          : Number(item.facilidadeUso),
     }))
     .sort((a, b) => {
       if (sortMode === "wins") {
@@ -888,6 +910,29 @@ function normalizeDecks(
       if (b.wins !== a.wins) return b.wins - a.wins;
       return a.name.localeCompare(b.name);
     });
+}
+
+function mergeDeckCatalogWithStats(
+  catalogDecks: RawDeck[] = [],
+  leaderboardDecks: RawDeck[] = []
+): RawDeck[] {
+  const merged = new Map<string, RawDeck>();
+
+  catalogDecks.forEach((deck) => {
+    const name = String(deck.deck || deck.nome || "").trim();
+    if (!name) return;
+    merged.set(name.toLocaleLowerCase("pt-BR"), { ...deck });
+  });
+
+  leaderboardDecks.forEach((deck) => {
+    const name = String(deck.deck || deck.nome || "").trim();
+    if (!name) return;
+
+    const key = name.toLocaleLowerCase("pt-BR");
+    merged.set(key, { ...(merged.get(key) || {}), ...deck });
+  });
+
+  return Array.from(merged.values());
 }
 
 function normalizeDeckColors(colors: string | undefined): string[] {
@@ -6439,6 +6484,330 @@ function getDecklistHostInfo(url: string) {
   };
 }
 
+type DecksPerPage = 3 | 4;
+type DeckDifficultySort = "ascending" | "descending";
+
+function getDeckEaseLabel(value?: number | null) {
+  const labels: Record<number, string> = {
+    1: "Muito fácil",
+    2: "Fácil",
+    3: "Intermediário",
+    4: "Difícil",
+    5: "Muito difícil",
+  };
+
+  return value && labels[value] ? labels[value] : "Não definida";
+}
+
+function sortDecksByEase(
+  decks: Deck[],
+  direction: DeckDifficultySort = "ascending"
+) {
+  return decks.slice().sort((a, b) => {
+    const hasEaseA = a.easeOfUse !== null && a.easeOfUse !== undefined;
+    const hasEaseB = b.easeOfUse !== null && b.easeOfUse !== undefined;
+
+    if (hasEaseA !== hasEaseB) {
+      return hasEaseA ? -1 : 1;
+    }
+
+    if (hasEaseA && hasEaseB && a.easeOfUse !== b.easeOfUse) {
+      return direction === "ascending"
+        ? Number(a.easeOfUse) - Number(b.easeOfUse)
+        : Number(b.easeOfUse) - Number(a.easeOfUse);
+    }
+
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+}
+
+function chunkDecks(decks: Deck[], size: number) {
+  const chunks: Deck[][] = [];
+
+  for (let index = 0; index < decks.length; index += size) {
+    chunks.push(decks.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function normalizeDeckSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
+}
+
+function DeckPrintCard({
+  deck,
+  density,
+}: {
+  deck: Deck;
+  density: DecksPerPage;
+}) {
+  const keyCards = deck.cartasChave.slice(0, 5);
+
+  return (
+    <article className="deck-print-card" data-density={density}>
+      <div className="deck-print-commanders">
+        <div className="deck-print-commander-main">
+          {deck.imageUrl ? (
+            <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+          ) : (
+            <div className="deck-print-image-placeholder">
+              <Wand2 size={24} />
+              <span>Sem imagem</span>
+            </div>
+          )}
+        </div>
+
+        {deck.secondaryCommander && deck.secondaryCommanderImageUrl ? (
+          <div className="deck-print-commander-secondary">
+            <img
+              src={deck.secondaryCommanderImageUrl}
+              alt={deck.secondaryCommander}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <div className="deck-print-main">
+        <header className="deck-print-title-block">
+          <h2>{deck.name}</h2>
+
+          <div className="deck-print-subtitle">
+            <span>
+              {deck.commander || "Comandante não informado"}
+              {deck.secondaryCommander ? ` + ${deck.secondaryCommander}` : ""}
+            </span>
+            <ManaPips colors={deck.colors} />
+          </div>
+        </header>
+
+        <p className="deck-print-bio">
+          {deck.bio || "Este deck ainda não possui uma descrição cadastrada."}
+        </p>
+
+        <section className="deck-print-key-section">
+          <span className="deck-print-section-label">Cartas-chave</span>
+
+          <div className="deck-print-key-cards">
+            {Array.from({ length: 5 }).map((_, index) => {
+              const card = keyCards[index];
+
+              return (
+                <div className="deck-print-key-card" key={card?.nome || index}>
+                  <div className="deck-print-key-card-image">
+                    {card?.imagemUrl ? (
+                      <img src={card.imagemUrl} alt={card.nome} />
+                    ) : (
+                      <div className="deck-print-key-placeholder">
+                        {card?.nome ? card.nome.slice(0, 1) : "—"}
+                      </div>
+                    )}
+                  </div>
+                  <span>{card?.nome || "Não informada"}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      <aside className="deck-print-side">
+        <div className="deck-print-author">
+          <div className="deck-print-author-icon">
+            {deck.autor?.iconeKeyrune ? (
+              <i className={deck.autor.iconeKeyrune} />
+            ) : deck.autor?.fotoUrl ? (
+              <img src={deck.autor.fotoUrl} alt={deck.autor.nome} />
+            ) : (
+              <Users size={20} />
+            )}
+          </div>
+
+          <div>
+            <span>Autor</span>
+            <strong>{deck.autor?.nome || "Não informado"}</strong>
+          </div>
+        </div>
+
+        <div className="deck-print-ease">
+          <span>Facilidade de uso</span>
+          <strong>
+            {deck.easeOfUse ? `${deck.easeOfUse}/5` : "—/5"}
+          </strong>
+          <small>{getDeckEaseLabel(deck.easeOfUse)}</small>
+        </div>
+      </aside>
+    </article>
+  );
+}
+
+function DeckPrintPreviewModal({
+  decks,
+  initialDecksPerPage,
+  onClose,
+}: {
+  decks: Deck[];
+  initialDecksPerPage: DecksPerPage;
+  onClose: () => void;
+}) {
+  const [decksPerPage, setDecksPerPage] = useState<DecksPerPage>(
+    initialDecksPerPage
+  );
+  const [sortDirection, setSortDirection] =
+    useState<DeckDifficultySort>("ascending");
+
+  const sortedDecks = useMemo(
+    () => sortDecksByEase(decks, sortDirection),
+    [decks, sortDirection]
+  );
+
+  const pages = useMemo(
+    () => chunkDecks(sortedDecks, decksPerPage),
+    [sortedDecks, decksPerPage]
+  );
+
+  useEffect(() => {
+    document.body.classList.add("deck-print-mode");
+
+    return () => {
+      document.body.classList.remove("deck-print-mode");
+    };
+  }, []);
+
+  async function handlePrint() {
+    if ("fonts" in document) {
+      await document.fonts.ready;
+    }
+
+    const images = Array.from(
+      document.querySelectorAll<HTMLImageElement>(".deck-print-root img")
+    );
+
+    await Promise.all(
+      images.map(
+        (image) =>
+          new Promise<void>((resolve) => {
+            if (image.complete) {
+              resolve();
+              return;
+            }
+
+            let settled = false;
+
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+              image.removeEventListener("load", finish);
+              image.removeEventListener("error", finish);
+              resolve();
+            };
+
+            image.addEventListener("load", finish, { once: true });
+            image.addEventListener("error", finish, { once: true });
+            window.setTimeout(finish, 4000);
+          })
+      )
+    );
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => window.print());
+    });
+  }
+
+  return createPortal(
+    <div className="modal-backdrop deck-print-overlay" onClick={onClose}>
+      <div
+        className="deck-print-preview-shell"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="deck-print-preview-actions">
+          <div>
+            <span className="profile-type">Prévia de impressão</span>
+            <h2>Fichas dos decks</h2>
+            <p>
+              {sortedDecks.length} decks em {pages.length} página
+              {pages.length === 1 ? "" : "s"} A4.
+            </p>
+          </div>
+
+          <div className="deck-print-controls">
+            <div className="deck-print-control-group">
+              <span>Decks por página</span>
+              <div className="deck-print-segmented">
+                {([3, 4] as DecksPerPage[]).map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    className={decksPerPage === amount ? "active" : ""}
+                    onClick={() => setDecksPerPage(amount)}
+                  >
+                    {amount}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              className="deck-print-sort-button"
+              type="button"
+              onClick={() =>
+                setSortDirection((current) =>
+                  current === "ascending" ? "descending" : "ascending"
+                )
+              }
+            >
+              <ArrowUpDown size={17} />
+              {sortDirection === "ascending"
+                ? "Mais fáceis primeiro"
+                : "Mais difíceis primeiro"}
+            </button>
+
+            <button
+              className="deck-print-primary-button"
+              type="button"
+              onClick={handlePrint}
+            >
+              <Printer size={18} />
+              Imprimir / salvar PDF
+            </button>
+
+            <button
+              className="deck-print-secondary-button"
+              type="button"
+              onClick={onClose}
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+
+        <div className="deck-print-root">
+          {pages.map((pageDecks, pageIndex) => (
+            <section
+              className="deck-print-page"
+              data-density={decksPerPage}
+              key={pageIndex}
+            >
+              {pageDecks.map((deck) => (
+                <DeckPrintCard
+                  key={deck.name}
+                  deck={deck}
+                  density={decksPerPage}
+                />
+              ))}
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function RegisteredDecksModal({
   decks,
   onSelectDeck,
@@ -6448,6 +6817,12 @@ function RegisteredDecksModal({
   onSelectDeck: (deck: Deck) => void;
   onClose: () => void;
 }) {
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDeckNames, setSelectedDeckNames] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [decksPerPage, setDecksPerPage] = useState<DecksPerPage>(3);
+  const [printDecks, setPrintDecks] = useState<Deck[] | null>(null);
+
   const deckGroups = useMemo(
     () => buildRegisteredDeckColorGroups(decks),
     [decks]
@@ -6457,6 +6832,64 @@ function RegisteredDecksModal({
     () => buildMissingDeckColorCombinations(decks),
     [decks]
   );
+
+  const filteredDecks = useMemo(() => {
+    const query = normalizeDeckSearchText(searchTerm);
+    const sorted = sortDecksByEase(decks, "ascending");
+
+    if (!query) return sorted;
+
+    return sorted.filter((deck) =>
+      normalizeDeckSearchText(
+        [
+          deck.name,
+          deck.commander,
+          deck.secondaryCommander,
+          deck.autor?.nome || "",
+          deck.colors,
+        ].join(" ")
+      ).includes(query)
+    );
+  }, [decks, searchTerm]);
+
+  const selectedDecks = useMemo(() => {
+    const selectedSet = new Set(selectedDeckNames);
+    return decks.filter((deck) => selectedSet.has(deck.name));
+  }, [decks, selectedDeckNames]);
+
+  function toggleDeck(deckName: string) {
+    setSelectedDeckNames((current) =>
+      current.includes(deckName)
+        ? current.filter((name) => name !== deckName)
+        : [...current, deckName]
+    );
+  }
+
+  function handleDeckClick(deck: Deck) {
+    if (selectionMode) {
+      toggleDeck(deck.name);
+      return;
+    }
+
+    onSelectDeck(deck);
+  }
+
+  function selectAllFiltered() {
+    const filteredNames = filteredDecks.map((deck) => deck.name);
+    setSelectedDeckNames((current) =>
+      Array.from(new Set([...current, ...filteredNames]))
+    );
+  }
+
+  if (printDecks) {
+    return (
+      <DeckPrintPreviewModal
+        decks={printDecks}
+        initialDecksPerPage={decksPerPage}
+        onClose={() => setPrintDecks(null)}
+      />
+    );
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -6480,45 +6913,98 @@ function RegisteredDecksModal({
             <h2>Biblioteca de decks</h2>
 
             <p>
-              Todos os decks cadastrados, agrupados por identidade de cor.
+              {selectionMode
+                ? "Selecione os decks que entrarão no PDF. A ordem final será definida pela facilidade de uso."
+                : "Todos os decks cadastrados, agrupados por identidade de cor."}
             </p>
           </div>
+        </div>
+
+        <div className="registered-decks-top-actions">
+          <button
+            className={selectionMode ? "registered-export-toggle active" : "registered-export-toggle"}
+            type="button"
+            onClick={() => {
+              setSelectionMode((current) => !current);
+              setSearchTerm("");
+            }}
+          >
+            <Printer size={18} />
+            {selectionMode ? "Voltar à biblioteca" : "Selecionar para PDF"}
+          </button>
+
+          {selectionMode ? (
+            <label className="registered-decks-search">
+              <Search size={17} />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar deck, comandante ou autor"
+              />
+            </label>
+          ) : null}
         </div>
 
         <div className="registered-decks-summary">
           <strong>{decks.length}</strong>
           <span>decks cadastrados</span>
 
-          <strong>{deckGroups.length}</strong>
-          <span>combinações usadas</span>
+          {selectionMode ? (
+            <>
+              <strong>{selectedDeckNames.length}</strong>
+              <span>selecionados para exportação</span>
+            </>
+          ) : (
+            <>
+              <strong>{deckGroups.length}</strong>
+              <span>combinações usadas</span>
 
-          <strong>{missingCombinations.length}</strong>
-          <span>combinações vazias</span>
+              <strong>{missingCombinations.length}</strong>
+              <span>combinações vazias</span>
+            </>
+          )}
         </div>
 
-        <div className="registered-decks-groups">
-          {deckGroups.map((group) => (
-            <section className="registered-decks-group" key={group.key}>
-              <div className="registered-decks-group-header">
-                <div>
-                  <h3>{group.label}</h3>
-                  <span>
-                    {group.decks.length} deck
-                    {group.decks.length === 1 ? "" : "s"}
-                  </span>
-                </div>
+        {selectionMode ? (
+          <>
+            <div className="registered-selection-tools">
+              <button type="button" onClick={selectAllFiltered}>
+                Selecionar resultados
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDeckNames([])}
+                disabled={selectedDeckNames.length === 0}
+              >
+                Limpar seleção
+              </button>
 
-                <ManaPips colors={group.key} />
-              </div>
+              <span>
+                Exibindo {filteredDecks.length} deck
+                {filteredDecks.length === 1 ? "" : "s"}, do mais fácil ao mais
+                difícil.
+              </span>
+            </div>
 
-              <div className="registered-decks-grid">
-                {group.decks.map((deck) => (
+            <div className="registered-decks-selection-grid">
+              {filteredDecks.map((deck) => {
+                const selected = selectedDeckNames.includes(deck.name);
+
+                return (
                   <button
-                    className="registered-deck-card"
+                    className={
+                      selected
+                        ? "registered-deck-card registered-deck-card-selectable selected"
+                        : "registered-deck-card registered-deck-card-selectable"
+                    }
                     key={deck.name}
                     type="button"
-                    onClick={() => onSelectDeck(deck)}
+                    onClick={() => handleDeckClick(deck)}
                   >
+                    <span className="registered-deck-checkbox">
+                      {selected ? <Check size={15} /> : null}
+                    </span>
+
                     <div className="registered-deck-image">
                       {deck.imageUrl ? (
                         <img src={deck.imageUrl} alt={deck.commander || deck.name} />
@@ -6537,33 +7023,127 @@ function RegisteredDecksModal({
                           : ""}
                       </span>
 
-                      <ManaPips colors={deck.colors} />
+                      <div className="registered-deck-selection-meta">
+                        <ManaPips colors={deck.colors} />
+                        <b>
+                          {deck.easeOfUse
+                            ? `${deck.easeOfUse}/5 · ${getDeckEaseLabel(deck.easeOfUse)}`
+                            : "Dificuldade não definida"}
+                        </b>
+                      </div>
                     </div>
                   </button>
+                );
+              })}
+            </div>
+
+            <div className="registered-export-bar">
+              <div className="registered-export-density">
+                <span>Decks por folha</span>
+                <button
+                  type="button"
+                  className={decksPerPage === 3 ? "active" : ""}
+                  onClick={() => setDecksPerPage(3)}
+                >
+                  3
+                </button>
+                <button
+                  type="button"
+                  className={decksPerPage === 4 ? "active" : ""}
+                  onClick={() => setDecksPerPage(4)}
+                >
+                  4
+                </button>
+              </div>
+
+              <span>
+                {selectedDeckNames.length} selecionado
+                {selectedDeckNames.length === 1 ? "" : "s"}
+              </span>
+
+              <button
+                className="registered-export-preview-button"
+                type="button"
+                disabled={selectedDecks.length === 0}
+                onClick={() => setPrintDecks(selectedDecks)}
+              >
+                <Printer size={18} />
+                Preparar impressão
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="registered-decks-groups">
+              {deckGroups.map((group) => (
+                <section className="registered-decks-group" key={group.key}>
+                  <div className="registered-decks-group-header">
+                    <div>
+                      <h3>{group.label}</h3>
+                      <span>
+                        {group.decks.length} deck
+                        {group.decks.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    <ManaPips colors={group.key} />
+                  </div>
+
+                  <div className="registered-decks-grid">
+                    {group.decks.map((deck) => (
+                      <button
+                        className="registered-deck-card"
+                        key={deck.name}
+                        type="button"
+                        onClick={() => handleDeckClick(deck)}
+                      >
+                        <div className="registered-deck-image">
+                          {deck.imageUrl ? (
+                            <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+                          ) : (
+                            <Wand2 size={20} />
+                          )}
+                        </div>
+
+                        <div className="registered-deck-info">
+                          <strong>{deck.name}</strong>
+
+                          <span>
+                            {deck.commander || "Comandante não informado"}
+                            {deck.secondaryCommander
+                              ? ` + ${deck.secondaryCommander}`
+                              : ""}
+                          </span>
+
+                          <ManaPips colors={deck.colors} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <section className="registered-decks-missing-section">
+              <div className="registered-decks-missing-header">
+                <h3>Combinações sem deck cadastrado</h3>
+                <span>{missingCombinations.length} faltando</span>
+              </div>
+
+              <div className="registered-decks-missing-grid">
+                {missingCombinations.map((combination) => (
+                  <div
+                    className="registered-decks-missing-pill"
+                    key={combination.key}
+                  >
+                    <ManaPips colors={combination.key} />
+                    <strong>{combination.label}</strong>
+                  </div>
                 ))}
               </div>
             </section>
-          ))}
-        </div>
-
-        <section className="registered-decks-missing-section">
-          <div className="registered-decks-missing-header">
-            <h3>Combinações sem deck cadastrado</h3>
-            <span>{missingCombinations.length} faltando</span>
-          </div>
-
-          <div className="registered-decks-missing-grid">
-            {missingCombinations.map((combination) => (
-              <div
-                className="registered-decks-missing-pill"
-                key={combination.key}
-              >
-                <ManaPips colors={combination.key} />
-                <strong>{combination.label}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
+          </>
+        )}
       </motion.div>
     </div>
   );
@@ -7589,8 +8169,14 @@ function DashboardApp() {
   const [profilePreview, setProfilePreview] = useState<ProfilePreviewState>(null);
 
   const allDecks = useMemo(
-    () => normalizeDecks(data.leaderboards.geral.decks),
-    [data.leaderboards.geral.decks]
+    () =>
+      normalizeDecks(
+        mergeDeckCatalogWithStats(
+          data.catalog?.decks || [],
+          data.leaderboards.geral.decks
+        )
+      ),
+    [data.catalog?.decks, data.leaderboards.geral.decks]
   );
 
   useEffect(() => {
