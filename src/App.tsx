@@ -22,10 +22,12 @@ import {
   Check,
   Search,
   ArrowUpDown,
+  UserRoundCog,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
+import PlayerEditorApp from "./PlayerEditor";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
 
@@ -37,6 +39,7 @@ type RivalInfo = {
 
 type DeckAuthorInfo = {
   nome: string;
+  jogador?: string;
   iconeKeyrune: string;
   fotoUrl: string;
   titulo: string;
@@ -255,6 +258,7 @@ type RawPlayer = {
   jogador?: string;
   player?: string;
   nome?: string;
+  nomeExibicao?: string;
   jogos?: number | string;
   games?: number | string;
   vitorias?: number | string;
@@ -329,6 +333,7 @@ type RawDeck = {
 
 type Player = {
   name: string;
+  displayName: string;
   games: number;
   wins: number;
   winrate: number;
@@ -584,6 +589,10 @@ function normalizeNameKey(name: string) {
   return String(name || "").trim().toLowerCase();
 }
 
+function getPlayerDisplayName(player: Player) {
+  return player.displayName || player.name;
+}
+
 function buildPlayerTrophyMap(rows: RawPlayerTrophy[] = []) {
   const map: Record<string, PlayerTrophyInfo> = {};
 
@@ -760,6 +769,12 @@ function normalizePlayers(
   return players
     .map((item) => ({
       name: item.jogador || item.player || item.nome || "Jogador sem nome",
+      displayName:
+        item.nomeExibicao ||
+        item.jogador ||
+        item.player ||
+        item.nome ||
+        "Jogador sem nome",
       games: Number(item.jogos || item.games || 0),
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
@@ -2004,6 +2019,9 @@ function LeaderboardCard({
   forceShowWinrate?: boolean;
 }) {
   const isPlayer = type === "player";
+  const visibleName = isPlayer
+    ? getPlayerDisplayName(item as Player)
+    : item.name;
 
   const hasFblthp = isPlayer && (item as Player).hasFblthp;
 
@@ -2050,7 +2068,7 @@ function LeaderboardCard({
       {isPlayer ? (
         <div className="avatar player-avatar leaderboard-player-avatar">
           {image ? (
-            <img src={image} alt={item.name} />
+            <img src={image} alt={visibleName} />
           ) : (
             <div className="avatar-placeholder">
               <Users size={24} />
@@ -2070,7 +2088,7 @@ function LeaderboardCard({
       <div className="card-info">
         <div className="leaderboard-title-row">
   <h3 className="name-with-title">
-    <span className="player-name">{item.name}</span>
+    <span className="player-name">{visibleName}</span>
 
     {isPlayer && (item as Player).title ? (
       <span className="inline-title">{(item as Player).title}</span>
@@ -2426,6 +2444,9 @@ function DeckPilotMiniCard({
   if (!pilot) return null;
 
   const pilotPlayer = players.find((player) => player.name === pilot.nome);
+  const pilotVisibleName = pilotPlayer
+    ? getPlayerDisplayName(pilotPlayer)
+    : pilot.nome;
 
   return (
     <button
@@ -2439,7 +2460,7 @@ function DeckPilotMiniCard({
         {pilotPlayer?.iconeKeyrune ? (
           <i className={pilotPlayer.iconeKeyrune} />
         ) : pilotPlayer?.photoUrl ? (
-          <img src={pilotPlayer.photoUrl} alt={pilot.nome} />
+          <img src={pilotPlayer.photoUrl} alt={pilotVisibleName} />
         ) : (
           <Users size={22} />
         )}
@@ -2447,7 +2468,7 @@ function DeckPilotMiniCard({
 
       <div className="deck-pilot-mini-info">
         <span>Melhor piloto</span>
-        <strong>{pilot.nome}</strong>
+        <strong>{pilotVisibleName}</strong>
         <small>
           {pilot.valor} {pilot.label}
         </small>
@@ -2555,6 +2576,9 @@ function ProfileHoverCard({
 
   const isPlayer = preview.type === "player";
   const item = preview.item;
+  const visibleName = isPlayer
+    ? getPlayerDisplayName(item as Player)
+    : item.name;
 
   const playerHasFblthp = isPlayer && (item as Player).hasFblthp;
 
@@ -2599,7 +2623,7 @@ function ProfileHoverCard({
     <div className="profile-hover-card" style={style}>
       <div className="profile-hover-cover">
         {headerImage ? (
-          <img src={headerImage} alt={`Header de ${item.name}`} />
+          <img src={headerImage} alt={`Header de ${visibleName}`} />
         ) : null}
       </div>
 
@@ -2626,7 +2650,7 @@ function ProfileHoverCard({
         >
           {isPlayer ? (
             avatarImage ? (
-              <img src={avatarImage} alt={item.name} />
+              <img src={avatarImage} alt={visibleName} />
             ) : iconClass ? (
               <i className={iconClass} />
             ) : (
@@ -2653,7 +2677,7 @@ function ProfileHoverCard({
 
         <div className="profile-hover-info">
           <span>{isPlayer ? "Jogador" : "Deck"}</span>
-          <strong>{item.name}</strong>
+          <strong>{visibleName}</strong>
           <p>{subtitle}</p>
         </div>
       </div>
@@ -2945,7 +2969,7 @@ function DeckProfileBadges({
       {author ? (
         <button
           className="deck-floating-icon-button deck-author-icon-button"
-          onClick={() => onSelectAuthor(author.nome)}
+          onClick={() => onSelectAuthor(author.jogador || author.nome)}
           title={`Autor: ${author.nome}`}
           aria-label={`Autor: ${author.nome}`}
         >
@@ -2995,8 +3019,8 @@ function PlayerProfileIcon({
   return (
     <button
       className="player-profile-floating-icon"
-      title={`Ver decks de ${player.name}`}
-      aria-label={`Ver decks de ${player.name}`}
+      title={`Ver decks de ${getPlayerDisplayName(player)}`}
+      aria-label={`Ver decks de ${getPlayerDisplayName(player)}`}
       onClick={onClick}
     >
       <i className={player.iconeKeyrune} />
@@ -3371,7 +3395,8 @@ function buildFallbackPlayerFromCombo(item: ComboStatItem): Player {
   const playerItem = item as DeckPilotComboStat & ComboSimpleStat;
 
   return {
-    name: getComboStatName(item),
+    name: getComboStatSelectionName(item),
+    displayName: getComboStatName(item),
     games: item.games,
     wins: item.wins,
     winrate: item.winrate,
@@ -3409,7 +3434,7 @@ function ComboStatsHoverCard({
 
   const { item, kind, x, y } = preview;
 
-  const name = getComboStatName(item);
+  const name = getComboStatSelectionName(item);
 
   if (kind === "deck") {
     const baseDeck =
@@ -3491,6 +3516,18 @@ function getComboStatName(item: ComboStatItem) {
 
   if ("jogador" in item && item.jogador) {
     return item.nome || item.jogador;
+  }
+
+  return item.nome;
+}
+
+function getComboStatSelectionName(item: ComboStatItem) {
+  if ("deck" in item && item.deck) {
+    return item.deck;
+  }
+
+  if ("jogador" in item && item.jogador) {
+    return item.jogador;
   }
 
   return item.nome;
@@ -3793,7 +3830,7 @@ function ComboPieChart({
                     r={radius}
                     fill={color}
                     className="combo-pie-slice"
-                    onClick={() => onSelect(name)}
+                    onClick={() => onSelect(getComboStatSelectionName(item))}
                     onMouseEnter={(event) => onPreview(item, kind, title, event)}
                     onMouseMove={(event) => onPreview(item, kind, title, event)}
                     onMouseLeave={onPreviewClose}
@@ -3807,7 +3844,7 @@ function ComboPieChart({
                   d={describePieSlice(center, center, radius, startAngle, endAngle)}
                   fill={color}
                   className="combo-pie-slice"
-                  onClick={() => onSelect(name)}
+                  onClick={() => onSelect(getComboStatSelectionName(item))}
                   onMouseEnter={(event) => onPreview(item, kind, title, event)}
                   onMouseMove={(event) => onPreview(item, kind, title, event)}
                   onMouseLeave={onPreviewClose}
@@ -3857,7 +3894,7 @@ function ComboPieChart({
               <button
                 key={`${metric}-${name}`}
                 className="combo-pie-legend-item"
-                onClick={() => onSelect(name)}
+                onClick={() => onSelect(getComboStatSelectionName(item))}
                 onMouseEnter={(event) => onPreview(item, kind, title, event)}
                 onMouseMove={(event) => onPreview(item, kind, title, event)}
                 onMouseLeave={onPreviewClose}
@@ -3974,7 +4011,7 @@ function ComboWinrateBarChart({
           ? "combo-winrate-row"
           : "combo-winrate-row combo-winrate-row-unresolved"
       }
-      onClick={() => onSelect(name)}
+      onClick={() => onSelect(getComboStatSelectionName(item))}
       onMouseEnter={(event) => onPreview(item, kind, title, event)}
       onMouseMove={(event) => onPreview(item, kind, title, event)}
       onMouseLeave={onPreviewClose}
@@ -4670,6 +4707,9 @@ function ProfileComboStatsModal({
   : null;
 
   const modalStats = isPlayer ? playerDeckStats.players[itemName] : null;
+  const modalVisibleName = modalPlayer
+    ? getPlayerDisplayName(modalPlayer)
+    : itemName;
 
   const headerColorStats = modalStats
     ? buildColorUsageStatsFromDecks(modalStats.decks || [])
@@ -4716,7 +4756,7 @@ function ProfileComboStatsModal({
 
   <p>
     {isPlayer
-      ? `Desempenho de ${itemName} com cada deck.`
+      ? `Desempenho de ${modalVisibleName} com cada deck.`
       : `Desempenho dos jogadores usando ${itemName}.`}
   </p>
 
@@ -4857,6 +4897,9 @@ function ProfileModal({
 
   const isPlayer = selected.type === "player";
   const item = selected.item;
+  const visibleName = isPlayer
+    ? getPlayerDisplayName(item as Player)
+    : item.name;
 
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
 
@@ -4921,6 +4964,13 @@ function ProfileModal({
     }
   }
 
+  function getRelatedProfileDisplayName(name: string) {
+    if (!isPlayer) return name;
+
+    const relatedPlayer = players.find((player) => player.name === name);
+    return relatedPlayer ? getPlayerDisplayName(relatedPlayer) : name;
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <motion.div
@@ -4935,7 +4985,7 @@ function ProfileModal({
 
         {headerImage ? (
           <div className="profile-cover">
-            <img src={headerImage} alt={`Header de ${item.name}`} />
+            <img src={headerImage} alt={`Header de ${visibleName}`} />
           </div>
         ) : (
           <div className="profile-cover profile-cover-empty" />
@@ -4995,7 +5045,7 @@ function ProfileModal({
           {isPlayer ? (
             <div className="profile-image player-profile-image">
               {image ? (
-                <img src={image} alt={item.name} />
+                <img src={image} alt={visibleName} />
               ) : (
                 <div className="avatar-placeholder">
                   <Users size={36} />
@@ -5013,7 +5063,7 @@ function ProfileModal({
 
             <div className="profile-title-row">
   <div className="profile-title-text">
-    <h2>{item.name}</h2>
+    <h2>{visibleName}</h2>
 
     {isPlayer && (item as Player).title ? (
       <span>{(item as Player).title}</span>
@@ -5176,7 +5226,7 @@ function ProfileModal({
             }
             onMouseLeave={onProfilePreviewClose}
           >
-            {rivalData.rivalFrequente.nome}
+            {getRelatedProfileDisplayName(rivalData.rivalFrequente.nome)}
           </button>
 
           <p>
@@ -5205,7 +5255,7 @@ function ProfileModal({
             }
             onMouseLeave={onProfilePreviewClose}
           >
-            {rivalData.carrasco.nome}
+            {getRelatedProfileDisplayName(rivalData.carrasco.nome)}
           </button>
 
           <p>
@@ -5233,7 +5283,7 @@ function ProfileModal({
             }
             onMouseLeave={onProfilePreviewClose}
           >
-            {rivalData.maiorPato.nome}
+            {getRelatedProfileDisplayName(rivalData.maiorPato.nome)}
           </button>
 
           <p>
@@ -5717,10 +5767,12 @@ function EntityActivityList({
   title,
   items,
   onSelectEntity,
+  getDisplayName = (name) => name,
 }: {
   title: string;
   items: ActivityEntityItem[];
   onSelectEntity: (name: string) => void;
+  getDisplayName?: (name: string) => string;
 }) {
   const maxValue = Math.max(...items.map((item) => item.matches), 1);
 
@@ -5739,7 +5791,7 @@ function EntityActivityList({
                   className="activity-name-button"
                   onClick={() => onSelectEntity(item.name)}
                 >
-                  {item.name}
+                  {getDisplayName(item.name)}
                 </button>
 
                 <strong>{item.matches} partidas</strong>
@@ -5765,10 +5817,12 @@ function RecentMatches({
   matches,
   onSelectPlayer,
   onSelectDeck,
+  getPlayerVisibleName = (name) => name,
 }: {
   matches: ActivityMatch[];
   onSelectPlayer: (name: string) => void;
   onSelectDeck: (name: string) => void;
+  getPlayerVisibleName?: (name: string) => string;
 }) {
   return (
     <div className="activity-panel recent-matches-panel">
@@ -5795,7 +5849,7 @@ function RecentMatches({
                       className="inline-activity-link"
                       onClick={() => onSelectPlayer(player)}
                     >
-                      {player}
+                      {getPlayerVisibleName(player)}
                     </button>
                     {index < match.players.length - 1 ? ", " : ""}
                   </span>
@@ -5809,7 +5863,7 @@ function RecentMatches({
                     className="inline-activity-link"
                     onClick={() => onSelectPlayer(match.winner)}
                   >
-                    {match.winner}
+                    {getPlayerVisibleName(match.winner)}
                   </button>
                 ) : (
                   "Não informado"
@@ -6277,6 +6331,11 @@ function ActivityView({
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  function resolvePlayerDisplayName(name: string) {
+    const player = players.find((item) => item.name === name);
+    return player ? getPlayerDisplayName(player) : name;
+  }
+
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
 
@@ -6408,7 +6467,11 @@ function ActivityView({
 
         <ActivitySummaryCard
           label="Jogador mais ativo"
-          value={summary.mostActivePlayer?.name || "-"}
+          value={
+            summary.mostActivePlayer
+              ? resolvePlayerDisplayName(summary.mostActivePlayer.name)
+              : "-"
+          }
           detail={
             summary.mostActivePlayer
               ? `${summary.mostActivePlayer.matches} partidas`
@@ -6432,6 +6495,7 @@ function ActivityView({
           title="Jogadores mais ativos"
           items={filteredActivity.playersActivity}
           onSelectEntity={openPlayerByName}
+          getDisplayName={resolvePlayerDisplayName}
         />
 
         <EntityActivityList
@@ -6445,6 +6509,7 @@ function ActivityView({
         matches={filteredActivity.recentMatches}
         onSelectPlayer={openPlayerByName}
         onSelectDeck={openDeckByName}
+        getPlayerVisibleName={resolvePlayerDisplayName}
       />
     </section>
   );
@@ -7373,8 +7438,9 @@ function AuthorDecksModal({
 
   const filteredDecks = decks.filter((deck) => {
     if (!deck.autor) return false;
-    return deck.autor.nome === author.name;
+    return (deck.autor.jogador || deck.autor.nome) === author.name;
   });
+  const visibleAuthorName = getPlayerDisplayName(author);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -7393,7 +7459,7 @@ function AuthorDecksModal({
             {author.iconeKeyrune ? (
               <i className={author.iconeKeyrune} />
             ) : author.photoUrl ? (
-              <img src={author.photoUrl} alt={author.name} />
+              <img src={author.photoUrl} alt={visibleAuthorName} />
             ) : (
               <Users size={26} />
             )}
@@ -7401,7 +7467,7 @@ function AuthorDecksModal({
 
           <div>
             <span className="profile-type">Autor</span>
-            <h2>Decks de {author.name}</h2>
+            <h2>Decks de {visibleAuthorName}</h2>
             <p>
               {filteredDecks.length}{" "}
               {filteredDecks.length === 1
@@ -8434,10 +8500,17 @@ const hasMorePlayers =
             </p>
           </div>
 
-          <button onClick={loadData} disabled={loading} className="refresh-button">
-            <RefreshCw size={16} className={loading ? "spin" : ""} />
-            Atualizar
-          </button>
+          <div className="hero-actions">
+            <a className="player-editor-link" href="#editor">
+              <UserRoundCog size={17} />
+              Área do jogador
+            </a>
+
+            <button onClick={loadData} disabled={loading} className="refresh-button">
+              <RefreshCw size={16} className={loading ? "spin" : ""} />
+              Atualizar
+            </button>
+          </div>
         </header>
 
         <MainTabs activeView={activeView} onChange={setActiveView} />
@@ -8705,11 +8778,40 @@ const hasMorePlayers =
 }
 
 export default function App() {
-  const currentPath = window.location.pathname;
-  const currentHash = window.location.hash;
+  const [route, setRoute] = useState(() => ({
+    path: window.location.pathname,
+    hash: window.location.hash,
+  }));
+
+  useEffect(() => {
+    function handleRouteChange() {
+      setRoute({
+        path: window.location.pathname,
+        hash: window.location.hash,
+      });
+    }
+
+    window.addEventListener("hashchange", handleRouteChange);
+    window.addEventListener("popstate", handleRouteChange);
+
+    return () => {
+      window.removeEventListener("hashchange", handleRouteChange);
+      window.removeEventListener("popstate", handleRouteChange);
+    };
+  }, []);
+
+  const currentPath = route.path;
+  const currentHash = route.hash;
+
+  const isPlayerEditorRoute =
+    currentPath.includes("/editor") || currentHash.includes("editor");
 
   const isLifeTrackerRoute =
     currentPath.includes("/life") || currentHash.includes("life");
+
+  if (isPlayerEditorRoute) {
+    return <PlayerEditorApp />;
+  }
 
   if (isLifeTrackerRoute) {
     return <LifeTrackerApp />;

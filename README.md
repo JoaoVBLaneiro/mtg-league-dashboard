@@ -18,6 +18,13 @@ Dashboard web para acompanhar uma liga casual de Commander/MTG a partir de respo
   - Ícone do Fblthp quando o jogador está com ele (minigame implementado).
   - Clique no símbolo do jogador para ver todos os decks daquele autor.
 
+- **Área do jogador**
+  - Entrada individual por jogador e PIN numérico.
+  - Edição de nome de exibição, título, bio, fotos e preferências.
+  - Edição dos decks vinculados ao jogador, sem alterar seus identificadores.
+  - Busca de cartas no Scryfall para preencher nome, arte e link.
+  - Upload direto para o Cloudinary, com redução da imagem no navegador.
+
 - **Perfis de decks**
   - Arte do comandante/carta como imagem principal.
   - Comandante, cores por mana pips e estatísticas.
@@ -68,6 +75,7 @@ Dashboard web para acompanhar uma liga casual de Commander/MTG a partir de respo
 - [GitHub Pages](https://pages.github.com/)
 - [Keyrune](https://keyrune.andrewgioia.com/)
 - [Scryfall](https://scryfall.com/)
+- [Cloudinary](https://cloudinary.com/)
 
 ---
 
@@ -79,6 +87,8 @@ mtg-league-dashboard/
 │  └─ arquivos estáticos opcionais
 ├─ src/
 │  ├─ App.tsx
+│  ├─ PlayerEditor.tsx
+│  ├─ playerEditor.css
 │  ├─ index.css
 │  └─ main.tsx
 ├─ index.html
@@ -119,7 +129,10 @@ Sugestão de colunas:
 
 ```txt
 Jogador
+Nome de Exibição
+PIN de Edição
 Foto URL
+Header URL
 Título
 Bio
 Deck Favorito
@@ -205,6 +218,40 @@ Mardu
 Temur
 Incolor
 ```
+
+---
+
+## 🔐 Área do jogador
+
+O editor foi pensado como uma camada de conveniência para uma liga entre pessoas conhecidas. O identificador da planilha continua imutável; o campo `Nome de Exibição` pode ser alterado sem quebrar partidas ou estatísticas antigas.
+
+### 1. Criar os PINs
+
+Depois de colar e salvar a versão atualizada do Apps Script, recarregue a planilha e use:
+
+```txt
+MTG Dashboard → Configurar área dos jogadores
+```
+
+O comando cria as colunas ausentes e gera um PIN de 6 dígitos para cada jogador que ainda não possui um. Distribua cada PIN apenas para o respectivo jogador. O próprio jogador poderá trocá-lo pela interface.
+
+### 2. Configurar o upload de imagens
+
+No Cloudinary, crie um **unsigned upload preset**. Para este projeto, recomenda-se limitar o preset a imagens, habilitar apenas formatos como JPG, PNG e WebP e definir uma pasta exclusiva para a liga.
+
+Na planilha, use:
+
+```txt
+MTG Dashboard → Configurar Cloudinary do editor
+```
+
+Informe o `Cloud Name` e o nome do unsigned upload preset. Esses valores não são senhas: ficam públicos no navegador por exigência do upload direto. Enquanto essa configuração não for feita, o editor continua aceitando URLs de imagem coladas manualmente.
+
+### 3. Publicar
+
+Publique uma nova versão do Apps Script como aplicativo da web e confirme que a URL em `src/App.tsx`, `src/LifeTracker.tsx` e `src/PlayerEditor.tsx` aponta para a implantação correta. Depois, gere e publique o frontend normalmente.
+
+> O PIN é uma autenticação propositalmente superficial. Ele impede edições acidentais entre jogadores, mas não deve ser usado para dados sensíveis ou em um ambiente hostil.
 
 ---
 
@@ -361,4 +408,3 @@ Ele baixa um `.csv` com o relatório do intervalo selecionado.
 ## 👑 Créditos
 
 Projeto criado para acompanhar a liga Commander **Formato Pina** (nomeado em homenagem ao representante do TCG do projeto de extensão LUDICO da UTFPR), com integração entre Google Forms, Google Sheets, Apps Script, React e GitHub Pages.
-

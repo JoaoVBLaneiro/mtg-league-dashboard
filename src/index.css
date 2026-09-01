@@ -132,6 +132,35 @@ button {
   cursor: pointer;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-editor-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 12px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  color: #f4f4f5;
+  background: rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.player-editor-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(190, 242, 100, 0.38);
+  background: rgba(190, 242, 100, 0.09);
+}
+
 .refresh-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
@@ -9220,4 +9249,3 @@ footer {
     page-break-after: auto;
   }
 }
-

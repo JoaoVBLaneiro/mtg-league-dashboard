@@ -31,6 +31,7 @@ type LifePlayerSlot = {
   pendingDelta: number;
   deltaVisible: boolean;
   playerName: string;
+  playerCanonicalName: string;
   playerIcon: string;
   deckName: string;
   deckImageUrl: string;
@@ -52,6 +53,7 @@ const API_URL =
 
 type LeaguePlayerOption = {
   name: string;
+  canonicalName: string;
   icon: string;
   matches: number;
   favoriteDeckName: string;
@@ -72,6 +74,7 @@ type DashboardApiPlayer = {
   jogador?: string;
   player?: string;
   nome?: string;
+  nomeExibicao?: string;
   iconeKeyrune?: string;
   keyruneIcon?: string;
   icon?: string;
@@ -248,7 +251,7 @@ function getSelectedPlayerNamesExcludingSlot(
 ) {
   return players
     .filter((player) => player.id !== currentSlotId)
-    .map((player) => player.playerName)
+    .map((player) => player.playerCanonicalName || player.playerName)
     .filter(Boolean);
 }
 
@@ -386,6 +389,13 @@ export default function LifeTrackerApp() {
         const normalizedPlayers = rawPlayers
         .map((player) => ({
           name:
+            player.nomeExibicao ||
+            player.jogador ||
+            player.player ||
+            player.nome ||
+            "Jogador sem nome",
+
+          canonicalName:
             player.jogador ||
             player.player ||
             player.nome ||
@@ -486,6 +496,7 @@ export default function LifeTrackerApp() {
         pendingDelta: 0,
         deltaVisible: false,
         playerName: "",
+        playerCanonicalName: "",
         playerIcon: "",
         deckName: "",
         deckImageUrl: "",
@@ -648,9 +659,9 @@ async function submitMatchResult() {
         );
 
         return {
-          killerPlayerName: killer ? getPlayerDisplayName(killer) : "",
+          killerPlayerName: killer ? getPlayerCanonicalName(killer) : "",
           killerDeckName: killer?.deckName || "",
-          eliminatedPlayerName: getPlayerDisplayName(player),
+          eliminatedPlayerName: getPlayerCanonicalName(player),
           eliminatedDeckName: player.deckName || "",
         };
       })
@@ -662,9 +673,9 @@ async function submitMatchResult() {
       .filter((player) => player.id !== winner.id)
       .filter((player) => !player.isEliminated)
       .map((player) => ({
-        killerPlayerName: getPlayerDisplayName(winner),
+        killerPlayerName: getPlayerCanonicalName(winner),
         killerDeckName: winner.deckName || "",
-        eliminatedPlayerName: getPlayerDisplayName(player),
+        eliminatedPlayerName: getPlayerCanonicalName(player),
         eliminatedDeckName: player.deckName || "",
       }));
 
@@ -676,13 +687,13 @@ async function submitMatchResult() {
     const payload = {
       action: "registerMatchResult",
       startedAt: new Date().toISOString(),
-      winnerPlayerName: winner.playerName || winner.label,
+      winnerPlayerName: getPlayerCanonicalName(winner),
       winnerDeckName: winner.deckName || "",
       killEvents,
       players: players.map((player) => ({
         id: player.id,
         label: player.label,
-        playerName: player.playerName || player.label,
+        playerName: getPlayerCanonicalName(player),
         deckName: player.deckName || "",
         life: player.life,
         commanderDamage: player.commanderDamage,
@@ -836,6 +847,7 @@ function getVisibleMarkers(player: LifePlayerSlot) {
           ? {
               ...player,
               playerName: selectedPlayer.name,
+              playerCanonicalName: selectedPlayer.canonicalName,
               playerIcon: selectedPlayer.icon,
             }
           : player
@@ -912,6 +924,10 @@ function getVisibleMarkers(player: LifePlayerSlot) {
 
   function getPlayerDisplayName(player: LifePlayerSlot) {
     return player.playerName || player.label;
+  }
+
+  function getPlayerCanonicalName(player: LifePlayerSlot) {
+    return player.playerCanonicalName || player.playerName || player.label;
   }
 
   function getPlayerKiller(player: LifePlayerSlot) {
@@ -1056,7 +1072,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
     }
 
     const deckName = normalizeComparableText(deck.name);
-    const playerName = normalizeComparableText(selectedPlayer.name);
+    const playerName = normalizeComparableText(selectedPlayer.canonicalName);
     const favoriteDeckName = normalizeComparableText(
       selectedPlayer.favoriteDeckName
     );
@@ -1090,7 +1106,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
 
     return leaguePlayers.filter((player) => {
       const isAlreadySelected = alreadySelectedPlayers.some((selectedName) =>
-        isSameText(selectedName, player.name)
+        isSameText(selectedName, player.canonicalName)
       );
 
       if (isAlreadySelected) {
@@ -1101,7 +1117,10 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
         return true;
       }
 
-      return player.name.toLowerCase().includes(search);
+      return (
+        player.name.toLowerCase().includes(search) ||
+        player.canonicalName.toLowerCase().includes(search)
+      );
     });
   }, [leaguePlayers, searchTerm, players, selectionModal]);
 
@@ -1111,11 +1130,11 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
       : null;
 
   const selectedLeaguePlayerForDeckModal =
-    selectedDeckSlotPlayer?.playerName
+    selectedDeckSlotPlayer?.playerCanonicalName
       ? leaguePlayers.find(
           (player) =>
-            normalizeComparableText(player.name) ===
-            normalizeComparableText(selectedDeckSlotPlayer.playerName)
+            normalizeComparableText(player.canonicalName) ===
+            normalizeComparableText(selectedDeckSlotPlayer.playerCanonicalName)
         ) || null
       : null;
 
