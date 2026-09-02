@@ -1,0 +1,11 @@
+.mtg-deck-labels.mtg-deck-labels { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+.mtg-deck-labels .mtg-deck-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 5px 9px; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; line-height: 1.3; font-weight: 650; }
+.mtg-deck-label svg { flex: 0 0 auto; }
+.mtg-deck-labels-compact .mtg-deck-label { padding: 4px 6px; }
+.mtg-deck-category-aggro, .mtg-deck-labels .mtg-deck-category-aggro { color: #fbb38b; background: #d75c1917; }
+.mtg-deck-category-combo, .mtg-deck-labels .mtg-deck-category-combo { color: #a5caff; background: #3a82ef17; }
+.mtg-deck-category-tribal, .mtg-deck-labels .mtg-deck-category-tribal { color: #b7e39c; background: #65a83a17; }
+.mtg-deck-category-universes-beyond, .mtg-deck-labels .mtg-deck-category-universes-beyond { color: #d0b4ff; background: #8f5bd017; }
+.mtg-deck-category-marvel, .mtg-deck-labels .mtg-deck-category-marvel { color: #ffa8b8; background: #d5466017; }
+.mtg-deck-labels .mtg-deck-inactive { color: #edce83; background: #ad842017; }
+.mtg-deck-labels .mtg-deck-deleted { color: #b1b8c5; background: #737b8917; }

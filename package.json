@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:deck-create": "node --test scripts/player-deck-create.test.mjs",
+    "test:card-search": "node --test scripts/editor-scryfall.test.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"

@@ -511,6 +511,25 @@
   margin-top: 22px;
 }
 
+.editor-commander-lookup-grid {
+  margin: 0 0 22px;
+}
+
+.editor-deck-management { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.editor-category-choices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.editor-category-choice { display: inline-flex; align-items: center; gap: 9px; min-height: 46px; padding: 11px 14px; border: 1px solid #ffffff20; border-radius: 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.editor-category-choice.selected { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.editor-category-choice:not(.selected) { background: transparent; opacity: 0.8; }
+.editor-category-choice:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.editor-danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 11px 16px; border: 1px solid #f07a7a70; border-radius: 12px; background: #a2292926; color: #ffb2b2; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.editor-danger-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.editor-deck-tabs button { display: inline-flex; align-items: center; gap: 8px; }
+.editor-delete-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow-y: auto; box-sizing: border-box; padding: 26px; border: 1px solid #f07a7a60; border-radius: 20px; background: #10151f; color: #edf0f6; box-shadow: 0 24px 100px #000a; }
+.editor-delete-dialog::backdrop { background: #02040bbd; backdrop-filter: blur(5px); }
+.editor-delete-dialog h2 { margin: 0 0 12px; overflow-wrap: anywhere; font-size: 23px; }
+.editor-delete-dialog p { margin: 0 0 22px; color: #bfc5d2; font-size: 16px; line-height: 1.6; }
+.editor-delete-dialog .editor-heading-actions { margin-top: 24px; justify-content: flex-end; }
+
 .editor-card-lookup {
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);
@@ -540,7 +559,8 @@
   gap: 10px;
 }
 
-.editor-card-lookup-fields > strong {
+.editor-card-lookup-fields > strong,
+.editor-card-lookup-fields > label {
   font-size: 14px;
 }
 
@@ -620,10 +640,60 @@
 
 .editor-deck-editor {
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-.editor-deck-heading h1 {
+.editor-deck-heading h1,
+.editor-deck-heading h2 {
   overflow-wrap: anywhere;
+}
+
+.editor-deck-heading h2 {
+  margin: 8px 0 0;
+  font-size: 25px;
+  letter-spacing: -0.03em;
+}
+
+.editor-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.editor-secondary-button {
+  min-height: 45px;
+  padding: 0 16px;
+  border: 1px solid var(--editor-border);
+  border-radius: 13px;
+  color: #dfe3eb;
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editor-field-hint {
+  margin: 14px 0 0;
+  color: var(--editor-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.editor-new-deck-identity {
+  border-color: rgba(185, 241, 139, 0.23);
+}
+
+.editor-create-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.editor-deck-editor:disabled,
+.editor-deck-tabs button:disabled {
+  opacity: 0.72;
 }
 
 .editor-access-card {
@@ -714,6 +784,15 @@
 
   .editor-save-button {
     width: 100%;
+  }
+
+  .editor-heading-actions {
+    width: 100%;
+  }
+
+  .editor-heading-actions > button {
+    flex: 1;
+    width: auto;
   }
 
   .editor-form-grid {

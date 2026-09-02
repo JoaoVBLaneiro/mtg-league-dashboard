@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   BookOpen,
   Camera,
   CheckCircle2,
+  Check,
   Eye,
   EyeOff,
   ImageUp,
@@ -12,12 +13,20 @@ import {
   LoaderCircle,
   LogIn,
   LogOut,
+  Plus,
+  PauseCircle,
+  PlayCircle,
   Save,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UserRoundCog,
   Wand2,
 } from "lucide-react";
+import { getNewDeckNameError, normalizeDeckName } from "./editorDecks";
+import { findCardOnScryfall } from "./editorScryfall";
+import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
+import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import "./playerEditor.css";
 
 const API_URL =
@@ -33,6 +42,7 @@ type EditorDeck = {
 };
 
 type EditorSessionData = {
+  deckManagementVersion?: number;
   player: {
     id: string;
     fields: EditorFields;
@@ -50,6 +60,9 @@ type EditorApiResponse = {
   error?: string;
   token?: string;
   data?: EditorSessionData;
+  status?: "pending" | "complete" | "error";
+  deckId?: string;
+  warnings?: string[];
 };
 
 type PublicPlayer = {
@@ -83,22 +96,6 @@ type PublicDashboardResponse = {
 };
 
 type CloudinaryConfig = EditorSessionData["cloudinary"];
-
-type ScryfallCard = {
-  name?: string;
-  scryfall_uri?: string;
-  image_uris?: {
-    normal?: string;
-    large?: string;
-  };
-  card_faces?: Array<{
-    image_uris?: {
-      normal?: string;
-      large?: string;
-    };
-  }>;
-  details?: string;
-};
 
 function stringValue(value: string | number | null | undefined) {
   return value === null || value === undefined ? "" : String(value);
@@ -142,6 +139,33 @@ async function requestEditorSession(currentToken: string) {
   }
 
   return json.data;
+}
+
+async function waitForDeckCreation(currentToken: string, requestId: string) {
+  // O POST de Apps Script é opaco (no-cors). Só confirma após consultar o resultado.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = await fetch(editorApiUrl({
+      action: "editorCreateDeckStatus", token: currentToken, requestId,
+    }));
+    const result = await readJsonResponse(response);
+    if (result.status === "complete" && result.deckId) return result;
+    if (result.status !== "pending") {
+      throw new Error("Atualize a implantação do Apps Script para habilitar o cadastro de decks.");
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+  throw new Error("O cadastro ainda não foi confirmado. Aguarde e tente novamente; o mesmo envio não criará uma cópia.");
+}
+
+async function waitForDeckMutation(currentToken: string, requestId: string, deckId: string) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = await fetch(editorApiUrl({ action: "editorDeckMutationStatus", token: currentToken, requestId }));
+    const result = await readJsonResponse(response);
+    if (result.status === "complete" && result.deckId === deckId) return result;
+    if (result.status !== "pending") throw new Error("Atualize a implantação do Apps Script para habilitar esta alteração.");
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+  throw new Error("A alteração ainda não foi confirmada. Recarregue e confira o deck antes de tentar novamente.");
 }
 
 async function loadImageElement(file: File) {
@@ -242,36 +266,6 @@ async function uploadImageToCloudinary(
   }
 
   return result.secure_url;
-}
-
-async function findCardOnScryfall(cardName: string) {
-  const cleanName = cardName.trim();
-
-  if (!cleanName) {
-    throw new Error("Informe o nome da carta primeiro.");
-  }
-
-  const response = await fetch(
-    `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cleanName)}`
-  );
-  const card = (await response.json()) as ScryfallCard;
-
-  if (!response.ok) {
-    throw new Error(card.details || "Carta não encontrada no Scryfall.");
-  }
-
-  const imageUrl =
-    card.image_uris?.large ||
-    card.image_uris?.normal ||
-    card.card_faces?.[0]?.image_uris?.large ||
-    card.card_faces?.[0]?.image_uris?.normal ||
-    "";
-
-  return {
-    name: card.name || cleanName,
-    imageUrl,
-    scryfallUrl: card.scryfall_uri || "",
-  };
 }
 
 function TextField({
@@ -424,54 +418,75 @@ function CardLookupFields({
   linkField,
   fields,
   onChange,
+  required = false,
 }: {
   label: string;
   nameField: string;
   imageField: string;
-  linkField: string;
+  linkField?: string;
   fields: EditorFields;
   onChange: (field: string, value: string) => void;
+  required?: boolean;
 }) {
+  const inputId = useId();
+  const lookupVersion = useRef(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const name = stringValue(fields[nameField]);
   const imageUrl = stringValue(fields[imageField]);
 
+  useEffect(() => () => { lookupVersion.current++; }, []);
+
   async function resolveCard() {
+    if (loading) return;
+    const version = ++lookupVersion.current;
     try {
       setLoading(true);
       setError("");
       const card = await findCardOnScryfall(name);
+      // Não aplica uma busca antiga depois de trocar de deck ou fechar o editor.
+      if (version !== lookupVersion.current) return;
       onChange(nameField, card.name);
-      onChange(imageField, card.imageUrl);
-      onChange(linkField, card.scryfallUrl);
+      if (card.imageUrl) onChange(imageField, card.imageUrl);
+      if (linkField) onChange(linkField, card.scryfallUrl);
     } catch (lookupError) {
-      setError(normalizeErrorMessage(lookupError));
+      if (version === lookupVersion.current) setError(normalizeErrorMessage(lookupError));
     } finally {
-      setLoading(false);
+      if (version === lookupVersion.current) setLoading(false);
     }
   }
 
   return (
-    <div className="editor-card-lookup">
+    <div className="editor-card-lookup" aria-busy={loading}>
       <div className="editor-card-lookup-image">
         {imageUrl ? <img src={imageUrl} alt={name || label} /> : <Wand2 size={25} />}
       </div>
 
       <div className="editor-card-lookup-fields">
-        <span>{label}</span>
+        <label htmlFor={inputId}>{label}</label>
         <div className="editor-card-name-row">
           <input
+            id={inputId}
             value={name}
-            onChange={(event) => onChange(nameField, event.target.value)}
+            onChange={(event) => { setError(""); onChange(nameField, event.target.value); }}
             placeholder="Nome da carta"
+            disabled={loading}
+            aria-required={required}
+            aria-describedby={error ? `${inputId}-error` : undefined}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void resolveCard();
+              }
+            }}
           />
-          <button type="button" onClick={() => void resolveCard()} disabled={loading}>
+          <button type="button" onClick={() => void resolveCard()} disabled={loading}
+            aria-label={`Buscar ${label.replace(/\s*\*$/, "")} no Scryfall`}>
             {loading ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
             Buscar
           </button>
         </div>
-        {error ? <small className="editor-field-error">{error}</small> : null}
+        {error ? <small id={`${inputId}-error`} className="editor-field-error" role="alert">{error}</small> : null}
       </div>
     </div>
   );
@@ -518,6 +533,15 @@ export default function PlayerEditorApp() {
     "profile"
   );
   const [activeDeckId, setActiveDeckId] = useState("");
+  const [isCreatingDeck, setIsCreatingDeck] = useState(false);
+  const [newDeckName, setNewDeckName] = useState("");
+  const [newDeckFields, setNewDeckFields] = useState<EditorFields>({});
+  const newDeckRequestId = useRef("");
+  const createInFlight = useRef(false);
+  const deckActionInFlight = useRef(false);
+  const [deleteDeckTarget, setDeleteDeckTarget] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const deleteDialogRef = useRef<HTMLDialogElement>(null);
   const [savingTarget, setSavingTarget] = useState("");
   const [notice, setNotice] = useState<{
     kind: "success" | "error" | "info";
@@ -527,9 +551,17 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
 
   const activeDeck = useMemo(
-    () => sessionData?.decks.find((deck) => deck.id === activeDeckId) || null,
-    [sessionData?.decks, activeDeckId]
+    () => isCreatingDeck
+      ? { id: "", fields: {} }
+      : sessionData?.decks.find((deck) => deck.id === activeDeckId) || null,
+    [isCreatingDeck, sessionData?.decks, activeDeckId]
   );
+
+  useEffect(() => {
+    const dialog = deleteDialogRef.current;
+    if (deleteDeckTarget && dialog && !dialog.open) dialog.showModal();
+    if (!deleteDeckTarget && dialog?.open) dialog.close();
+  }, [deleteDeckTarget]);
 
   function applySessionData(data: EditorSessionData) {
     setSessionData(data);
@@ -656,7 +688,7 @@ export default function PlayerEditorApp() {
   }
 
   async function sendEditorAction(
-    action: "editorUpdateProfile" | "editorUpdateDeck" | "editorUpdatePin",
+    action: "editorUpdateProfile" | "editorUpdateDeck" | "editorUpdatePin" | "editorCreateDeck" | "editorDeleteDeck",
     payload: Record<string, unknown>
   ) {
     if (!token) {
@@ -679,6 +711,10 @@ export default function PlayerEditorApp() {
   }
 
   function updateDeckField(deckId: string, field: string, value: string) {
+    if (isCreatingDeck && !deckId) {
+      setNewDeckFields((current) => ({ ...current, [field]: value }));
+      return;
+    }
     setDeckFields((current) => ({
       ...current,
       [deckId]: {
@@ -686,6 +722,74 @@ export default function PlayerEditorApp() {
         [field]: value,
       },
     }));
+  }
+
+  function openNewDeck() {
+    if (savingTarget) return;
+    if (!newDeckRequestId.current) newDeckRequestId.current = crypto.randomUUID();
+    setIsCreatingDeck(true);
+    setNotice(null);
+  }
+
+  function cancelNewDeck() {
+    if (savingTarget) return;
+    if ((newDeckName || Object.values(newDeckFields).some(Boolean)) &&
+        !window.confirm("Descartar as informações deste novo deck?")) return;
+    setIsCreatingDeck(false);
+    setNewDeckName("");
+    setNewDeckFields({});
+    newDeckRequestId.current = "";
+    setNotice(null);
+  }
+
+  async function createDeck() {
+    if (!sessionData || createInFlight.current || savingTarget) return;
+    const nameError = getNewDeckNameError(newDeckName, publicDecks.concat(sessionData.decks.map((deck) => deck.id)));
+    if (nameError || !stringValue(newDeckFields["Comandante"]).trim()) {
+      setNotice({ kind: "error", text: nameError || "Informe o comandante do deck." });
+      return;
+    }
+
+    createInFlight.current = true;
+    setSavingTarget("create");
+    setNotice(null);
+    if (!newDeckRequestId.current) newDeckRequestId.current = crypto.randomUUID();
+    const requestId = newDeckRequestId.current;
+    try {
+      // Em falhas de rede, consulta o mesmo ID antes de permitir um novo envio.
+      await sendEditorAction("editorCreateDeck", {
+        requestId, deckName: normalizeDeckName(newDeckName), fields: newDeckFields,
+      }).catch(() => undefined);
+      const result = await waitForDeckCreation(token, requestId);
+      const createdId = result.deckId!;
+      const warnings = [...(result.warnings || [])];
+
+      setIsCreatingDeck(false);
+      setNewDeckName("");
+      setNewDeckFields({});
+      newDeckRequestId.current = "";
+      setPublicDecks((current) => Array.from(new Set([...current, createdId])).sort());
+      try {
+        const data = await requestEditorSession(token);
+        const createdDeck = data.decks.find((deck) => deck.id === createdId);
+        if (!createdDeck) throw new Error("O deck não foi retornado pela sessão.");
+        setSessionData(data);
+        // Preserva outros rascunhos de perfil/decks que ainda não foram salvos.
+        setDeckFields((current) => ({ ...current, [createdId]: { ...createdDeck.fields } }));
+        setActiveDeckId(createdId);
+      } catch {
+        warnings.push("Recarregue a página para abrir o deck recém-criado.");
+      }
+      setNotice({
+        kind: warnings.length ? "info" : "success",
+        text: `Deck ${createdId} criado com sucesso. ${warnings.join(" ")}`.trim(),
+      });
+    } catch (error) {
+      setNotice({ kind: "error", text: normalizeErrorMessage(error) });
+    } finally {
+      createInFlight.current = false;
+      setSavingTarget("");
+    }
   }
 
   async function saveProfile() {
@@ -702,19 +806,77 @@ export default function PlayerEditorApp() {
     }
   }
 
-  async function saveDeck(deckId: string) {
+  async function saveDeck(deckId: string, statusOnly?: "Ativo" | "Inativo") {
+    if (savingTarget || deckActionInFlight.current) return;
+    if (!sessionData?.deckManagementVersion) {
+      setNotice({ kind: "error", text: "Publique o novo Apps Script antes de salvar status e categorias." });
+      return;
+    }
+    deckActionInFlight.current = true;
     try {
       setSavingTarget(`deck:${deckId}`);
       setNotice(null);
+      const requestId = crypto.randomUUID();
       await sendEditorAction("editorUpdateDeck", {
-        deckId,
-        fields: deckFields[deckId] || {},
-      });
-      await fetchSession(token);
-      setNotice({ kind: "success", text: `Deck ${deckId} salvo com sucesso.` });
+        deckId, requestId,
+        fields: statusOnly ? { Status: statusOnly } : deckFields[deckId] || {},
+      }).catch(() => undefined);
+      const result = await waitForDeckMutation(token, requestId, deckId);
+      const warnings = [...(result.warnings || [])];
+      if (statusOnly) {
+        setDeckFields((current) => ({ ...current, [deckId]: { ...current[deckId], Status: statusOnly } }));
+        setSessionData((current) => current ? { ...current, decks: current.decks.map((deck) => deck.id === deckId
+          ? { ...deck, fields: { ...deck.fields, Status: statusOnly } } : deck) } : current);
+      }
+      try {
+        const data = await requestEditorSession(token);
+        const updated = data.decks.find((deck) => deck.id === deckId);
+        if (!updated) throw new Error("Deck não retornado.");
+        setSessionData(data);
+        setDeckFields((current) => ({ ...current, [deckId]: statusOnly
+          ? { ...current[deckId], Status: updated.fields.Status }
+          : { ...updated.fields } }));
+      } catch { warnings.push("Recarregue para visualizar os dados confirmados."); }
+      setNotice({ kind: warnings.length ? "info" : "success", text:
+        `${statusOnly ? `Deck marcado como ${statusOnly.toLowerCase()}.` : `Deck ${deckId} salvo com sucesso.`} ${warnings.join(" ")}`.trim() });
     } catch (error) {
       setNotice({ kind: "error", text: normalizeErrorMessage(error) });
     } finally {
+      deckActionInFlight.current = false;
+      setSavingTarget("");
+    }
+  }
+
+  async function deleteDeck() {
+    if (savingTarget || deckActionInFlight.current || !deleteDeckTarget || deleteConfirmation.trim() !== deleteDeckTarget) return;
+    if (!sessionData?.deckManagementVersion) {
+      setNotice({ kind: "error", text: "Publique o novo Apps Script antes de excluir decks." });
+      return;
+    }
+    deckActionInFlight.current = true;
+    const deckId = deleteDeckTarget;
+    try {
+      setSavingTarget(`delete:${deckId}`);
+      setNotice(null);
+      const requestId = crypto.randomUUID();
+      await sendEditorAction("editorDeleteDeck", { deckId, requestId, confirmDeckName: deleteConfirmation.trim() }).catch(() => undefined);
+      const result = await waitForDeckMutation(token, requestId, deckId);
+      const remaining = sessionData.decks.filter((deck) => deck.id !== deckId);
+      setSessionData({ ...sessionData, decks: remaining });
+      setDeckFields((current) => {
+        const next = { ...current }; delete next[deckId]; return next;
+      });
+      setPublicDecks((current) => current.filter((name) => name !== deckId));
+      setActiveDeckId(remaining[0]?.id || "");
+      setDeleteDeckTarget("");
+      setDeleteConfirmation("");
+      const warnings = result.warnings || [];
+      setNotice({ kind: warnings.length ? "info" : "success", text:
+        `Deck ${deckId} excluído do cadastro. Histórico preservado; a administração pode recuperá-lo pela planilha. ${warnings.join(" ")}`.trim() });
+    } catch (error) {
+      setNotice({ kind: "error", text: normalizeErrorMessage(error) });
+    } finally {
+      deckActionInFlight.current = false;
       setSavingTarget("");
     }
   }
@@ -764,6 +926,7 @@ export default function PlayerEditorApp() {
   }
 
   function logout() {
+    if (savingTarget) return;
     if (token) {
       void fetch(editorApiUrl({ action: "editorLogout", token })).catch(() => undefined);
     }
@@ -773,6 +936,10 @@ export default function PlayerEditorApp() {
     setSessionData(null);
     setProfileFields({});
     setDeckFields({});
+    setIsCreatingDeck(false);
+    setNewDeckName("");
+    setNewDeckFields({});
+    newDeckRequestId.current = "";
     setNotice(null);
   }
 
@@ -851,7 +1018,7 @@ export default function PlayerEditorApp() {
   }
 
   const cloudinary = sessionData.cloudinary;
-  const currentDeckFields = activeDeck ? deckFields[activeDeck.id] || {} : {};
+  const currentDeckFields = isCreatingDeck ? newDeckFields : activeDeck ? deckFields[activeDeck.id] || {} : {};
 
   return (
     <main className="player-editor-page">
@@ -869,7 +1036,7 @@ export default function PlayerEditorApp() {
           <strong>
             {stringValue(profileFields["Nome de Exibição"]) || sessionData.player.id}
           </strong>
-          <button type="button" onClick={logout}>
+          <button type="button" onClick={logout} disabled={Boolean(savingTarget)}>
             <LogOut size={17} />
             Sair
           </button>
@@ -882,6 +1049,7 @@ export default function PlayerEditorApp() {
             className={activeSection === "profile" ? "active" : ""}
             type="button"
             onClick={() => setActiveSection("profile")}
+            disabled={Boolean(savingTarget)}
           >
             <UserRoundCog size={19} />
             Meu perfil
@@ -891,6 +1059,7 @@ export default function PlayerEditorApp() {
             className={activeSection === "decks" ? "active" : ""}
             type="button"
             onClick={() => setActiveSection("decks")}
+            disabled={Boolean(savingTarget)}
           >
             <BookOpen size={19} />
             Meus decks
@@ -901,6 +1070,7 @@ export default function PlayerEditorApp() {
             className={activeSection === "access" ? "active" : ""}
             type="button"
             onClick={() => setActiveSection("access")}
+            disabled={Boolean(savingTarget)}
           >
             <KeyRound size={19} />
             Acesso
@@ -928,7 +1098,7 @@ export default function PlayerEditorApp() {
                   className="editor-primary-button editor-save-button"
                   type="button"
                   onClick={() => void saveProfile()}
-                  disabled={savingTarget === "profile"}
+                  disabled={Boolean(savingTarget)}
                 >
                   {savingTarget === "profile" ? (
                     <LoaderCircle size={18} className="spin" />
@@ -1076,65 +1246,138 @@ export default function PlayerEditorApp() {
                   <h1>Meus decks</h1>
                   <p>Somente decks cujo autor é {sessionData.player.id} aparecem aqui.</p>
                 </div>
+                <button className="editor-primary-button" type="button"
+                  onClick={openNewDeck} disabled={isCreatingDeck || Boolean(savingTarget)}>
+                  <Plus size={18} /> Novo deck
+                </button>
               </div>
 
-              {sessionData.decks.length ? (
+              {sessionData.decks.length || isCreatingDeck ? (
                 <>
                   <div className="editor-deck-tabs">
                     {sessionData.decks.map((deck) => (
                       <button
                         type="button"
                         key={deck.id}
-                        className={activeDeckId === deck.id ? "active" : ""}
-                        onClick={() => setActiveDeckId(deck.id)}
+                        className={!isCreatingDeck && activeDeckId === deck.id ? "active" : ""}
+                        disabled={Boolean(savingTarget)}
+                        onClick={() => { setIsCreatingDeck(false); setActiveDeckId(deck.id); }}
                       >
                         {deck.id}
+                        {deck.fields.Status === "Inativo" ? <PauseCircle size={14} aria-label="Inativo" /> : null}
                       </button>
                     ))}
                   </div>
 
                   {activeDeck ? (
-                    <div className="editor-deck-editor">
+                    <fieldset className="editor-deck-editor" disabled={Boolean(savingTarget)}>
                       <div className="editor-page-heading editor-deck-heading">
                         <div>
-                          <span>Deck cadastrado</span>
-                          <h2>{activeDeck.id}</h2>
+                          <span>{isCreatingDeck ? "Novo cadastro" : "Deck cadastrado"}</span>
+                          <h2>{isCreatingDeck ? "Monte o perfil do seu deck" : activeDeck.id}</h2>
+                          <DeckLabels categories={currentDeckFields.Categorias} inactive={currentDeckFields.Status === "Inativo"} />
+                          {isCreatingDeck ? <p>Nome e comandante são obrigatórios. Você pode completar o restante depois.</p> : null}
                         </div>
+                        <div className="editor-heading-actions">
+                        {isCreatingDeck ? (
+                          <button type="button" className="editor-secondary-button" onClick={cancelNewDeck}>
+                            Cancelar
+                          </button>
+                        ) : null}
                         <button
                           className="editor-primary-button editor-save-button"
                           type="button"
-                          onClick={() => void saveDeck(activeDeck.id)}
-                          disabled={savingTarget === `deck:${activeDeck.id}`}
+                          onClick={() => void (isCreatingDeck ? createDeck() : saveDeck(activeDeck.id))}
+                          disabled={Boolean(savingTarget)}
                         >
-                          {savingTarget === `deck:${activeDeck.id}` ? (
+                          {savingTarget ? (
                             <LoaderCircle size={18} className="spin" />
                           ) : (
                             <Save size={18} />
                           )}
-                          {savingTarget === `deck:${activeDeck.id}` ? "Salvando..." : "Salvar deck"}
+                          {savingTarget ? (isCreatingDeck ? "Criando..." : "Salvando...") : isCreatingDeck ? "Criar deck" : "Salvar deck"}
                         </button>
+                        </div>
+                      </div>
+
+                      {isCreatingDeck ? (
+                        <div className="editor-form-section editor-new-deck-identity">
+                          <div className="editor-form-grid">
+                            <label className="editor-field">
+                              <span>Nome do deck *</span>
+                              <input value={newDeckName} onChange={(event) => setNewDeckName(event.target.value)}
+                                maxLength={80} placeholder={`Ex.: Meren - ${sessionData.player.id}`} autoFocus />
+                            </label>
+                            <TextField label="Autor (automático)" value={sessionData.player.id} readOnly />
+                          </div>
+                          <p className="editor-field-hint">Use um nome único, sem vírgulas. Ele será o identificador do histórico e não poderá ser renomeado aqui. Origem: deck pessoal (Fora).</p>
+                        </div>
+                      ) : null}
+
+                      <div className="editor-form-section">
+                        <div className="editor-section-heading">
+                          <h2>Status e categorias</h2>
+                          <p>Inativo é apenas uma etiqueta: não esconde o deck nem altera partidas, rankings ou conquistas.</p>
+                        </div>
+                        <div className="editor-deck-management">
+                          <button type="button" className="editor-secondary-button"
+                            aria-pressed={currentDeckFields.Status === "Inativo"}
+                            onClick={() => {
+                              const nextStatus = currentDeckFields.Status === "Inativo" ? "Ativo" : "Inativo";
+                              if (isCreatingDeck) updateDeckField("", "Status", nextStatus);
+                              else void saveDeck(activeDeck.id, nextStatus);
+                            }}>
+                            {currentDeckFields.Status === "Inativo" ? <PlayCircle size={17} /> : <PauseCircle size={17} />}
+                            {currentDeckFields.Status === "Inativo" ? "Marcar como ativo" : "Marcar como inativo"}
+                          </button>
+                          {!isCreatingDeck ? <button type="button" className="editor-danger-button" onClick={() => {
+                            setDeleteConfirmation(""); setDeleteDeckTarget(activeDeck.id); setNotice(null);
+                          }}><Trash2 size={17} /> Excluir deck</button> : null}
+                        </div>
+                        <div className="editor-category-choices" role="group" aria-label="Categorias do deck">
+                          {DECK_CATEGORIES.map((category) => {
+                            const selected = readDeckCategories(currentDeckFields.Categorias).includes(category.id);
+                            return <button type="button" key={category.id} aria-pressed={selected}
+                              className={`editor-category-choice mtg-deck-category-${category.id}${selected ? " selected" : ""}`}
+                              onClick={() => updateDeckField(activeDeck.id, "Categorias", toggleDeckCategory(currentDeckFields.Categorias, category.id))}>
+                              <DeckCategoryIcon category={category.id} size={20} /> <span>{category.label}</span>
+                              {selected ? <Check size={15} aria-hidden="true" /> : null}
+                            </button>;
+                          })}
+                        </div>
+                        <p className="editor-field-hint">Pode marcar mais de uma. As categorias são usadas pelas conquistas; clique em {isCreatingDeck ? "Criar deck" : "Salvar deck"} para aplicar.</p>
                       </div>
 
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Informações do deck</h2>
+                          <p>Digite o comandante e clique em Buscar para preencher nome e foto. O secundário é opcional.</p>
+                        </div>
+                        <div className="editor-card-lookup-grid editor-commander-lookup-grid">
+                          <CardLookupFields
+                            key={`commander:${activeDeck.id}`}
+                            label={isCreatingDeck ? "Comandante *" : "Comandante"}
+                            nameField="Comandante"
+                            imageField="Foto URL"
+                            fields={currentDeckFields}
+                            onChange={(field, value) => updateDeckField(activeDeck.id, field, value)}
+                            required={isCreatingDeck}
+                          />
+                          <CardLookupFields
+                            key={`secondary:${activeDeck.id}`}
+                            label="Comandante secundário"
+                            nameField="Comandante Secundário"
+                            imageField="Foto Comandante Secundário"
+                            fields={currentDeckFields}
+                            onChange={(field, value) => updateDeckField(activeDeck.id, field, value)}
+                          />
                         </div>
                         <div className="editor-form-grid">
-                          <TextField
-                            label="Comandante"
-                            value={stringValue(currentDeckFields["Comandante"])}
-                            onChange={(value) => updateDeckField(activeDeck.id, "Comandante", value)}
-                          />
                           <TextField
                             label="Cores"
                             value={stringValue(currentDeckFields["Cores"])}
                             onChange={(value) => updateDeckField(activeDeck.id, "Cores", value)}
                             placeholder="Ex.: WUBRG, Izzet, Incolor"
-                          />
-                          <TextField
-                            label="Comandante secundário"
-                            value={stringValue(currentDeckFields["Comandante Secundário"])}
-                            onChange={(value) => updateDeckField(activeDeck.id, "Comandante Secundário", value)}
                           />
                           <TextField
                             label="Tipo do secundário"
@@ -1234,12 +1477,20 @@ export default function PlayerEditorApp() {
                           ))}
                         </div>
                       </div>
-                    </div>
+                      {isCreatingDeck ? (
+                        <div className="editor-create-footer">
+                          <button className="editor-primary-button" type="button" onClick={() => void createDeck()}>
+                            {savingTarget ? <LoaderCircle size={18} className="spin" /> : <Plus size={18} />}
+                            {savingTarget ? "Criando..." : "Criar deck"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </fieldset>
                   ) : null}
                 </>
               ) : (
                 <EditorNotice kind="info">
-                  Nenhum deck está cadastrado com você no campo Autor da aba DECKS_INFO.
+                  Você ainda não possui decks cadastrados. Clique em Novo deck para adicionar o primeiro.
                 </EditorNotice>
               )}
             </>
@@ -1275,7 +1526,7 @@ export default function PlayerEditorApp() {
                   className="editor-primary-button editor-save-button"
                   type="button"
                   onClick={() => void changePin()}
-                  disabled={savingTarget === "pin"}
+                  disabled={Boolean(savingTarget)}
                 >
                   {savingTarget === "pin" ? (
                     <LoaderCircle size={18} className="spin" />
@@ -1295,6 +1546,24 @@ export default function PlayerEditorApp() {
           <option value={deck} key={deck} />
         ))}
       </datalist>
+      <dialog ref={deleteDialogRef} className="editor-delete-dialog" aria-labelledby="editor-delete-title"
+        aria-describedby="editor-delete-description"
+        onCancel={(event) => { if (savingTarget) event.preventDefault(); else setDeleteDeckTarget(""); }}
+        onClose={() => { if (!savingTarget) setDeleteDeckTarget(""); }}>
+        <h2 id="editor-delete-title">Excluir {deleteDeckTarget}?</h2>
+        <p id="editor-delete-description">O deck sairá da sua área e do catálogo disponível. Partidas e estatísticas antigas serão preservadas. A administração poderá recuperá-lo pela planilha. Alterações não salvas serão descartadas.</p>
+        <label className="editor-field">
+          <span>Digite o nome do deck para confirmar</span>
+          <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} disabled={Boolean(savingTarget)} autoComplete="off" />
+        </label>
+        {notice?.kind === "error" ? <EditorNotice kind="error">{notice.text}</EditorNotice> : null}
+        <div className="editor-heading-actions">
+          <button type="button" className="editor-secondary-button" autoFocus disabled={Boolean(savingTarget)} onClick={() => setDeleteDeckTarget("")}>Cancelar</button>
+          <button type="button" className="editor-danger-button" disabled={Boolean(savingTarget) || deleteConfirmation.trim() !== deleteDeckTarget}
+            onClick={() => void deleteDeck()}>{savingTarget ? <LoaderCircle size={17} className="spin" /> : <Trash2 size={17} />}
+            {savingTarget ? "Excluindo..." : "Confirmar exclusão"}</button>
+        </div>
+      </dialog>
     </main>
   );
 }

@@ -28,6 +28,8 @@ import { motion } from "framer-motion";
 import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
+import { DeckLabels } from "./DeckLabels";
+import { isAvailableDeck, readDeckCategories } from "./deckMetadata";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
 
@@ -286,6 +288,9 @@ type RawPlayer = {
 };
 
 type RawDeck = {
+  categorias?: string[];
+  inativo?: boolean;
+  excluido?: boolean;
   deck?: string;
   nome?: string;
   aparicoes?: number | string;
@@ -358,6 +363,9 @@ type Player = {
 };
 
 type Deck = {
+  categories?: string[];
+  inactive?: boolean;
+  deleted?: boolean;
   name: string;
   appearances: number;
   wins: number;
@@ -842,6 +850,9 @@ function normalizeDecks(
   return decks
     .map((item) => ({
       name: item.deck || item.nome || "Deck sem nome",
+      categories: readDeckCategories(item.categorias),
+      inactive: item.inativo === true,
+      deleted: item.excluido === true,
       appearances: Number(item.aparicoes || item.appearances || item.jogos || 0),
       wins: Number(item.vitorias || item.wins || 0),
       winrate: Number(item.winrate || 0),
@@ -2106,6 +2117,7 @@ function LeaderboardCard({
   ) : null}
 </div>
 
+        {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} compact /> : null}
         <div className="stats">
           {shouldShowWinrate ? (
             <StatPill variant="winrate" value={item.winrate}>
@@ -5084,6 +5096,8 @@ function ProfileModal({
   ) : null}
 </div>
 
+            {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} /> : null}
+
             {!isPlayer &&
               ((item as Deck).commander ||
                 (item as Deck).secondaryCommander ||
@@ -7080,6 +7094,7 @@ function RegisteredDecksModal({
 
                     <div className="registered-deck-info">
                       <strong>{deck.name}</strong>
+                      <DeckLabels categories={deck.categories} inactive={deck.inactive} compact />
 
                       <span>
                         {deck.commander || "Comandante não informado"}
@@ -7356,6 +7371,7 @@ function OriginDecksModal({
 
   const filteredDecks = decks.filter((deck) => {
     if (!deck.origem) return false;
+    if (!isAvailableDeck(deck)) return false;
     return deck.origem.tipo === origin.tipo;
   });
 
@@ -7438,6 +7454,7 @@ function AuthorDecksModal({
 
   const filteredDecks = decks.filter((deck) => {
     if (!deck.autor) return false;
+    if (!isAvailableDeck(deck)) return false;
     return (deck.autor.jogador || deck.autor.nome) === author.name;
   });
   const visibleAuthorName = getPlayerDisplayName(author);
@@ -8742,7 +8759,7 @@ const hasMorePlayers =
 
       {showRegisteredDecksModal ? (
         <RegisteredDecksModal
-          decks={allDecks}
+          decks={allDecks.filter(isAvailableDeck)}
           onSelectDeck={(deck) => {
             setShowRegisteredDecksModal(false);
             setSelectedProfile({ type: "deck", item: deck });

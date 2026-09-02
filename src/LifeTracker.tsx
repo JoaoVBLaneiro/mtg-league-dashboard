@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { isAvailableDeck, readDeckCategories } from "./deckMetadata";
+import { DeckLabels } from "./DeckLabels";
 import "./lifeTracker.css";
 
 type PlayerMarkerType = "poison" | "experience" | "radiation";
@@ -61,6 +63,8 @@ type LeaguePlayerOption = {
 };
 
 type LeagueDeckOption = {
+  categories: string[];
+  inactive: boolean;
   name: string;
   commander: string;
   imageUrl: string;
@@ -88,6 +92,9 @@ type DashboardApiPlayer = {
 };
 
 type DashboardApiDeck = {
+  categorias?: string[];
+  inativo?: boolean;
+  excluido?: boolean;
   deck?: string;
   nome?: string;
   comandante?: string;
@@ -429,7 +436,10 @@ export default function LifeTrackerApp() {
         });
 
         const normalizedDecks = rawDecks
+          .filter(isAvailableDeck)
           .map((deck) => ({
+            categories: readDeckCategories(deck.categorias),
+            inactive: deck.inativo === true,
             name: deck.deck || deck.nome || "Deck sem nome",
             commander: deck.comandante || deck.commander || "",
             secondaryCommander:
@@ -1647,6 +1657,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                         }
                       >
                         <strong>{deck.name}</strong>
+                        <DeckLabels categories={deck.categories} inactive={deck.inactive} compact />
                         {deck.commander ? <span>{deck.commander}</span> : null}
                       </button>
                     ))}
