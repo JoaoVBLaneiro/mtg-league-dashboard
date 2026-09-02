@@ -1,0 +1,36 @@
+.editor-art-dialog { box-sizing: border-box; width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #b9f18b40; border-radius: 22px; background: #10141f; color: #f1f4fb; box-shadow: 0 24px 100px #000b; overflow-y: auto; }
+.editor-art-dialog::backdrop { background: #02040bce; backdrop-filter: blur(5px); }
+.editor-art-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 24px 24px 10px; }
+.editor-art-heading > div { min-width: 0; }
+.editor-art-heading span { color: #b9f18b; letter-spacing: .13em; font-size: 11px; font-weight: 800; }
+.editor-art-heading h2 { margin: 6px 0 0; font-size: clamp(21px, 4vw, 29px); line-height: 1.2; overflow-wrap: anywhere; }
+.editor-art-dialog button { font: inherit; cursor: pointer; }
+.editor-art-dialog button:focus-visible { outline: 3px solid #d3ffb2; outline-offset: 3px; }
+.editor-art-dialog button:disabled { opacity: .55; cursor: wait; }
+.editor-art-close { flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; color: #d1d8e4; background: #ffffff0a; border: 1px solid #ffffff21; border-radius: 12px; }
+.editor-art-description { margin: 0; padding: 0 24px 20px; color: #b6bdcc; font-size: 14px; line-height: 1.55; }
+.editor-art-results { padding: 0 24px 24px; }
+.editor-art-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.editor-art-option { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 7px; text-align: left; color: #e5eaf4; border: 1px solid #ffffff1d; border-radius: 13px; background: #080c14; transition: border-color .15s, background .15s; }
+.editor-art-option:hover, .editor-art-option.selected { border-color: #b9f18b; background: #b9f18b0c; }
+.editor-art-image { display: block; position: relative; aspect-ratio: 488 / 680; overflow: hidden; border-radius: 8px; background: #1b2231; }
+.editor-art-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.editor-art-option strong { margin: 10px 3px 5px; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.editor-art-edition, .editor-art-artist { margin: 0 3px 5px; color: #aeb8ca; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.editor-art-option .editor-art-selected { position: absolute; right: 5px; bottom: 5px; display: inline-flex; align-items: center; gap: 4px; border-radius: 7px; padding: 5px 7px; color: #172211; background: #b9f18b; font-size: 11px; font-weight: 800; }
+.editor-art-message { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 24px 0; color: #c2cbd9; }
+.editor-art-error { padding: 12px; border: 1px solid #f07a7a50; border-radius: 10px; color: #ffc3c3; background: #6e17171f; }
+.editor-art-more { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 20px auto 0; padding: 11px 20px; color: #b9f18b; background: #b9f18b12; border: 1px solid #b9f18b40; border-radius: 10px; }
+.editor-art-footer { border-top: 1px solid #ffffff13; padding: 15px 24px; color: #8995a9; font-size: 12px; line-height: 1.5; }
+.editor-art-trigger { display: inline-flex; justify-self: start; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid #b9f18b40; border-radius: 9px; color: #b9f18b; background: #b9f18b0c; cursor: pointer; font-size: 12px; font-weight: 700; }
+.editor-art-trigger:disabled { opacity: .45; cursor: not-allowed; }
+.editor-art-trigger:focus-visible { outline: 2px solid #b9f18b; outline-offset: 3px; }
+@media (max-width: 720px) { .editor-art-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .editor-art-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 16px; }
+  .editor-art-heading { padding: 18px 14px 10px; }
+  .editor-art-description { padding: 0 14px 16px; font-size: 13px; }
+  .editor-art-results { padding: 0 14px 18px; }
+  .editor-art-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .editor-art-footer { padding: 14px; }
+}

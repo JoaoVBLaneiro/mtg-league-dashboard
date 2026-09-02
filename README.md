@@ -20,13 +20,19 @@ Dashboard web para acompanhar uma liga casual de Commander/MTG a partir de respo
 
 - **Área do jogador**
   - Entrada individual por jogador e PIN numérico.
+  - Cadastro de novos jogadores por participantes logados, com autoria auditada somente na planilha.
   - Edição de nome de exibição, título, bio, fotos e preferências.
   - Edição dos decks vinculados ao jogador, sem alterar seus identificadores.
   - Cadastro de novos decks pelo próprio jogador, com autor atribuído pela sessão.
   - Exclusão recuperável dos próprios decks, com confirmação do nome e preservação do histórico.
-  - Marcador Ativo/Inativo e multisseleção de categorias com ícones (Aggro, Combo, Tribal, Universes Beyond e Marvel).
+  - Marcador Inativo com símbolo Ice Age; decks inativos deixam de ser exigidos em Slayer e Combobreaker, mantendo vitórias históricas opcionais.
+  - Consulta de jogadores que possuem cada conquista e catálogo manual com condições, raridades, progresso e IDs copiáveis.
+  - Multisseleção de categorias com ícones (Aggro, Combo, Tribal, Universes Beyond e Marvel).
+  - Origem Fixo da salinha/Fora editável pelo dono do deck.
+  - Galeria de símbolos Keyrune com acabamento Mítico e indicação de jogadores que usam cada símbolo.
   - Busca de cartas no Scryfall para preencher nome, arte e link.
   - Busca do comandante principal e secundário pelo mesmo botão **Buscar**, preenchendo nome e foto no cadastro ou na edição de decks.
+  - Galeria **Escolher arte** para selecionar edições do comandante principal, secundário e das cinco cartas-chave.
   - Upload direto para o Cloudinary, com redução da imagem no navegador.
 
 - **Perfis de decks**
@@ -274,7 +280,7 @@ Nos campos **Comandante** e **Comandante secundário**, digite o nome da carta e
 
 **Esta versão de gerenciamento de decks exige atualizar o Apps Script e o frontend.** Não é necessário recriar PINs nem reconfigurar o Cloudinary. Publique primeiro uma nova versão da implantação existente do Apps Script, mantendo sua URL, e depois publique o frontend atualizado.
 
-O autor é sempre o jogador da sessão, definido no servidor. Novos decks pessoais entram como `Fora`; somente a administração da planilha pode classificá-los como `Fixo`. Nenhuma estatística ou partida é criada nesse processo.
+O autor é sempre o jogador da sessão, definido no servidor. O dono escolhe `Fixo` (salinha) ou `Fora` na origem, tanto no cadastro como na edição; `Fora` é o padrão quando nada foi informado. A origem não muda o dono nem autoriza editar decks de outras pessoas. Nenhuma estatística ou partida é criada nesse processo.
 
 O nome identifica o deck no histórico e não pode ser renomeado pelo editor. Deve ter de 2 a 80 caracteres, sem vírgulas, quebras de linha ou prefixos de fórmula. Nomes já usados no cadastro ou no histórico são bloqueados, inclusive com diferenças de maiúsculas, acentos ou espaços. Jogadores podem usar o mesmo comandante em decks de nomes diferentes, por exemplo `Meren - Alice` e `Meren - Bob`.
 
@@ -291,6 +297,8 @@ Com Node.js 24 e as dependências instaladas:
 ```bash
 npm run test:deck-create
 npm run test:card-search
+npm run test:editor-markup
+npm run test:achievements
 npm run build
 ```
 
@@ -298,14 +306,15 @@ Os testes executam o backend com planilhas, sessões, locks e cache fictícios. 
 
 O build e os componentes novos passam na validação local. O lint geral ainda aponta nove pendências preexistentes em `App.tsx` e `LifeTracker.tsx`, fora dos trechos desta atualização.
 
-Para testar manualmente apenas a interface, execute `npm run dev` e abra `/mtg-league-dashboard/scripts/editor-preview.html` no servidor local. Essa fixture usa dados fictícios e bloqueia acessos externos; não entra no build de produção. A página `editor-preview-mobile.html`, no mesmo diretório, apresenta o editor em 390 pixels de largura.
+Para testar manualmente apenas a interface, execute `npm run dev` e abra `/mtg-league-dashboard/scripts/editor-preview.html` no servidor local. Essa fixture simula jogadores, símbolos em uso, artes e cadastros, sem acessar APIs reais ou gravar na planilha; somente CSS e fontes Keyrune vêm do CDN público. Ela não entra no build de produção. A página `editor-preview-mobile.html`, no mesmo diretório, apresenta o editor em 390 pixels de largura.
 
 ### 6. Status, categorias e exclusão
 
 Na **Área do jogador → Meus decks**, cada deck apresenta a seção **Status e categorias**.
 
-- **Marcar como inativo / ativo:** em decks já cadastrados, o botão salva somente o status imediatamente, sem descartar outros campos em edição. Em um novo deck, o marcador é gravado ao criar. Por enquanto, `Inativo` é apenas visual: não esconde, não bloqueia seleção no marcador de vida e não modifica estatísticas nem conquistas.
-- **Categorias:** botões coloridos com símbolos; é possível marcar várias ou nenhuma. Clique em **Salvar deck** ou **Criar deck** para persistir. Os ícones também aparecem nos perfis públicos, no catálogo e no seletor de decks do marcador de vida.
+- **Marcar como inativo / ativo:** em decks já cadastrados, o botão salva somente o status imediatamente, sem descartar outros campos em edição. Em um novo deck, o marcador é gravado ao criar. `Inativo` usa o símbolo Keyrune de **Ice Age** (`ss-ice`), em azul-claro. No modal do deck fica somente o ícone, com tooltip no hover/foco; no editor e nas listas o aviso também mantém o texto.
+- **Inativos e conquistas de coleção:** os decks inativos saem tanto do total exigido quanto do progresso em **“Fulano Slayer” e “Combobreaker”**. Inativos já derrotados aparecem em **Vitórias históricas — não obrigatórias**, sem substituir vitórias pendentes contra ativos; os não derrotados ficam fora dos detalhes. Só entram como requisitos os decks ativos do autor/tipo que já participaram de partidas (a regra de participação prévia foi mantida). Sem ativos, o modal informa que não há requisitos atuais e não desbloqueia automaticamente; o histórico conquistado continua visível. Reativar volta a exigir o deck, aproveitando suas vitórias antigas. Listas, marcador de vida, rankings, partidas e conquistas que não dependem de uma coleção inteira de decks são preservados. Salvar o status atualiza o cache; ao editar a planilha diretamente, execute `updateDashboardCache`.
+- **Categorias:** botões coloridos com símbolos Keyrune; é possível marcar várias ou nenhuma. Clique em **Salvar deck** ou **Criar deck** para persistir. No perfil público do deck ficam somente os ícones: hover/foco mostra o nome, e clique abre os decks daquela categoria. A lista inclui inativos e decks sem partidas; excluídos não entram. Clicar num resultado abre seu perfil; fechar mantém o perfil anterior. Os símbolos não aparecem nas listas do painel nem no seletor do marcador de vida. Os selos Inativo/Excluído continuam nas listas. No editor os nomes das categorias permanecem visíveis.
 - **Excluir deck:** pede a digitação do nome e verifica o proprietário no servidor. Retira o deck da área de edição e dos catálogos de seleção após atualização do cache. Partidas, estatísticas e classificações históricas permanecem; rankings históricos podem continuar exibindo o deck com o selo `Excluído`. Não apaga imagens do Cloudinary.
 
 **Compatibilidade das categorias:** classificações antigas nas listas `CONFIG.*DeckNames` são usadas enquanto `Categorias` estiver vazia/ausente na linha. Ao salvar uma seleção, ela passa a ser a fonte de verdade daquele deck. `[]` significa explicitamente nenhuma categoria; é diferente de uma célula vazia. As categorias são integradas às conquistas existentes, então alterá-las pode recalcular conquistas de partidas anteriores. As categorias são independentes: marcar Marvel não marca Universes Beyond automaticamente.
@@ -314,7 +323,7 @@ As novas colunas de `DECKS_INFO` são criadas automaticamente conforme necessár
 
 | Coluna | Uso |
 | --- | --- |
-| `Status` | `Ativo` (padrão) ou `Inativo`; apenas marcador |
+| `Status` | `Ativo` (padrão) ou `Inativo`; inativos recebem Ice Age e não são exigidos em Slayer/Combobreaker |
 | `Categorias` | Array JSON, como `["combo","tribal"]`; use o editor para preencher |
 | `Excluído em` | Data/hora da exclusão recuperável; nunca editável pelo jogador |
 | `Excluído por` | Jogador que confirmou a exclusão |
@@ -325,6 +334,75 @@ As novas colunas de `DECKS_INFO` são criadas automaticamente conforme necessár
 **Formulários separados:** excluir no site não apaga perguntas, opções ou respostas antigas do Google Forms de partidas/feedback. A sincronização de feedback deixa de adicionar decks excluídos, mas preserva linhas antigas. Se necessário, retire manualmente suas opções nos formulários; não use a função de reset de formulário para isso. Partidas já iniciadas no marcador de vida podem continuar sendo registradas com o deck antigo.
 
 > O PIN é uma autenticação propositalmente superficial. Ele impede edições acidentais entre jogadores, mas não deve ser usado para dados sensíveis ou em um ambiente hostil.
+
+### 7. Símbolos de tipos e escolha de artes
+
+A galeria de artes usa as colunas já existentes. Porém, este pacote também inclui origem editável, símbolos e cadastro de jogadores, que **exigem publicar o novo Apps Script**, conforme a seção seguinte. Não recrie os PINs existentes.
+
+1. Em **Meus decks**, crie ou abra um deck.
+2. Digite o nome de um comandante ou carta-chave. **Buscar** escolhe a imagem padrão; **Escolher arte** abre uma galeria de edições, inclusive sem precisar buscar antes.
+3. Selecione uma edição. Use **Carregar mais edições** quando houver outras páginas. Fechar a galeria ou apertar Esc mantém a escolha anterior.
+4. Clique em **Salvar deck** ou **Criar deck** para gravar. Ao mudar o nome digitado, a imagem/link anteriores são limpos para não vincular a arte de outra carta.
+
+A galeria mostra a edição, número de coleção, idioma retornado pelo Scryfall e artista. Cartas dupla face usam a frente. São exibidas as reimpressões com imagens retornadas na busca padrão do Scryfall; não há filtro de idioma nesta versão. O cache em memória dura até 10 minutos (máximo de 40 consultas), requisições idênticas em andamento são compartilhadas, e as chamadas respeitam um intervalo mínimo de 120 ms e um limite de espera de 15 segundos. As edições são carregadas apenas ao abrir a galeria e solicitar mais páginas. Falhas não apagam a seleção existente.
+
+Validação desta atualização: 115 testes locais (incluindo renderização sem navegador, separação foto/banner, coleções ativas com histórico opcional, possuidores e catálogo manual). Também são verificados TypeScript, build e lint dos componentes do editor/metadados/consulta de conquistas. A conferência visual em navegador continua pendente por indisponibilidade do navegador de teste neste ambiente. Não foram feitas alterações ou testes de escrita na planilha publicada. O build pode emitir aviso não bloqueante de bundle principal acima de 500 kB.
+
+As URLs selecionadas usam as colunas já existentes: `Foto URL`, `Foto Comandante Secundário`, `Arte Carta Chave N` e `Scryfall Carta Chave N`. As imagens são servidas pelo Scryfall; não passam pelo Cloudinary nem são armazenadas no Apps Script. Escolher uma edição do comandante altera **Foto URL**, exibida nas listas, prévias e retratos/cartas dos modais. **Arte URL não substitui a foto do comandante.** Alterar a edição não apaga fundos personalizados. A busca de cartas favoritas do perfil continua como antes.
+
+| Uso da imagem | Fonte/prioridade |
+| --- | --- |
+| Foto do comandante nas listas e nos modais | `Foto URL` (edição escolhida no editor ou URL manual) |
+| Comandante secundário | `Foto Comandante Secundário`, independente do principal |
+| Banners/capas dos decks | `Header URL` → `Arte URL` → `Foto URL` |
+| Fundo do deck no marcador de vida | `Arte URL` → `Foto URL` |
+| Cartas-chave | `Arte Carta Chave N`, conforme a edição escolhida |
+
+Depois de **Salvar deck**, ao voltar ao dashboard os dados são carregados novamente. Uma aba já aberta pode usar o botão **Atualizar** ou aguardar a atualização periódica. Não é preciso limpar `Arte URL` para ver a nova foto. Partidas já iniciadas no marcador de vida mantêm a imagem selecionada no início.
+
+Os símbolos representam os tipos visualmente, sem alterar suas regras:
+
+| Tipo | Set Keyrune | Classe |
+| --- | --- | --- |
+| Aggro | Fate Reforged | `ss-frf` |
+| Combo | Urza’s Saga | `ss-usg` |
+| Tribal | Lorwyn | `ss-lrw` |
+| Universes Beyond | The Lord of the Rings | `ss-ltr` |
+| Marvel | Marvel’s Spider-Man | `ss-spm` |
+| Inativo (status) | Ice Age | `ss-ice` |
+
+Referências: [ícones Keyrune](https://keyrune.andrewgioia.com/icons.html), [busca de edições Scryfall](https://scryfall.com/docs/api/cards/search).
+
+### 8. Símbolos pessoais e cadastro de jogadores
+
+**Atualização necessária:** substitua o código do Apps Script pelo `backend/Code.gs` (ou TXT desta entrega), salve e publique uma **nova versão da implantação existente**, preservando a URL. Execute `updateDashboardCache` uma vez para recalcular Slayer/Combobreaker e publicar o catálogo global de conquistas. Depois atualize o frontend e saia/entre novamente no editor. Não é necessário executar `setupPlayerEditorAccess`, recriar PINs, instalar gatilhos ou configurar Cloudinary novamente. Campos novos são criados automaticamente ao salvar/cadastrar.
+
+Em **Meu perfil → Identidade**, use **Seu símbolo Keyrune → Escolher símbolo**. Em Preferências também há um seletor para o set favorito. A galeria permite buscar nome/código, mostra o acabamento Mítico e identifica quem já usa cada símbolo como identidade pessoal. Repetições são permitidas, apenas sinalizadas. A lista incluída abre imediatamente; o CSS oficial completa os demais códigos quando disponível. Salve o perfil para aplicar. Símbolos antigos válidos também são apresentados como Míticos nos dados públicos após atualização do cache, sem reescrever todas as células antigas.
+
+Em **Cadastrar jogador**, abaixo de **Acesso**, informe um nome/identificador único, nome de exibição opcional e símbolo. O cadastro exige uma sessão de um jogador que ainda exista em `JOGADORES`, inclusive ao chamar a API diretamente. O servidor define a autoria pela sessão e ignora tentativas de informar outro autor.
+
+O navegador gera o PIN inicial de seis dígitos e o envia somente no POST autenticado. Ele é mostrado ao cadastrante após confirmação, para compartilhar com o novo jogador. Guarde-o antes de sair/recarregar; ele não é persistido no navegador nem devolvido nas respostas de status. O novo jogador pode entrar e alterá-lo em Acesso. Os PINs anteriores não são modificados.
+
+| Coluna em `JOGADORES` | Uso |
+| --- | --- |
+| `Jogador` | Identificador histórico do novo participante |
+| `Nome de Exibição` | Nome público editável |
+| `Ícone Keyrune` | Símbolo pessoal, normalizado para Mítico |
+| `PIN de Edição` | PIN individual; nunca incluído no JSON público |
+| `Cadastrado por` | Jogador da sessão que fez o cadastro; somente planilha |
+| `Cadastrado em` | Data/hora ISO do cadastro; somente planilha |
+| `ID de Cadastro` | Identificador privado contra envios duplicados |
+
+A autoria/data/ID não são enviados aos perfis, catálogo, leaderboard nem ao editor. Repetir o envio não duplica a pessoa nem altera seu PIN. Nomes existentes no cadastro ou histórico são reservados; recuperar uma pessoa antiga requer intervenção administrativa. Jogadores sem partidas aparecem no catálogo de acesso, mas não ganham estatísticas fictícias. O cadastro solicita atualização do cache; se ela falhar, preserva a pessoa e informa que a administração deve executar `updateDashboardCache`. Formulários externos de registro de partidas não têm suas opções de jogadores alteradas automaticamente.
+
+### 9. Consulta de conquistas e catálogo manual
+
+- **Quem possui:** abra qualquer conquista e expanda **Ver jogadores que possuem**. A lista usa o ID interno exato e somente `unlocked: true`, mostrando nome e raridade atingida. Ter algum progresso abaixo do primeiro requisito não conta como possuir. O resumo vem da liga inteira, incluindo pessoas sem partidas recentes/fora do ranking do período; a ordem é por raridade e nome. Abrir a lista não faz outra requisição.
+- **Catálogo:** botão **Conquistas manuais** no topo do painel, ou **Catálogo de conquistas manuais** na seção de conquistas de um perfil. Selecione o jogador, busque por nome/condição/ID e filtre Todas, Desbloqueadas ou Pendentes. O acesso pelo perfil já seleciona aquele jogador.
+- **Conteúdo:** todas as definições de `buildManualAchievementCatalog`, inclusive as nunca concedidas; descrição da condição, quantidade exigida por raridade, número de registros do jogador, estado atual e ID interno com botão de copiar. **Ver detalhes e jogadores** abre a conquista por cima do catálogo; fechar volta à consulta. Sem jogador escolhido, os detalhes são identificados como prévia do catálogo.
+- **Só consulta:** nenhum botão concede ou revoga conquistas. A administração continua usando a aba `CONQUISTAS_MANUAIS`, com as colunas existentes `Jogador`, `ID`, `Valor`, `Data` e `Observação`. As condições/raridades são as definidas no código, sem alterações nesta entrega. Após registrar manualmente uma concessão, atualize o cache para ela aparecer.
+- **Dados:** `achievementDirectory` contém definições e resumos globais, sem PINs, autoria de cadastros, notas de concessão nem evidências completas duplicadas. Se a implantação/cache forem antigos, a interface pede atualização em vez de apresentar uma lista incompleta como definitiva.
+- **Escopo da inatividade:** uma função compartilhada calcula os requisitos ativos e as vitórias históricas opcionais de Slayer e Combobreaker, as coleções de derrota de decks existentes hoje. Conquistas por mesa, cores, número de partidas, vitórias ou jogadores não são filtradas por inatividade.
 
 ---
 

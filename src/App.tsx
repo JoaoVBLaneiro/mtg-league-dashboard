@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Trophy,
@@ -28,8 +28,10 @@ import { motion } from "framer-motion";
 import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
-import { DeckLabels } from "./DeckLabels";
-import { isAvailableDeck, readDeckCategories } from "./deckMetadata";
+import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
+import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck, readDeckCategories, type DeckCategory } from "./deckMetadata";
+import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
+import type { AchievementDirectory } from "./achievementDirectory";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
 
@@ -73,6 +75,8 @@ type RawPlayerTrophy = {
 type AchievementTier = "common" | "uncommon" | "rare" | "mythic" | "legendary";
 
 type AchievementDeckDetail = NonNullable<DeckMiniInfo> & {
+  inactive?: boolean;
+  required?: boolean;
   date?: string;
   matchId?: string;
   contextLabel?: string;
@@ -114,6 +118,9 @@ type AchievementDetails = {
 };
 
 type PlayerAchievement = {
+  catalogPreview?: boolean;
+  comparisonPlayer?: string;
+  deckCollection?: boolean;
   id: string;
   name: string;
   description: string;
@@ -545,6 +552,7 @@ type FblthpState = {
 type PeriodKey = "geral" | "evento" | "mes" | "semestre";
 
 type DashboardData = {
+  achievementDirectory?: AchievementDirectory;
   updatedAt: string | null;
   fblthp: FblthpState | null;
   catalog?: {
@@ -858,7 +866,7 @@ function normalizeDecks(
       winrate: Number(item.winrate || 0),
       kills: Number(item.kills || 0),
       deaths: Number(item.deaths || 0),
-      imageUrl: item.fotoUrl || item.imageUrl || item.photoUrl || "",
+      imageUrl: getDeckDisplayImage(item),
       arteUrl: item.arteUrl || "",
       headerUrl:
         item.headerUrl ||
@@ -1523,6 +1531,7 @@ function PlayerTopAchievementBadges({
 function AchievementDetailsModal({
   achievement,
   allAchievements,
+  directory,
   onAchievementClick,
   onDeckClick,
   onPlayerClick,
@@ -1530,6 +1539,7 @@ function AchievementDetailsModal({
 }: {
   achievement: PlayerAchievement;
   allAchievements: PlayerAchievement[];
+  directory?: AchievementDirectory;
   onAchievementClick: (achievement: PlayerAchievement) => void;
   onDeckClick: (deckName: string) => void;
   onPlayerClick: (playerName: string) => void;
@@ -1567,13 +1577,7 @@ function AchievementDetailsModal({
   }
 
   return (
-    <div
-      className="achievement-details-backdrop"
-      onClick={(event) => {
-        event.stopPropagation();
-        onClose();
-      }}
-    >
+    <AchievementDialog label={achievement.name} onClose={onClose}>
       <motion.div
         className={`achievement-details-modal achievement-details-modal-${achievement.tier} ${
           achievement.unlocked
@@ -1587,6 +1591,7 @@ function AchievementDetailsModal({
         <button
           className="achievement-details-close"
           type="button"
+          aria-label="Fechar conquista"
           onClick={onClose}
         >
           ×
@@ -1610,12 +1615,14 @@ function AchievementDetailsModal({
 
           <p>{achievement.description}</p>
 
+          {achievement.catalogPreview ? <p>{achievement.comparisonPlayer ? `Progresso de ${achievement.comparisonPlayer}` : 'Prévia do catálogo. Selecione um jogador no catálogo para comparar seu progresso.'}</p> : null}
+
           <div className="achievement-details-progress-row">
             <strong>
-              {achievement.value}/{achievement.target}
+              {achievement.deckCollection && achievement.target === 0 ? 'Sem decks ativos exigidos' : `${achievement.value}/${achievement.target}`}
             </strong>
 
-            <small>{progress}% concluído</small>
+            <small>{achievement.deckCollection && achievement.target === 0 ? 'Histórico preservado' : `${progress}% concluído`}</small>
           </div>
 
           <div className="achievement-details-progress-bar">
@@ -1624,9 +1631,11 @@ function AchievementDetailsModal({
 
           {achievement.manual ? (
             <div className="achievement-details-manual">
-              Conquista manual
+              Conquista manual · ID: <code>{achievement.id}</code>
             </div>
           ) : null}
+
+          <AchievementHolders directory={directory} achievementId={achievement.id} />
 
           {achievement.note ? (
             <p className="achievement-details-note">
@@ -1646,12 +1655,16 @@ function AchievementDetailsModal({
 
               {achievementDetails.decks?.length ? (
                 <div className="achievement-details-deck-grid">
-                  {achievementDetails.decks.map((deck, index) => (
+                  {achievementDetails.decks.filter(deck => deck.required !== false).map((deck, index) => (
                     <AchievementDeckMiniCard
                       key={`${deck.nome}-${deck.date || ""}-${index}`}
                       deck={deck}
                       onClick={onDeckClick}
                     />
+                  ))}
+                  {achievementDetails.decks.some(deck => deck.required === false) ? <h4 className="achievement-history-heading">Vitórias históricas — não obrigatórias</h4> : null}
+                  {achievementDetails.decks.filter(deck => deck.required === false).map((deck, index) => (
+                    <AchievementDeckMiniCard key={`historical-${deck.nome}-${index}`} deck={deck} onClick={onDeckClick} />
                   ))}
                 </div>
               ) : null}
@@ -1710,26 +1723,24 @@ function AchievementDetailsModal({
           ) : null}
         </div>
       </motion.div>
-    </div>
+    </AchievementDialog>
   );
 }
 
 function PlayerAchievementsSection({
   achievements,
   onAchievementClick,
+  onManualCatalogOpen,
 }: {
   achievements: Array<PlayerAchievement | null | undefined>;
   onAchievementClick: (achievement: PlayerAchievement) => void;
+  onManualCatalogOpen: () => void;
 }) {
   const [showLockedAchievements, setShowLockedAchievements] = useState(false);
 
   const safeAchievements = achievements.filter(
     (achievement): achievement is PlayerAchievement => Boolean(achievement)
   );
-
-  if (!safeAchievements.length) {
-    return null;
-  }
 
   const unlockedAchievements = safeAchievements.filter(
     (achievement) => achievement.unlocked
@@ -1745,10 +1756,6 @@ function PlayerAchievementsSection({
 
   const unlockedCount = unlockedAchievements.length;
 
-    if (!visibleAchievements.length && !lockedAchievements.length) {
-    return null;
-  }
-
   return (
     <div className="profile-section player-achievements-section">
       <div className="player-achievements-title-row">
@@ -1758,6 +1765,8 @@ function PlayerAchievementsSection({
           {unlockedCount}/{achievements.length} desbloqueadas
         </span>
       </div>
+
+      <button type="button" className="achievement-browser-button" onClick={onManualCatalogOpen}><BookOpen size={16} /> Catálogo de conquistas manuais</button>
 
       <div className="player-achievements-grid">
         {visibleAchievements.map((achievement) => {
@@ -2117,7 +2126,7 @@ function LeaderboardCard({
   ) : null}
 </div>
 
-        {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} compact /> : null}
+        {!isPlayer ? <DeckLabels inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} compact /> : null}
         <div className="stats">
           {shouldShowWinrate ? (
             <StatPill variant="winrate" value={item.winrate}>
@@ -2212,8 +2221,8 @@ function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
     return (
       <div className="mini-commander-stack mini-commander-stack-single">
         <div className="mini-commander-card mini-commander-card-main">
-          {deck.fotoUrl ? (
-            <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+          {getDeckDisplayImage(deck) ? (
+            <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
           ) : (
             <div className="avatar-placeholder">
               <Wand2 size={18} />
@@ -2237,8 +2246,8 @@ function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
         className="mini-commander-card mini-commander-card-main"
         title={`Comandante: ${deck.comandante || deck.nome}`}
       >
-        {deck.fotoUrl ? (
-          <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+        {getDeckDisplayImage(deck) ? (
+          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
         ) : (
           <div className="avatar-placeholder">
             <Wand2 size={18} />
@@ -2392,8 +2401,8 @@ function AchievementDefeatedCommanderCard({
       title={deck.comandante || deck.nome}
     >
       <div className="achievement-defeated-commander-image">
-        {deck.fotoUrl ? (
-          <img src={deck.fotoUrl} alt={deck.comandante || deck.nome} />
+        {getDeckDisplayImage(deck) ? (
+          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
         ) : (
           <Wand2 size={18} />
         )}
@@ -3382,7 +3391,7 @@ function buildFallbackDeckFromCombo(item: ComboStatItem): Deck {
     winrate: item.winrate,
     kills: 0,
     deaths: 0,
-    imageUrl: deckItem.fotoUrl || "",
+    imageUrl: getDeckDisplayImage(deckItem),
     arteUrl: deckItem.arteUrl || "",
     headerUrl: deckItem.arteUrl || deckItem.fotoUrl || "",
     commander: deckItem.comandante || "",
@@ -3602,7 +3611,7 @@ function createDeckFromCombo(combo: PlayerDeckComboStat): Deck {
     winrate: combo.winrate,
     kills: 0,
     deaths: 0,
-    imageUrl: combo.fotoUrl || "",
+    imageUrl: getDeckDisplayImage(combo),
     arteUrl: combo.arteUrl || "",
     headerUrl: combo.arteUrl || combo.fotoUrl || "",
     commander: combo.comandante || "",
@@ -4848,6 +4857,8 @@ function ProfileComboStatsModal({
 
 function ProfileModal({
   selected,
+  achievementDirectory,
+  onManualCatalogOpen,
   players,
   decks,
   playerTopCardsBlacklist,
@@ -4856,6 +4867,7 @@ function ProfileModal({
   onSelectDeck,
   onFblthpClick,
   onOriginClick,
+  onCategoryClick,
   onAuthorIconClick,
   onDecklistClick,
   onCardPreview,
@@ -4866,6 +4878,8 @@ function ProfileModal({
   forceShowWinrate = false,
 }: {
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
+  achievementDirectory?: AchievementDirectory;
+  onManualCatalogOpen: (playerId: string) => void;
   players: Player[];
   decks: Deck[];
   playerDeckStats: PlayerDeckStatsData;
@@ -4874,6 +4888,7 @@ function ProfileModal({
   onSelectDeck: (deck: Deck) => void;
   onFblthpClick: () => void;
   onOriginClick: (origin: DeckOriginInfo) => void;
+  onCategoryClick: (category: DeckCategory) => void;
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
@@ -5096,7 +5111,7 @@ function ProfileModal({
   ) : null}
 </div>
 
-            {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} /> : null}
+            {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} compact statusIconOnly onCategoryClick={onCategoryClick} /> : null}
 
             {!isPlayer &&
               ((item as Deck).commander ||
@@ -5328,6 +5343,7 @@ function ProfileModal({
           <PlayerAchievementsSection
             achievements={(item as Player).achievements}
             onAchievementClick={setSelectedAchievement}
+            onManualCatalogOpen={() => onManualCatalogOpen(item.name)}
           />
         ) : null}
 
@@ -5392,7 +5408,9 @@ function ProfileModal({
 
         {selectedAchievement ? (
           <AchievementDetailsModal
+            key={selectedAchievement.id}
             achievement={selectedAchievement}
+            directory={achievementDirectory}
             allAchievements={isPlayer ? (item as Player).achievements : []}
             onAchievementClick={setSelectedAchievement}
             onDeckClick={(deckName) => {
@@ -7094,7 +7112,7 @@ function RegisteredDecksModal({
 
                     <div className="registered-deck-info">
                       <strong>{deck.name}</strong>
-                      <DeckLabels categories={deck.categories} inactive={deck.inactive} compact />
+                      <DeckLabels inactive={deck.inactive} compact />
 
                       <span>
                         {deck.commander || "Comandante não informado"}
@@ -7354,6 +7372,29 @@ function FblthpInfoModal({
       </motion.div>
     </div>
   );
+}
+
+function CategoryDecksModal({ category, decks, onSelectDeck, onClose }: {
+  category: DeckCategory; decks: Deck[]; onSelectDeck: (deck: Deck) => void; onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const info = DECK_CATEGORIES.find((item) => item.id === category)!;
+  const matching = decksInCategory(decks, category);
+  useEffect(() => { if (dialog.current && !dialog.current.open) dialog.current.showModal(); }, []);
+  return <dialog ref={dialog} className="category-decks-dialog" aria-labelledby="category-decks-title"
+    onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose}>
+    <button className="modal-close" type="button" onClick={onClose} aria-label="Fechar decks da categoria" autoFocus>×</button>
+    <div className="origin-decks-header">
+      <div className={`origin-decks-icon mtg-deck-category-${category}`}><DeckCategoryIcon category={category} size={32} /></div>
+      <div><span className="profile-type">Categoria</span><h2 id="category-decks-title">{info.label}</h2>
+        <p>{matching.length} {matching.length === 1 ? "deck encontrado" : "decks encontrados"}</p></div>
+    </div>
+    <div className="origin-decks-list">
+      {!matching.length ? <div className="loading-box">Nenhum deck cadastrado nesta categoria.</div> : matching.map((deck, index) => (
+        <LeaderboardCard key={deck.name} item={deck} index={index} type="deck" onClick={() => onSelectDeck(deck)} />
+      ))}
+    </div>
+  </dialog>;
 }
 
 function OriginDecksModal({
@@ -8233,6 +8274,9 @@ function DashboardApp() {
   const [showRegisteredDecksModal, setShowRegisteredDecksModal] = useState(false);
 
   const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
+  const [selectedCategory, setSelectedCategory] = useState<DeckCategory | null>(null);
+  const [manualCatalogPlayer, setManualCatalogPlayer] = useState<string | null>(null);
+  const [manualAchievement, setManualAchievement] = useState<PlayerAchievement | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
 
   const [selectedDecklist, setSelectedDecklist] = useState<Deck | null>(null);
@@ -8321,6 +8365,8 @@ function DashboardApp() {
     function handleEscapeKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
 
+      if (selectedCategory) { event.preventDefault(); setSelectedCategory(null); return; }
+
       setCardPreview(null);
       setSetPreview(null);
 
@@ -8365,6 +8411,7 @@ function DashboardApp() {
     showFblthpInfo,
     showRegisteredDecksModal,
     selectedOrigin,
+    selectedCategory,
     selectedAuthor,
     selectedProfile,
   ]);
@@ -8491,6 +8538,7 @@ const hasMorePlayers =
     enabled:
       activeView === "ranking" &&
       selectedProfile === null &&
+      manualCatalogPlayer === null &&
       isLargeScreen &&
       !loading,
     idleDelay: 10000,
@@ -8518,6 +8566,9 @@ const hasMorePlayers =
           </div>
 
           <div className="hero-actions">
+            <button type="button" className="achievement-browser-button" onClick={() => setManualCatalogPlayer('')}>
+              <BookOpen size={17} /> Conquistas manuais
+            </button>
             <a className="player-editor-link" href="#editor">
               <UserRoundCog size={17} />
               Área do jogador
@@ -8700,6 +8751,8 @@ const hasMorePlayers =
 
       <ProfileModal
         selected={selectedProfile}
+        achievementDirectory={data.achievementDirectory}
+        onManualCatalogOpen={setManualCatalogPlayer}
         players={players}
         decks={allDecks}
         playerDeckStats={data?.playerDeckStats || emptyPlayerDeckStats}
@@ -8714,6 +8767,7 @@ const hasMorePlayers =
         onProfilePreviewClose={hideProfilePreview}
         onFblthpClick={() => setShowFblthpInfo(true)}
         onOriginClick={(origin) => setSelectedOrigin(origin)}
+        onCategoryClick={setSelectedCategory}
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
         onDecklistClick={(deck) => setSelectedDecklist(deck)}
         onCardPreview={setCardPreview}
@@ -8725,6 +8779,18 @@ const hasMorePlayers =
           setSetPreview(null);
         }}
       />
+
+      {manualCatalogPlayer !== null ? <ManualAchievementCatalog directory={data.achievementDirectory}
+        initialPlayerId={manualCatalogPlayer} onAchievementClick={setManualAchievement}
+        onClose={() => { setManualAchievement(null); setManualCatalogPlayer(null); }} /> : null}
+      {manualAchievement ? <AchievementDetailsModal key={manualAchievement.id} achievement={manualAchievement}
+        directory={data.achievementDirectory} allAchievements={[]} onAchievementClick={setManualAchievement}
+        onDeckClick={() => {}} onPlayerClick={() => {}} onClose={() => setManualAchievement(null)} /> : null}
+
+      {selectedCategory ? <CategoryDecksModal category={selectedCategory} decks={allDecks}
+        onClose={() => setSelectedCategory(null)} onSelectDeck={(deck) => {
+          setSelectedCategory(null); setSelectedProfile({ type: "deck", item: deck });
+        }} /> : null}
 
       {selectedOrigin ? (
         <OriginDecksModal

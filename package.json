@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "test:deck-create": "node --test scripts/player-deck-create.test.mjs",
     "test:card-search": "node --test scripts/editor-scryfall.test.mjs",
+    "test:editor-markup": "node --test scripts/editor-markup.test.mjs",
+    "test:achievements": "node --test scripts/achievement-browser.test.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"

@@ -524,6 +524,10 @@
 .editor-danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 11px 16px; border: 1px solid #f07a7a70; border-radius: 12px; background: #a2292926; color: #ffb2b2; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
 .editor-danger-button:disabled { opacity: 0.45; cursor: not-allowed; }
 .editor-deck-tabs button { display: inline-flex; align-items: center; gap: 8px; }
+.editor-origin-field { max-width: 360px; margin-bottom: 20px; }
+.editor-origin-field select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid #ffffff30; border-radius: 10px; color: #eff3fc; background: #101621; font: inherit; }
+.editor-registration-pin { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 24px 0; padding: 18px; border: 1px solid #b9f18b50; border-radius: 14px; }
+.editor-registration-pin strong { font: 800 30px monospace; color: #c8f4a7; letter-spacing: .15em; user-select: all; }
 .editor-delete-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow-y: auto; box-sizing: border-box; padding: 26px; border: 1px solid #f07a7a60; border-radius: 20px; background: #10151f; color: #edf0f6; box-shadow: 0 24px 100px #000a; }
 .editor-delete-dialog::backdrop { background: #02040bbd; backdrop-filter: blur(5px); }
 .editor-delete-dialog h2 { margin: 0 0 12px; overflow-wrap: anywhere; font-size: 23px; }

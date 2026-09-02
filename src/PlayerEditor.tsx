@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   ImageUp,
+  Images,
   KeyRound,
   LoaderCircle,
   LogIn,
@@ -21,12 +22,17 @@ import {
   Sparkles,
   Trash2,
   UserRoundCog,
+  UserPlus,
   Wand2,
 } from "lucide-react";
 import { getNewDeckNameError, normalizeDeckName } from "./editorDecks";
 import { findCardOnScryfall } from "./editorScryfall";
+import CardArtPicker from "./CardArtPicker";
+import KeyrunePicker from "./KeyrunePicker";
+import RegisterPlayer, { type PlayerRegistrationInput } from "./RegisterPlayer";
+import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
-import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
+import { DeckCategoryIcon, DeckLabels, InactiveDeckIcon } from "./DeckLabels";
 import "./playerEditor.css";
 
 const API_URL =
@@ -43,6 +49,8 @@ type EditorDeck = {
 
 type EditorSessionData = {
   deckManagementVersion?: number;
+  playerManagementVersion?: number;
+  keyruneUsage?: KeyruneUsage[];
   player: {
     id: string;
     fields: EditorFields;
@@ -62,6 +70,7 @@ type EditorApiResponse = {
   data?: EditorSessionData;
   status?: "pending" | "complete" | "error";
   deckId?: string;
+  playerId?: string;
   warnings?: string[];
 };
 
@@ -166,6 +175,17 @@ async function waitForDeckMutation(currentToken: string, requestId: string, deck
     await new Promise((resolve) => window.setTimeout(resolve, 1500));
   }
   throw new Error("A alteração ainda não foi confirmada. Recarregue e confira o deck antes de tentar novamente.");
+}
+
+async function waitForPlayerCreation(currentToken: string, requestId: string) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = await fetch(editorApiUrl({ action: 'editorCreatePlayerStatus', token: currentToken, requestId }));
+    const result = await readJsonResponse(response);
+    if (result.status === 'complete' && result.playerId) return { playerId: result.playerId, warnings: result.warnings };
+    if (result.status !== 'pending') throw new Error('Publique o Apps Script atualizado para habilitar o cadastro de jogadores.');
+    await new Promise(resolve => window.setTimeout(resolve, 1500));
+  }
+  throw new Error('O cadastro ainda não foi confirmado. Aguarde e tente novamente sem recarregar a página; o mesmo envio não cria duplicatas.');
 }
 
 async function loadImageElement(file: File) {
@@ -419,6 +439,7 @@ function CardLookupFields({
   fields,
   onChange,
   required = false,
+  allowArtSelection = false,
 }: {
   label: string;
   nameField: string;
@@ -427,11 +448,13 @@ function CardLookupFields({
   fields: EditorFields;
   onChange: (field: string, value: string) => void;
   required?: boolean;
+  allowArtSelection?: boolean;
 }) {
   const inputId = useId();
   const lookupVersion = useRef(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [choosingArt, setChoosingArt] = useState(false);
   const name = stringValue(fields[nameField]);
   const imageUrl = stringValue(fields[imageField]);
 
@@ -468,7 +491,13 @@ function CardLookupFields({
           <input
             id={inputId}
             value={name}
-            onChange={(event) => { setError(""); onChange(nameField, event.target.value); }}
+            onChange={(event) => {
+              setError(""); onChange(nameField, event.target.value);
+              if (allowArtSelection) {
+                onChange(imageField, "");
+                if (linkField) onChange(linkField, "");
+              }
+            }}
             placeholder="Nome da carta"
             disabled={loading}
             aria-required={required}
@@ -486,8 +515,19 @@ function CardLookupFields({
             Buscar
           </button>
         </div>
+        {allowArtSelection ? <button type="button" className="editor-art-trigger" disabled={loading || !name.trim()}
+          aria-haspopup="dialog" aria-label={`Escolher arte de ${label.replace(/\s*\*$/, "")}`}
+          onClick={() => setChoosingArt(true)}><Images size={16} /> Escolher arte</button> : null}
         {error ? <small id={`${inputId}-error`} className="editor-field-error" role="alert">{error}</small> : null}
       </div>
+      {choosingArt ? <CardArtPicker cardName={name} currentImage={imageUrl} onClose={() => setChoosingArt(false)}
+        onSelect={(card) => {
+          lookupVersion.current++;
+          onChange(nameField, card.name);
+          onChange(imageField, card.imageUrl);
+          if (linkField) onChange(linkField, card.scryfallUrl);
+          setChoosingArt(false);
+        }} /> : null}
     </div>
   );
 }
@@ -529,7 +569,7 @@ export default function PlayerEditorApp() {
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null);
   const [profileFields, setProfileFields] = useState<EditorFields>({});
   const [deckFields, setDeckFields] = useState<Record<string, EditorFields>>({});
-  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "access">(
+  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "access" | "register">(
     "profile"
   );
   const [activeDeckId, setActiveDeckId] = useState("");
@@ -576,12 +616,6 @@ export default function PlayerEditorApp() {
         ? current
         : data.decks[0]?.id || ""
     );
-  }
-
-  async function fetchSession(currentToken: string) {
-    const data = await requestEditorSession(currentToken);
-    applySessionData(data);
-    return data;
   }
 
   useEffect(() => {
@@ -688,7 +722,7 @@ export default function PlayerEditorApp() {
   }
 
   async function sendEditorAction(
-    action: "editorUpdateProfile" | "editorUpdateDeck" | "editorUpdatePin" | "editorCreateDeck" | "editorDeleteDeck",
+    action: "editorUpdateProfile" | "editorUpdateDeck" | "editorUpdatePin" | "editorCreateDeck" | "editorDeleteDeck" | "editorCreatePlayer",
     payload: Record<string, unknown>
   ) {
     if (!token) {
@@ -797,7 +831,13 @@ export default function PlayerEditorApp() {
       setSavingTarget("profile");
       setNotice(null);
       await sendEditorAction("editorUpdateProfile", { fields: profileFields });
-      await fetchSession(token);
+      const updated = await requestEditorSession(token);
+      for (const field of ['Ícone Keyrune', 'Ícone Set Favorito']) {
+        if (sessionData?.playerManagementVersion && stringValue(updated.player.fields[field]) !== mythicKeyrune(stringValue(profileFields[field]))) {
+          throw new Error('O símbolo ainda não foi confirmado. Confira a implantação do Apps Script e tente novamente.');
+        }
+      }
+      applySessionData(updated);
       setNotice({ kind: "success", text: "Perfil salvo e dashboard atualizado." });
     } catch (error) {
       setNotice({ kind: "error", text: normalizeErrorMessage(error) });
@@ -845,6 +885,19 @@ export default function PlayerEditorApp() {
       deckActionInFlight.current = false;
       setSavingTarget("");
     }
+  }
+
+  async function registerPlayer(input: PlayerRegistrationInput) {
+    if (!sessionData?.playerManagementVersion) throw new Error('Atualize o Apps Script primeiro.');
+    setSavingTarget('new-player');
+    try {
+      await sendEditorAction('editorCreatePlayer', input).catch(() => undefined);
+      const result = await waitForPlayerCreation(token, input.requestId);
+      setPublicPlayers(current => current.some(player => player.id === result.playerId) ? current : [...current, { id: result.playerId, label: result.playerId }]);
+      try { setSessionData(await requestEditorSession(token)); }
+      catch { result.warnings = [...(result.warnings || []), 'Reabra a área para atualizar os símbolos em uso.']; }
+      return result;
+    } finally { setSavingTarget(''); }
   }
 
   async function deleteDeck() {
@@ -1076,6 +1129,11 @@ export default function PlayerEditorApp() {
             Acesso
           </button>
 
+          <button type="button" className={activeSection === 'register' ? 'active' : ''}
+            disabled={Boolean(savingTarget)} onClick={() => setActiveSection('register')}>
+            <UserPlus size={19} /> Cadastrar jogador
+          </button>
+
           <a href="#">
             <ArrowLeft size={19} />
             Dashboard
@@ -1117,6 +1175,10 @@ export default function PlayerEditorApp() {
 
                 <div className="editor-form-grid">
                   <TextField label="Identificador interno" value={sessionData.player.id} readOnly />
+                  <KeyrunePicker label="Seu símbolo Keyrune" value={stringValue(profileFields['Ícone Keyrune'])}
+                    usage={sessionData.keyruneUsage} playerId={sessionData.player.id} disabled={!sessionData.playerManagementVersion || Boolean(savingTarget)}
+                    onChange={value => updateProfileField('Ícone Keyrune', value)} />
+                  {!sessionData.playerManagementVersion ? <p className="editor-field-hint">Atualize o Apps Script para escolher seu símbolo.</p> : null}
                   <TextField
                     label="Nome de exibição"
                     value={stringValue(profileFields["Nome de Exibição"])}
@@ -1186,12 +1248,9 @@ export default function PlayerEditorApp() {
                     value={stringValue(profileFields["Set Favorito"])}
                     onChange={(value) => updateProfileField("Set Favorito", value)}
                   />
-                  <TextField
-                    label="Classe Keyrune do set"
-                    value={stringValue(profileFields["Ícone Set Favorito"])}
-                    onChange={(value) => updateProfileField("Ícone Set Favorito", value)}
-                    placeholder="ss ss-mh3 ss-mythic ss-grad"
-                  />
+                  <KeyrunePicker label="Símbolo do set favorito" value={stringValue(profileFields['Ícone Set Favorito'])}
+                    usage={sessionData.keyruneUsage} playerId={sessionData.player.id} disabled={!sessionData.playerManagementVersion || Boolean(savingTarget)}
+                    onChange={(value, symbol) => { updateProfileField('Ícone Set Favorito', value); if (symbol) updateProfileField('Set Favorito', symbol.name); }} />
                   <TextField
                     label="Link do set"
                     type="url"
@@ -1264,7 +1323,7 @@ export default function PlayerEditorApp() {
                         onClick={() => { setIsCreatingDeck(false); setActiveDeckId(deck.id); }}
                       >
                         {deck.id}
-                        {deck.fields.Status === "Inativo" ? <PauseCircle size={14} aria-label="Inativo" /> : null}
+                        {deck.fields.Status === "Inativo" ? <span role="img" aria-label="Inativo" title="Inativo · Ice Age"><InactiveDeckIcon size={14} /></span> : null}
                       </button>
                     ))}
                   </div>
@@ -1310,15 +1369,23 @@ export default function PlayerEditorApp() {
                             </label>
                             <TextField label="Autor (automático)" value={sessionData.player.id} readOnly />
                           </div>
-                          <p className="editor-field-hint">Use um nome único, sem vírgulas. Ele será o identificador do histórico e não poderá ser renomeado aqui. Origem: deck pessoal (Fora).</p>
+                          <p className="editor-field-hint">Use um nome único, sem vírgulas. Ele será o identificador do histórico e não poderá ser renomeado aqui.</p>
                         </div>
                       ) : null}
 
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Status e categorias</h2>
-                          <p>Inativo é apenas uma etiqueta: não esconde o deck nem altera partidas, rankings ou conquistas.</p>
+                          <p>Inativo recebe Ice Age e deixa de ser obrigatório em “Fulano Slayer” e Combobreaker. Se já foi derrotado, aparece como histórico da conquista. Reativar volta a exigi-lo, aproveitando as vitórias antigas. Listas, partidas e rankings são preservados.</p>
                         </div>
+                        <label className="editor-field editor-origin-field"><span>Origem do deck</span>
+                          <select value={stringValue(currentDeckFields.Origem) || 'Fora'}
+                            disabled={(sessionData.deckManagementVersion || 0) < 2}
+                            onChange={event => updateDeckField(activeDeck.id, 'Origem', event.target.value)}>
+                            <option value="Fixo">Fixo da salinha</option><option value="Fora">De fora</option>
+                          </select>
+                        </label>
+                        {(sessionData.deckManagementVersion || 0) < 2 ? <p className="editor-field-hint">Atualize o Apps Script para editar a origem.</p> : null}
                         <div className="editor-deck-management">
                           <button type="button" className="editor-secondary-button"
                             aria-pressed={currentDeckFields.Status === "Inativo"}
@@ -1351,7 +1418,7 @@ export default function PlayerEditorApp() {
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Informações do deck</h2>
-                          <p>Digite o comandante e clique em Buscar para preencher nome e foto. O secundário é opcional.</p>
+                          <p>Digite o comandante e use Buscar ou Escolher arte para selecionar uma edição. O secundário é opcional.</p>
                         </div>
                         <div className="editor-card-lookup-grid editor-commander-lookup-grid">
                           <CardLookupFields
@@ -1362,12 +1429,14 @@ export default function PlayerEditorApp() {
                             fields={currentDeckFields}
                             onChange={(field, value) => updateDeckField(activeDeck.id, field, value)}
                             required={isCreatingDeck}
+                            allowArtSelection
                           />
                           <CardLookupFields
                             key={`secondary:${activeDeck.id}`}
                             label="Comandante secundário"
                             nameField="Comandante Secundário"
                             imageField="Foto Comandante Secundário"
+                            allowArtSelection
                             fields={currentDeckFields}
                             onChange={(field, value) => updateDeckField(activeDeck.id, field, value)}
                           />
@@ -1427,6 +1496,7 @@ export default function PlayerEditorApp() {
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Imagens do deck</h2>
+                          <p>A foto do comandante aparece nas listas e nos modais, e acompanha a edição escolhida acima. Arte do deck é usada nos banners e no marcador de vida; não substitui essa foto.</p>
                         </div>
                         <div className="editor-form-grid">
                           <ImageUrlField
@@ -1436,7 +1506,7 @@ export default function PlayerEditorApp() {
                             cloudinary={cloudinary}
                           />
                           <ImageUrlField
-                            label="Arte do deck"
+                            label="Arte do deck (banners e marcador de vida)"
                             value={stringValue(currentDeckFields["Arte URL"])}
                             onChange={(value) => updateDeckField(activeDeck.id, "Arte URL", value)}
                             cloudinary={cloudinary}
@@ -1461,16 +1531,17 @@ export default function PlayerEditorApp() {
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Cartas-chave</h2>
-                          <p>Use a busca do Scryfall para preencher nome, arte e link.</p>
+                          <p>Busque a carta e use Escolher arte para selecionar a edição que aparecerá no deck.</p>
                         </div>
                         <div className="editor-card-lookup-grid">
                           {[1, 2, 3, 4, 5].map((index) => (
                             <CardLookupFields
-                              key={index}
+                              key={`${activeDeck.id}:key-card:${index}`}
                               label={`Carta-chave ${index}`}
                               nameField={`Carta Chave ${index}`}
                               imageField={`Arte Carta Chave ${index}`}
                               linkField={`Scryfall Carta Chave ${index}`}
+                              allowArtSelection
                               fields={currentDeckFields}
                               onChange={(field, value) => updateDeckField(activeDeck.id, field, value)}
                             />
@@ -1495,6 +1566,10 @@ export default function PlayerEditorApp() {
               )}
             </>
           ) : null}
+
+          <div hidden={activeSection !== 'register'}>
+            <RegisterPlayer enabled={Boolean(sessionData.playerManagementVersion)} usage={sessionData.keyruneUsage || []} onRegister={registerPlayer} />
+          </div>
 
           {activeSection === "access" ? (
             <>

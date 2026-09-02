@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { isAvailableDeck, readDeckCategories } from "./deckMetadata";
+import { getDeckBackgroundImage, isAvailableDeck, readDeckCategories } from "./deckMetadata";
 import { DeckLabels } from "./DeckLabels";
 import "./lifeTracker.css";
 
@@ -456,13 +456,7 @@ export default function LifeTrackerApp() {
               deck.tipoComandanteSecundario ||
               deck.secondaryCommanderType ||
               "",
-            imageUrl:
-              deck.arteUrl ||
-              deck.artUrl ||
-              deck.fotoUrl ||
-              deck.imageUrl ||
-              deck.photoUrl ||
-              "",
+            imageUrl: getDeckBackgroundImage(deck),
             authorName:
               getApiMiniName(deck.autor) ||
               getApiMiniName(deck.author) ||
@@ -1657,7 +1651,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                         }
                       >
                         <strong>{deck.name}</strong>
-                        <DeckLabels categories={deck.categories} inactive={deck.inactive} compact />
+                        <DeckLabels inactive={deck.inactive} compact />
                         {deck.commander ? <span>{deck.commander}</span> : null}
                       </button>
                     ))}

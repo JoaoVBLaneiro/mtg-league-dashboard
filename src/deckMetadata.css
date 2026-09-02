@@ -1,11 +1,21 @@
 .mtg-deck-labels.mtg-deck-labels { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
 .mtg-deck-labels .mtg-deck-label { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 5px 9px; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; line-height: 1.3; font-weight: 650; }
 .mtg-deck-label svg { flex: 0 0 auto; }
+.mtg-deck-set-symbol { display: inline-block; flex: 0 0 auto; width: 1.35em; text-align: center; line-height: 1.3; }
 .mtg-deck-labels-compact .mtg-deck-label { padding: 4px 6px; }
 .mtg-deck-category-aggro, .mtg-deck-labels .mtg-deck-category-aggro { color: #fbb38b; background: #d75c1917; }
 .mtg-deck-category-combo, .mtg-deck-labels .mtg-deck-category-combo { color: #a5caff; background: #3a82ef17; }
 .mtg-deck-category-tribal, .mtg-deck-labels .mtg-deck-category-tribal { color: #b7e39c; background: #65a83a17; }
 .mtg-deck-category-universes-beyond, .mtg-deck-labels .mtg-deck-category-universes-beyond { color: #d0b4ff; background: #8f5bd017; }
 .mtg-deck-category-marvel, .mtg-deck-labels .mtg-deck-category-marvel { color: #ffa8b8; background: #d5466017; }
-.mtg-deck-labels .mtg-deck-inactive { color: #edce83; background: #ad842017; }
+.mtg-deck-labels .mtg-deck-inactive { color: #b6e7f5; background: #62b9d517; }
 .mtg-deck-labels .mtg-deck-deleted { color: #b1b8c5; background: #737b8917; }
+.mtg-deck-labels .mtg-deck-category-button, .mtg-deck-labels .mtg-deck-status-icon { position: relative; min-width: 36px; min-height: 34px; justify-content: center; }
+.mtg-deck-category-button { cursor: pointer; }
+.mtg-deck-category-button:focus-visible, .mtg-deck-status-icon:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.mtg-deck-category-button::after, .mtg-deck-status-icon::after { content: attr(data-tooltip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); padding: 7px 10px; border: 1px solid #ffffff35; border-radius: 8px; background: #111722; color: #f3f5fc; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 3; }
+.mtg-deck-category-button:hover::after, .mtg-deck-category-button:focus-visible::after, .mtg-deck-status-icon:hover::after, .mtg-deck-status-icon:focus-visible::after { opacity: 1; }
+.category-decks-dialog { box-sizing: border-box; width: min(920px, calc(100vw - 28px)); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 28px; border: 1px solid #b9f18b40; border-radius: 22px; background: #0c111c; color: #f3f5fc; }
+.category-decks-dialog::backdrop { background: #02040bd9; backdrop-filter: blur(5px); }
+.category-decks-dialog .modal-close { position: sticky; float: right; top: 0; }
+@media(max-width: 600px) { .category-decks-dialog { padding: 18px 12px; } }
