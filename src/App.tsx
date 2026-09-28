@@ -101,12 +101,22 @@ type AchievementTableWinDetail = {
   defeatedDecks: AchievementDeckDetail[];
 };
 
+type AchievementFblthpArtDetail = {
+  index: number;
+  url: string;
+  obtained: boolean;
+  date?: string;
+  matchId?: string;
+  initial?: boolean;
+};
+
 type AchievementDetails = {
   title?: string;
   description?: string;
   decks?: AchievementDeckDetail[];
   players?: AchievementPlayerDetail[];
   tableWins?: AchievementTableWinDetail[];
+  fblthpArts?: AchievementFblthpArtDetail[];
   missingAchievements?: {
     id: string;
     name: string;
@@ -1562,6 +1572,7 @@ function AchievementDetailsModal({
         achievementDetails.decks?.length ||
         achievementDetails.players?.length ||
         achievementDetails.tableWins?.length ||
+        achievementDetails.fblthpArts?.length ||
         missingAchievements.length
       )
   );
@@ -1652,6 +1663,53 @@ function AchievementDetailsModal({
                   <span>{achievementDetails.description}</span>
                 ) : null}
               </div>
+
+              {achievementDetails.fblthpArts?.length ? (
+                <div className="achievement-fblthp-art-grid">
+                  {achievementDetails.fblthpArts.map((art) => (
+                    <div
+                      key={`${art.url}-${art.index}`}
+                      className={`achievement-fblthp-art-card ${
+                        art.obtained
+                          ? "achievement-fblthp-art-card-obtained"
+                          : "achievement-fblthp-art-card-locked"
+                      }`}
+                      title={
+                        art.obtained
+                          ? art.initial
+                            ? `Arte ${art.index + 1} · posse inicial`
+                            : `Arte ${art.index + 1} · obtida${art.date ? ` em ${art.date}` : ""}`
+                          : `Arte ${art.index + 1} · ainda não obtida`
+                      }
+                    >
+                      <div className="achievement-fblthp-art-image">
+                        <img
+                          src={art.url}
+                          alt={`Arte ${art.index + 1} do Fblthp`}
+                          loading="lazy"
+                        />
+
+                        {art.obtained ? (
+                          <span className="achievement-fblthp-art-check">
+                            <Check size={14} />
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="achievement-fblthp-art-meta">
+                        <strong>Arte {art.index + 1}</strong>
+                        <small>
+                          {art.obtained
+                            ? art.initial
+                              ? "Posse inicial"
+                              : art.date || "Obtida"
+                            : "Ainda falta"}
+                        </small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               {achievementDetails.decks?.length ? (
                 <div className="achievement-details-deck-grid">
@@ -7313,8 +7371,15 @@ function FblthpInfoModal({
           </p>
 
           <p>
-            Quando o Fblthp troca de dono, ele pode também trocar de arte. São
-            cinco artes possíveis, cada uma com a mesma chance de aparecer.
+            Quando o Fblthp troca de dono, ele pode também trocar de arte. Atualmente,{" "}
+            <strong>
+              {arts.length === 1
+                ? "existe 1 arte possível"
+                : `existem ${arts.length} artes possíveis`}
+            </strong>
+            {arts.length > 1
+              ? ", cada uma com a mesma chance de aparecer."
+              : "."}
           </p>
 
           <p>
@@ -7324,23 +7389,35 @@ function FblthpInfoModal({
         </div>
 
         <div className="fblthp-arts-section">
-          <h3>Artes possíveis</h3>
+          <h3>
+            Artes possíveis {arts.length > 0 ? `(${arts.length})` : ""}
+          </h3>
 
-          <div className="fblthp-arts-grid">
-            {arts.map((artUrl, index) => (
-              <div
-                key={artUrl}
-                className={
-                  artUrl === fblthp.currentArtUrl
-                    ? "fblthp-art-option fblthp-art-option-active"
-                    : "fblthp-art-option"
-                }
-              >
-                <img src={artUrl} alt={`Arte ${index + 1} do Fblthp`} />
-                <span>{index + 1}</span>
-              </div>
-            ))}
-          </div>
+          {arts.length > 0 ? (
+            <div className="fblthp-arts-grid">
+              {arts.map((artUrl, index) => (
+                <div
+                  key={`${artUrl}-${index}`}
+                  className={
+                    artUrl === fblthp.currentArtUrl
+                      ? "fblthp-art-option fblthp-art-option-active"
+                      : "fblthp-art-option"
+                  }
+                >
+                  <img
+                    src={artUrl}
+                    alt={`Arte ${index + 1} do Fblthp`}
+                    loading="lazy"
+                  />
+                  <span>{index + 1}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="fblthp-arts-empty">
+              Nenhuma arte do Fblthp foi configurada.
+            </p>
+          )}
         </div>
 
         {fblthp.history?.length ? (
