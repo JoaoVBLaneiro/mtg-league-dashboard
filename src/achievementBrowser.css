@@ -38,3 +38,117 @@
 .manual-achievement-id small:empty { display: none; }
 .achievement-history-heading { grid-column: 1 / -1; color: #b6e7f5; font-size: 14px; margin: 14px 0 0; }
 @media(max-width: 640px) { .manual-achievement-catalog { padding: 18px; }.manual-achievement-controls, .manual-achievement-grid { grid-template-columns: 1fr; }.manual-achievement-catalog > h2 { font-size: 22px; } }
+
+
+.manual-achievement-save-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 20px;
+  padding: 14px;
+  border: 1px solid #b7ef8a35;
+  border-radius: 14px;
+  background: #b7ef8a08;
+}
+
+.manual-achievement-save-panel > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.manual-achievement-save-panel strong {
+  color: #f1f5fa;
+}
+
+.manual-achievement-save-panel span {
+  color: #b4bed0;
+  font-size: 13px;
+}
+
+.manual-achievement-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.manual-achievement-save-message,
+.manual-achievement-save-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+}
+
+.manual-achievement-save-message {
+  color: #c1f29e;
+}
+
+.manual-achievement-save-error {
+  color: #fca5a5;
+}
+
+.manual-achievement-card.is-edited {
+  border-color: #facc1580;
+  background: #facc1508;
+}
+
+.manual-achievement-stepper {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0 4px;
+}
+
+.manual-achievement-stepper button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  color: #f1f5fa;
+  background: #ffffff08;
+  cursor: pointer;
+}
+
+.manual-achievement-stepper button:hover:not(:disabled) {
+  background: #b7ef8a1c;
+  border-color: #b7ef8a50;
+}
+
+.manual-achievement-stepper button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.manual-achievement-stepper input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  background: #090d15;
+  color: #f1f5fa;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
+
+.manual-achievement-stepper button:focus-visible,
+.manual-achievement-stepper input:focus-visible,
+.manual-achievement-save-button:focus-visible {
+  outline: 2px solid #c1f29e;
+  outline-offset: 3px;
+}
+
+@media(max-width: 640px) {
+  .manual-achievement-save-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-achievement-save-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

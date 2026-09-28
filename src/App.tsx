@@ -8780,9 +8780,17 @@ const hasMorePlayers =
         }}
       />
 
-      {manualCatalogPlayer !== null ? <ManualAchievementCatalog directory={data.achievementDirectory}
-        initialPlayerId={manualCatalogPlayer} onAchievementClick={setManualAchievement}
-        onClose={() => { setManualAchievement(null); setManualCatalogPlayer(null); }} /> : null}
+      {manualCatalogPlayer !== null ? <ManualAchievementCatalog
+          directory={data.achievementDirectory}
+          initialPlayerId={manualCatalogPlayer}
+          apiUrl={API_URL}
+          onSaved={loadData}
+          onAchievementClick={setManualAchievement}
+          onClose={() => {
+            setManualAchievement(null);
+            setManualCatalogPlayer(null);
+          }}
+        /> : null}
       {manualAchievement ? <AchievementDetailsModal key={manualAchievement.id} achievement={manualAchievement}
         directory={data.achievementDirectory} allAchievements={[]} onAchievementClick={setManualAchievement}
         onDeckClick={() => {}} onPlayerClick={() => {}} onClose={() => setManualAchievement(null)} /> : null}
