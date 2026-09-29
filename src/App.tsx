@@ -302,6 +302,7 @@ type RawPlayer = {
   iconeKeyrune?: string;
   profileExtras?: PlayerProfileExtras;
   achievements?: PlayerAchievement[];
+  featuredAchievementIds?: string[];
 };
 
 type RawDeck = {
@@ -377,6 +378,7 @@ type Player = {
   profileExtras: PlayerProfileExtras;
   trophy: PlayerTrophyInfo;
   achievements: PlayerAchievement[];
+  featuredAchievementIds: string[];
 };
 
 type Deck = {
@@ -830,6 +832,9 @@ function normalizePlayers(
       achievements: Array.isArray(item.achievements)
       ? item.achievements.filter((achievement): achievement is PlayerAchievement => Boolean(achievement))
       : [],
+      featuredAchievementIds: Array.isArray(item.featuredAchievementIds)
+        ? item.featuredAchievementIds.map((id) => String(id || "").trim()).filter(Boolean).slice(0, 3)
+        : [],
     }))
     .sort((a, b) => {
       if (sortMode === "wins") {
@@ -1489,14 +1494,60 @@ function getTopUnlockedAchievements(achievements: Array<PlayerAchievement | null
     .slice(0, 3);
 }
 
+function getFeaturedUnlockedAchievements(
+  achievements: Array<PlayerAchievement | null | undefined> = [],
+  featuredAchievementIds: string[] = []
+) {
+  const unlockedAchievements = achievements.filter(
+    (achievement): achievement is PlayerAchievement =>
+      Boolean(achievement && achievement.unlocked)
+  );
+
+  const unlockedById = new Map(
+    unlockedAchievements.map((achievement) => [achievement.id, achievement])
+  );
+
+  const selected: PlayerAchievement[] = [];
+  const seen = new Set<string>();
+
+  featuredAchievementIds.forEach((id) => {
+    const achievement = unlockedById.get(String(id || "").trim());
+
+    if (!achievement || seen.has(achievement.id) || selected.length >= 3) {
+      return;
+    }
+
+    seen.add(achievement.id);
+    selected.push(achievement);
+  });
+
+  if (selected.length < 3) {
+    getTopUnlockedAchievements(unlockedAchievements).forEach((achievement) => {
+      if (seen.has(achievement.id) || selected.length >= 3) {
+        return;
+      }
+
+      seen.add(achievement.id);
+      selected.push(achievement);
+    });
+  }
+
+  return selected.slice(0, 3);
+}
+
 function PlayerTopAchievementBadges({
   achievements,
+  featuredAchievementIds,
   onAchievementClick,
 }: {
   achievements: PlayerAchievement[];
+  featuredAchievementIds?: string[];
   onAchievementClick: (achievement: PlayerAchievement) => void;
 }) {
-  const topAchievements = getTopUnlockedAchievements(achievements);
+  const topAchievements = getFeaturedUnlockedAchievements(
+    achievements,
+    featuredAchievementIds || []
+  );
 
   if (!topAchievements.length) {
     return null;
@@ -3497,6 +3548,7 @@ function buildFallbackPlayerFromCombo(item: ComboStatItem): Player {
     profileExtras: emptyPlayerProfileExtras,
     trophy: emptyPlayerTrophyInfo, 
     achievements: [],
+    featuredAchievementIds: [],
   };
 }
 
@@ -5163,6 +5215,7 @@ function ProfileModal({
 
       <PlayerTopAchievementBadges
         achievements={(item as Player).achievements}
+        featuredAchievementIds={(item as Player).featuredAchievementIds}
         onAchievementClick={setSelectedAchievement}
       />
     </div>

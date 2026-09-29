@@ -24,6 +24,16 @@ import {
   UserRoundCog,
   UserPlus,
   Wand2,
+  Trophy,
+  Flame,
+  Skull,
+  Star,
+  Sword,
+  Crown,
+  Shield,
+  Zap,
+  Target,
+  Hammer,
 } from "lucide-react";
 import { getNewDeckNameError, normalizeDeckName } from "./editorDecks";
 import { findCardOnScryfall } from "./editorScryfall";
@@ -47,9 +57,21 @@ type EditorDeck = {
   fields: EditorFields;
 };
 
+type AchievementTier = "common" | "uncommon" | "rare" | "mythic" | "legendary";
+
+type EditorAchievement = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  tier: AchievementTier;
+};
+
 type EditorSessionData = {
   deckManagementVersion?: number;
   playerManagementVersion?: number;
+  featuredAchievementsVersion?: number;
+  achievements?: EditorAchievement[];
   keyruneUsage?: KeyruneUsage[];
   player: {
     id: string;
@@ -108,6 +130,190 @@ type CloudinaryConfig = EditorSessionData["cloudinary"];
 
 function stringValue(value: string | number | null | undefined) {
   return value === null || value === undefined ? "" : String(value);
+}
+
+function parseFeaturedAchievementIds(value: string | number | null | undefined) {
+  const text = stringValue(value).trim();
+
+  if (!text) {
+    return [] as string[];
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+
+    return parsed
+      .map((item) => String(item || "").trim())
+      .filter((id) => {
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+function getEditorAchievementTierLabel(tier: AchievementTier) {
+  const labels: Record<AchievementTier, string> = {
+    common: "Comum",
+    uncommon: "Incomum",
+    rare: "Rara",
+    mythic: "Mítica",
+    legendary: "Lendária",
+  };
+
+  return labels[tier] || "Comum";
+}
+
+function getEditorAchievementIcon(icon: string) {
+  const normalizedIcon = String(icon || "").trim().toLowerCase();
+
+  const iconMap: Record<string, React.ReactNode> = {
+    trophy: <Trophy size={20} />,
+    flame: <Flame size={20} />,
+    skull: <Skull size={20} />,
+    star: <Star size={20} />,
+    sparkles: <Sparkles size={20} />,
+    sword: <Sword size={20} />,
+    swords: <Sword size={20} />,
+    eye: <Eye size={20} />,
+    crown: <Crown size={20} />,
+    shield: <Shield size={20} />,
+    zap: <Zap size={20} />,
+    target: <Target size={20} />,
+    book: <BookOpen size={20} />,
+    hammer: <Hammer size={20} />,
+  };
+
+  return iconMap[normalizedIcon] || <Star size={20} />;
+}
+
+function FeaturedAchievementsPicker({
+  achievements,
+  value,
+  disabled,
+  onChange,
+}: {
+  achievements: EditorAchievement[];
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const availableIds = new Set(achievements.map((achievement) => achievement.id));
+  const savedIds = parseFeaturedAchievementIds(value);
+  const selectedIds = savedIds.filter((id) => availableIds.has(id));
+  const unavailableCount = savedIds.length - selectedIds.length;
+  const selectedSet = new Set(selectedIds);
+
+  function toggleAchievement(id: string) {
+    if (disabled) return;
+
+    const cleanCurrent = savedIds.filter((savedId) => availableIds.has(savedId));
+
+    if (cleanCurrent.includes(id)) {
+      onChange(JSON.stringify(cleanCurrent.filter((savedId) => savedId !== id)));
+      return;
+    }
+
+    if (cleanCurrent.length >= 3) {
+      return;
+    }
+
+    onChange(JSON.stringify([...cleanCurrent, id]));
+  }
+
+  if (!achievements.length) {
+    return (
+      <div className="editor-featured-achievements-empty">
+        <Sparkles size={20} />
+        <div>
+          <strong>Nenhuma conquista desbloqueada ainda</strong>
+          <span>Quando você desbloquear conquistas, elas aparecerão aqui para escolher.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="editor-featured-achievements">
+      <div className="editor-featured-achievements-summary">
+        <span>
+          {selectedIds.length}/3 selecionadas
+        </span>
+
+        {savedIds.length ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange("[]")}
+          >
+            Usar seleção automática
+          </button>
+        ) : (
+          <small>Usando seleção automática</small>
+        )}
+      </div>
+
+      {unavailableCount > 0 ? (
+        <div className="editor-featured-achievements-warning">
+          <AlertTriangle size={16} />
+          <span>
+            {unavailableCount === 1
+              ? "1 destaque salvo está bloqueado no momento. Ele será removido se você alterar esta seleção."
+              : `${unavailableCount} destaques salvos estão bloqueados no momento. Eles serão removidos se você alterar esta seleção.`}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="editor-featured-achievements-grid">
+        {achievements.map((achievement) => {
+          const selectedIndex = selectedIds.indexOf(achievement.id);
+          const selected = selectedIndex >= 0;
+          const limitReached = selectedIds.length >= 3 && !selected;
+
+          return (
+            <button
+              key={achievement.id}
+              className={`editor-featured-achievement-card editor-featured-achievement-card-${achievement.tier} ${
+                selected ? "selected" : ""
+              }`}
+              type="button"
+              disabled={Boolean(disabled || limitReached)}
+              aria-pressed={selected}
+              onClick={() => toggleAchievement(achievement.id)}
+            >
+              <span className="editor-featured-achievement-icon">
+                {getEditorAchievementIcon(achievement.icon)}
+              </span>
+
+              <span className="editor-featured-achievement-copy">
+                <strong>{achievement.name}</strong>
+                <small>{getEditorAchievementTierLabel(achievement.tier)}</small>
+                <span>{achievement.description}</span>
+              </span>
+
+              {selected ? (
+                <span
+                  className="editor-featured-achievement-order"
+                  title={`Destaque ${selectedIndex + 1}`}
+                >
+                  {selectedIndex + 1}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function normalizeErrorMessage(error: unknown) {
@@ -1205,6 +1411,31 @@ export default function PlayerEditorApp() {
                     rows={5}
                   />
                 </div>
+              </div>
+
+              <div className="editor-form-section">
+                <div className="editor-section-heading">
+                  <h2>Conquistas em destaque</h2>
+                  <p>
+                    Escolha até três conquistas desbloqueadas para aparecerem ao lado do seu nome.
+                    A ordem da seleção define a ordem dos ícones.
+                  </p>
+                </div>
+
+                {!sessionData.featuredAchievementsVersion ? (
+                  <p className="editor-field-hint">
+                    Atualize o Apps Script para habilitar a seleção de conquistas em destaque.
+                  </p>
+                ) : (
+                  <FeaturedAchievementsPicker
+                    achievements={sessionData.achievements || []}
+                    value={stringValue(profileFields["Conquistas em Destaque"])}
+                    disabled={Boolean(savingTarget)}
+                    onChange={(value) =>
+                      updateProfileField("Conquistas em Destaque", value)
+                    }
+                  />
+                )}
               </div>
 
               <div className="editor-form-section">
