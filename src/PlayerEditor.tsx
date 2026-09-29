@@ -211,7 +211,7 @@ function FeaturedAchievementsPicker({
   const savedIds = parseFeaturedAchievementIds(value);
   const selectedIds = savedIds.filter((id) => availableIds.has(id));
   const unavailableCount = savedIds.length - selectedIds.length;
-  const selectedSet = new Set(selectedIds);
+  //const selectedSet = new Set(selectedIds);
 
   function toggleAchievement(id: string) {
     if (disabled) return;
