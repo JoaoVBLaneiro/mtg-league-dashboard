@@ -33,7 +33,7 @@ import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck,
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
 
-const API_URL = "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
+const API_URL = "https://api.corneliomove.com.br/mtg-api/api/dashboard";
 
 type RivalInfo = {
   nome: string;

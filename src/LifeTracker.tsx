@@ -50,8 +50,19 @@ type LifePlayerSlot = {
 const LIFE_TOTAL_OPTIONS = [20, 25, 30, 40, 50, 60];
 const PLAYER_COUNT_OPTIONS = [1, 2, 3, 4, 5, 6];
 
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
+const DASHBOARD_API_URL =
+  "https://api.corneliomove.com.br/mtg-api/api/dashboard";
+
+const MATCH_API_URL =
+  "https://api.corneliomove.com.br/mtg-api/api/matches";
+
+function createMatchRequestId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `match-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 type LeaguePlayerOption = {
   name: string;
@@ -360,13 +371,18 @@ export default function LifeTrackerApp() {
   const deltaTimeoutsRef = useRef<Record<string, number>>({});
   const holdStartTimeRef = useRef(0);
 
+  const matchRequestIdRef = useRef("");
+  const matchStartedAtRef = useRef("");
+
   useEffect(() => {
     async function loadLeagueData() {
       try {
         setLeagueDataLoading(true);
         setLeagueDataError("");
 
-        const response = await fetch(`${API_URL}?t=${Date.now()}`);
+        const response = await fetch(
+          `${DASHBOARD_API_URL}?t=${Date.now()}`
+        );
 
         if (!response.ok) {
           throw new Error("Não foi possível carregar jogadores e decks.");
@@ -519,6 +535,9 @@ export default function LifeTrackerApp() {
       })
     );
 
+    matchRequestIdRef.current = createMatchRequestId();
+    matchStartedAtRef.current = new Date().toISOString();
+
     setPlayers(slots);
     setMatchStarted(true);
   }
@@ -549,6 +568,9 @@ export default function LifeTrackerApp() {
     setSelectionModal(null);
     setCommanderDamageModalPlayerId(null);
     setMarkerModalPlayerId(null);
+
+    matchRequestIdRef.current = "";
+    matchStartedAtRef.current = "";
 
     setMatchStarted(false);
     setPlayers([]);
@@ -644,10 +666,32 @@ function closeWinnerModal() {
 }
 
 async function submitMatchResult() {
-  const winner = players.find((player) => player.id === selectedWinnerId);
+  const winner = players.find(
+    (player) => player.id === selectedWinnerId
+  );
 
   if (!winner) {
     setMatchSubmitError("Selecione o jogador vencedor.");
+    return;
+  }
+
+  if (!getPlayerCanonicalName(winner) || !winner.deckName) {
+    setMatchSubmitError(
+      "O vencedor precisa ter jogador e deck selecionados."
+    );
+    return;
+  }
+
+  const invalidPlayer = players.find(
+    (player) =>
+      !getPlayerCanonicalName(player) ||
+      !player.deckName
+  );
+
+  if (invalidPlayer) {
+    setMatchSubmitError(
+      "Todos os jogadores precisam ter jogador e deck selecionados."
+    );
     return;
   }
 
@@ -655,73 +699,126 @@ async function submitMatchResult() {
     setMatchSubmitting(true);
     setMatchSubmitError("");
 
-    const manuallyMarkedKillEvents = players
-      .filter((player) => player.isEliminated && player.eliminatedByPlayerId)
-      .map((player) => {
-        const killer = players.find(
-          (possibleKiller) => possibleKiller.id === player.eliminatedByPlayerId
-        );
+    if (!matchRequestIdRef.current) {
+      matchRequestIdRef.current = createMatchRequestId();
+    }
 
-        return {
-          killerPlayerName: killer ? getPlayerCanonicalName(killer) : "",
-          killerDeckName: killer?.deckName || "",
-          eliminatedPlayerName: getPlayerCanonicalName(player),
-          eliminatedDeckName: player.deckName || "",
-        };
-      })
-      .filter(
-        (event) => event.killerPlayerName && event.eliminatedPlayerName
+    if (!matchStartedAtRef.current) {
+      matchStartedAtRef.current = new Date().toISOString();
+    }
+
+    const manuallyMarkedKillEvents = players
+    .filter(
+      (player) =>
+        player.isEliminated &&
+        player.eliminatedByPlayerId
+    )
+    .map((player) => {
+      const killer = players.find(
+        (possibleKiller) =>
+          possibleKiller.id ===
+          player.eliminatedByPlayerId
       );
 
-    const winnerFinishingKillEvents = players
-      .filter((player) => player.id !== winner.id)
-      .filter((player) => !player.isEliminated)
-      .map((player) => ({
-        killerPlayerName: getPlayerCanonicalName(winner),
-        killerDeckName: winner.deckName || "",
-        eliminatedPlayerName: getPlayerCanonicalName(player),
+      return {
+        killerPlayerName: killer
+          ? getPlayerCanonicalName(killer)
+          : "",
+        killerDeckName: killer?.deckName || "",
+        eliminatedPlayerName:
+          getPlayerCanonicalName(player),
         eliminatedDeckName: player.deckName || "",
-      }));
+      };
+    })
+    .filter(
+      (event) =>
+        event.killerPlayerName &&
+        event.eliminatedPlayerName
+    );
 
-    const killEvents = [
-      ...manuallyMarkedKillEvents,
-      ...winnerFinishingKillEvents,
-    ];
+  const winnerFinishingKillEvents = players
+    .filter((player) => player.id !== winner.id)
+    .filter((player) => !player.isEliminated)
+    .map((player) => ({
+      killerPlayerName:
+        getPlayerCanonicalName(winner),
+      killerDeckName: winner.deckName || "",
+      eliminatedPlayerName:
+        getPlayerCanonicalName(player),
+      eliminatedDeckName: player.deckName || "",
+    }));
+
+  const killEvents = [
+    ...manuallyMarkedKillEvents,
+    ...winnerFinishingKillEvents,
+  ];
 
     const payload = {
-      action: "registerMatchResult",
-      startedAt: new Date().toISOString(),
-      winnerPlayerName: getPlayerCanonicalName(winner),
-      winnerDeckName: winner.deckName || "",
+      requestId: matchRequestIdRef.current,
+      startedAt: matchStartedAtRef.current,
+      winnerPlayerName:
+        getPlayerCanonicalName(winner),
+      winnerDeckName: winner.deckName,
       killEvents,
       players: players.map((player) => ({
         id: player.id,
         label: player.label,
-        playerName: getPlayerCanonicalName(player),
+        playerName:
+          getPlayerCanonicalName(player),
         deckName: player.deckName || "",
         life: player.life,
         commanderDamage: player.commanderDamage,
         markers: player.markers,
         isEliminated: player.isEliminated,
-        eliminatedByPlayerId: player.eliminatedByPlayerId,
+        eliminatedByPlayerId:
+          player.eliminatedByPlayerId,
         isWinner: player.id === winner.id,
       })),
     };
 
-    await fetch(API_URL, {
+    const response = await fetch(MATCH_API_URL, {
       method: "POST",
-      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     });
 
+    const result = await response
+      .json()
+      .catch(() => null);
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(
+        result?.error ||
+          "Não foi possível registrar a partida."
+      );
+    }
+
+    console.log(
+      `Partida ${result.matchId} registrada com sucesso.`
+    );
+
     await requestPortraitMode();
+
+    matchRequestIdRef.current = "";
+    matchStartedAtRef.current = "";
 
     setWinnerModalOpen(false);
     setSelectedWinnerId("");
     setMatchStarted(false);
     setPlayers([]);
   } catch (error) {
-    setMatchSubmitError("Não foi possível enviar a partida.");
+    console.error(
+      "Erro ao registrar partida:",
+      error
+    );
+
+    setMatchSubmitError(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível enviar a partida."
+    );
   } finally {
     setMatchSubmitting(false);
   }
