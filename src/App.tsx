@@ -34,6 +34,7 @@ import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from 
 import type { AchievementDirectory } from "./achievementDirectory";
 
 const API_URL = "https://api.corneliomove.com.br/mtg-api/api/dashboard";
+const MANUAL_ACHIEVEMENT_API_URL = "https://api.corneliomove.com.br/mtg-api/api/achievements/manual";
 
 type RivalInfo = {
   nome: string;
@@ -8913,7 +8914,7 @@ const hasMorePlayers =
       {manualCatalogPlayer !== null ? <ManualAchievementCatalog
           directory={data.achievementDirectory}
           initialPlayerId={manualCatalogPlayer}
-          apiUrl={API_URL}
+          apiUrl={MANUAL_ACHIEVEMENT_API_URL}
           onSaved={loadData}
           onAchievementClick={setManualAchievement}
           onClose={() => {
