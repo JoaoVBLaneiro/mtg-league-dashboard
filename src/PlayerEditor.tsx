@@ -41,6 +41,7 @@ import CardArtPicker from "./CardArtPicker";
 import KeyrunePicker from "./KeyrunePicker";
 import RegisterPlayer, { type PlayerRegistrationInput } from "./RegisterPlayer";
 import AdminTagsPanel from "./AdminTagsPanel";
+import PowerCheckPanel from "./PowerCheckPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
 import { DeckCategoryIcon, DeckLabels, InactiveDeckIcon } from "./DeckLabels";
@@ -817,7 +818,7 @@ export default function PlayerEditorApp() {
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null);
   const [profileFields, setProfileFields] = useState<EditorFields>({});
   const [deckFields, setDeckFields] = useState<Record<string, EditorFields>>({});
-  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "access" | "register" | "admin">(
+  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "powercheck" | "access" | "register" | "admin">(
     "profile"
   );
   const [activeDeckId, setActiveDeckId] = useState("");
@@ -1496,6 +1497,16 @@ export default function PlayerEditorApp() {
           </button>
 
           <button
+            className={activeSection === "powercheck" ? "active" : ""}
+            type="button"
+            onClick={() => setActiveSection("powercheck")}
+            disabled={Boolean(savingTarget)}
+          >
+            <Zap size={19} />
+            Power Check
+          </button>
+
+          <button
             className={activeSection === "access" ? "active" : ""}
             type="button"
             onClick={() => setActiveSection("access")}
@@ -1981,6 +1992,10 @@ export default function PlayerEditorApp() {
                 </EditorNotice>
               )}
             </>
+          ) : null}
+
+          {activeSection === "powercheck" ? (
+            <PowerCheckPanel token={token} />
           ) : null}
 
           <div hidden={activeSection !== 'register'}>
