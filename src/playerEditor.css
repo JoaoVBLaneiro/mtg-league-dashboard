@@ -1056,3 +1056,53 @@
     flex-direction: column;
   }
 }
+
+
+/* MATCH ADMIN V1 */
+.editor-admin-match-list {
+  display: grid;
+  gap: 14px;
+}
+
+.editor-admin-match {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--editor-border);
+  border-radius: 18px;
+  background: var(--editor-panel-soft);
+}
+
+.editor-admin-match.ignored {
+  opacity: 0.68;
+}
+
+.editor-admin-match-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.editor-admin-match-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.editor-admin-match-heading span,
+.editor-admin-match-players {
+  color: var(--editor-muted);
+  font-size: 14px;
+}
+
+.editor-admin-match-players {
+  display: grid;
+  gap: 5px;
+}
+
+@media (max-width: 640px) {
+  .editor-admin-match-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

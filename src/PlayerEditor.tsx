@@ -128,6 +128,30 @@ type PublicDashboardResponse = {
   };
 };
 
+type AdminMatchPlayer = {
+  player: string;
+  deck: string | null;
+  winner: boolean;
+  seat: number | null;
+};
+
+type AdminMatch = {
+  dbId: number;
+  matchId: number;
+  playedAt: string;
+  winner: string | null;
+  source: string;
+  ignored: boolean;
+  reason: string;
+  players: AdminMatchPlayer[];
+};
+
+type AdminMatchesResponse = {
+  ok?: boolean;
+  error?: string;
+  matches?: AdminMatch[];
+};
+
 type CloudinaryConfig = EditorSessionData["cloudinary"];
 
 function stringValue(value: string | number | null | undefined) {
@@ -372,6 +396,41 @@ async function requestEditorLogout(currentToken: string) {
     method: "POST",
     headers: editorAuthHeaders(currentToken),
   });
+
+  return readJsonResponse(response);
+}
+
+async function requestAdminMatches(currentToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/matches`, {
+    headers: editorAuthHeaders(currentToken),
+  });
+
+  const json = (await response.json()) as AdminMatchesResponse;
+
+  if (!response.ok || json.ok === false || json.error) {
+    throw new Error(json.error || "Não foi possível carregar as partidas.");
+  }
+
+  return json.matches || [];
+}
+
+async function requestAdminMatchOverride(
+  currentToken: string,
+  dbId: number,
+  action: "ignore" | "restore",
+  reason = ""
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/matches/${dbId}/${action}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...editorAuthHeaders(currentToken),
+      },
+      body: JSON.stringify({ reason }),
+    }
+  );
 
   return readJsonResponse(response);
 }
@@ -757,7 +816,7 @@ export default function PlayerEditorApp() {
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null);
   const [profileFields, setProfileFields] = useState<EditorFields>({});
   const [deckFields, setDeckFields] = useState<Record<string, EditorFields>>({});
-  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "access" | "register">(
+  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "access" | "register" | "admin">(
     "profile"
   );
   const [activeDeckId, setActiveDeckId] = useState("");
@@ -779,6 +838,8 @@ export default function PlayerEditorApp() {
   } | null>(null);
   const [nextPin, setNextPin] = useState("");
   const [confirmNextPin, setConfirmNextPin] = useState("");
+  const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -1182,6 +1243,61 @@ export default function PlayerEditorApp() {
     }
   }
 
+  async function loadAdminMatches() {
+    if (!token || sessionData?.player.id !== "JBL") return;
+
+    try {
+      setAdminLoading(true);
+      setAdminMatches(await requestAdminMatches(token));
+    } catch (error) {
+      setNotice({ kind: "error", text: normalizeErrorMessage(error) });
+    } finally {
+      setAdminLoading(false);
+    }
+  }
+
+  async function toggleIgnoredMatch(match: AdminMatch) {
+    if (!token || sessionData?.player.id !== "JBL" || savingTarget) return;
+
+    const restoring = match.ignored;
+    const reason = restoring
+      ? ""
+      : window.prompt(
+          `Motivo para ignorar a partida #${match.matchId}:`,
+          "Partida cadastrada incorretamente"
+        );
+
+    if (!restoring && reason === null) return;
+
+    if (!window.confirm(
+      restoring
+        ? `Restaurar a partida #${match.matchId}?`
+        : `Ignorar a partida #${match.matchId}? Ela deixará de contar nas estatísticas.`
+    )) return;
+
+    try {
+      setSavingTarget(`admin:${match.dbId}`);
+      setNotice(null);
+      await requestAdminMatchOverride(
+        token,
+        match.dbId,
+        restoring ? "restore" : "ignore",
+        reason || ""
+      );
+      await loadAdminMatches();
+      setNotice({
+        kind: "success",
+        text: restoring
+          ? `Partida #${match.matchId} restaurada.`
+          : `Partida #${match.matchId} ignorada.`,
+      });
+    } catch (error) {
+      setNotice({ kind: "error", text: normalizeErrorMessage(error) });
+    } finally {
+      setSavingTarget("");
+    }
+  }
+
   async function changePin() {
     if (!/^\d{4,8}$/.test(nextPin)) {
       setNotice({ kind: "error", text: "O novo PIN deve possuir de 4 a 8 números." });
@@ -1386,6 +1502,21 @@ export default function PlayerEditorApp() {
             <KeyRound size={19} />
             Acesso
           </button>
+
+          {sessionData.player.id === "JBL" ? (
+            <button
+              type="button"
+              className={activeSection === "admin" ? "active" : ""}
+              disabled={Boolean(savingTarget)}
+              onClick={() => {
+                setActiveSection("admin");
+                void loadAdminMatches();
+              }}
+            >
+              <ShieldCheck size={19} />
+              Administração
+            </button>
+          ) : null}
 
           <button type="button" className={activeSection === 'register' ? 'active' : ''}
             disabled={Boolean(savingTarget)} onClick={() => setActiveSection('register')}>
@@ -1853,6 +1984,87 @@ export default function PlayerEditorApp() {
           <div hidden={activeSection !== 'register'}>
             <RegisterPlayer enabled={Boolean(sessionData.playerManagementVersion)} usage={sessionData.keyruneUsage || []} onRegister={registerPlayer} />
           </div>
+
+          {activeSection === "admin" && sessionData.player.id === "JBL" ? (
+            <>
+              <div className="editor-page-heading">
+                <div>
+                  <span>Administração JBL</span>
+                  <h1>Histórico de partidas</h1>
+                  <p>Partidas ignoradas continuam salvas no banco, mas deixam de contar nas estatísticas.</p>
+                </div>
+
+                <button
+                  className="editor-secondary-button"
+                  type="button"
+                  disabled={adminLoading || Boolean(savingTarget)}
+                  onClick={() => void loadAdminMatches()}
+                >
+                  {adminLoading ? <LoaderCircle size={17} className="spin" /> : null}
+                  Atualizar
+                </button>
+              </div>
+
+              <div className="editor-admin-match-list">
+                {adminLoading && !adminMatches.length ? (
+                  <EditorNotice kind="info">Carregando partidas...</EditorNotice>
+                ) : null}
+
+                {!adminLoading && !adminMatches.length ? (
+                  <EditorNotice kind="info">Nenhuma partida encontrada.</EditorNotice>
+                ) : null}
+
+                {adminMatches.map((match) => (
+                  <article
+                    className={`editor-admin-match${match.ignored ? " ignored" : ""}`}
+                    key={match.dbId}
+                  >
+                    <div className="editor-admin-match-heading">
+                      <div>
+                        <strong>Partida #{match.matchId}</strong>
+                        <span>
+                          {new Date(match.playedAt).toLocaleString("pt-BR")}
+                          {match.winner ? ` · vencedor: ${match.winner}` : ""}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className={match.ignored ? "editor-secondary-button" : "editor-danger-button"}
+                        disabled={Boolean(savingTarget)}
+                        onClick={() => void toggleIgnoredMatch(match)}
+                      >
+                        {savingTarget === `admin:${match.dbId}` ? (
+                          <LoaderCircle size={16} className="spin" />
+                        ) : match.ignored ? (
+                          <PlayCircle size={16} />
+                        ) : (
+                          <PauseCircle size={16} />
+                        )}
+                        {match.ignored ? "Restaurar" : "Ignorar"}
+                      </button>
+                    </div>
+
+                    <div className="editor-admin-match-players">
+                      {match.players.map((entry, index) => (
+                        <span key={`${match.dbId}:${index}`}>
+                          {entry.winner ? "🏆 " : ""}
+                          {entry.player}
+                          {entry.deck ? ` — ${entry.deck}` : ""}
+                        </span>
+                      ))}
+                    </div>
+
+                    {match.ignored ? (
+                      <p className="editor-field-hint">
+                        Ignorada{match.reason ? ` · ${match.reason}` : ""}
+                      </p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : null}
 
           {activeSection === "access" ? (
             <>
