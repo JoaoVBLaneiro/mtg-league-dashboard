@@ -9,6 +9,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -217,8 +218,10 @@ function VoteScale({
 export default function
 PowerCheckPanel({
   token,
+  targetDeck = "",
 }: {
   token: string;
+  targetDeck?: string;
 }) {
   const [
     decks,
@@ -267,6 +270,16 @@ PowerCheckPanel({
   ] = useState<
     number | null
   >(null);
+
+  const [
+    deepLinkDeckId,
+    setDeepLinkDeckId,
+  ] = useState<
+    number | null
+  >(null);
+
+  const handledDeepLink =
+    useRef("");
 
 
   function applyResponse(
@@ -424,6 +437,119 @@ PowerCheckPanel({
         search,
       ],
     );
+
+
+  useEffect(
+    () => {
+      const requested =
+        targetDeck.trim();
+
+      if (
+        !requested
+        || !decks.length
+      ) {
+        return;
+      }
+
+      const normalized =
+        requested.toLocaleLowerCase(
+          "pt-BR",
+        );
+
+      const target =
+        decks.find(
+          (deck) =>
+            deck.deck
+              .trim()
+              .toLocaleLowerCase(
+                "pt-BR",
+              )
+            === normalized,
+        );
+
+      if (!target) {
+        return;
+      }
+
+      const key =
+        `${target.deckId}:${target.deck}`;
+
+      if (
+        handledDeepLink.current
+        === key
+      ) {
+        return;
+      }
+
+      handledDeepLink.current =
+        key;
+
+      setFilter(
+        "all",
+      );
+      setSearch(
+        target.deck,
+      );
+      setDeepLinkDeckId(
+        target.deckId,
+      );
+    },
+    [
+      decks,
+      targetDeck,
+    ],
+  );
+
+
+  useEffect(
+    () => {
+      if (
+        deepLinkDeckId
+        === null
+      ) {
+        return;
+      }
+
+      const scrollTimer =
+        window.setTimeout(
+          () => {
+            document
+              .getElementById(
+                `power-check-deck-${deepLinkDeckId}`,
+              )
+              ?.scrollIntoView({
+                behavior:
+                  "smooth",
+                block:
+                  "center",
+              });
+          },
+          80,
+        );
+
+      const highlightTimer =
+        window.setTimeout(
+          () =>
+            setDeepLinkDeckId(
+              null,
+            ),
+          3200,
+        );
+
+      return () => {
+        window.clearTimeout(
+          scrollTimer,
+        );
+        window.clearTimeout(
+          highlightTimer,
+        );
+      };
+    },
+    [
+      deepLinkDeckId,
+      visible,
+    ],
+  );
 
 
   function updateDraft(
@@ -715,10 +841,18 @@ PowerCheckPanel({
 
               return (
                 <article
+                  id={
+                    `power-check-deck-${deck.deckId}`
+                  }
                   className={
                     `power-check-card${
                       deck.hasVote
                         ? " voted"
+                        : ""
+                    }${
+                      deepLinkDeckId
+                      === deck.deckId
+                        ? " power-check-deep-link-target"
                         : ""
                     }`
                   }

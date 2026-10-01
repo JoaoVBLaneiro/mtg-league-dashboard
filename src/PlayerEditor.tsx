@@ -52,6 +52,44 @@ const DASHBOARD_URL = `${API_BASE_URL}/api/dashboard`;
 
 const SESSION_STORAGE_KEY = "mtg-player-editor-session";
 
+type EditorSection =
+  | "profile"
+  | "decks"
+  | "powercheck"
+  | "access"
+  | "register"
+  | "admin";
+
+function readEditorIntent() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawHash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const hashQueryIndex = rawHash.indexOf("?");
+  const hashParams = new URLSearchParams(
+    hashQueryIndex >= 0
+      ? rawHash.slice(hashQueryIndex + 1)
+      : "",
+  );
+
+  const section =
+    hashParams.get("section")
+    || searchParams.get("section")
+    || "";
+  const deck =
+    hashParams.get("deck")
+    || searchParams.get("deck")
+    || "";
+
+  return {
+    section:
+      section === "powercheck"
+        ? "powercheck"
+        : "",
+    deck: deck.trim(),
+  } as const;
+}
+
 type EditorFields = Record<string, string | number | null>;
 
 type EditorDeck = {
@@ -803,6 +841,10 @@ function EditorNotice({
 }
 
 export default function PlayerEditorApp() {
+  const editorIntent = useMemo(
+    () => readEditorIntent(),
+    [],
+  );
   const [publicPlayers, setPublicPlayers] = useState<PublicPlayer[]>([]);
   const [publicDecks, setPublicDecks] = useState<string[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(true);
@@ -818,8 +860,11 @@ export default function PlayerEditorApp() {
   const [sessionData, setSessionData] = useState<EditorSessionData | null>(null);
   const [profileFields, setProfileFields] = useState<EditorFields>({});
   const [deckFields, setDeckFields] = useState<Record<string, EditorFields>>({});
-  const [activeSection, setActiveSection] = useState<"profile" | "decks" | "powercheck" | "access" | "register" | "admin">(
-    "profile"
+  const [activeSection, setActiveSection] = useState<EditorSection>(
+    () =>
+      editorIntent.section === "powercheck"
+        ? "powercheck"
+        : "profile"
   );
   const [activeDeckId, setActiveDeckId] = useState("");
   const [isCreatingDeck, setIsCreatingDeck] = useState(false);
@@ -1995,7 +2040,10 @@ export default function PlayerEditorApp() {
           ) : null}
 
           {activeSection === "powercheck" ? (
-            <PowerCheckPanel token={token} />
+            <PowerCheckPanel
+              token={token}
+              targetDeck={editorIntent.deck}
+            />
           ) : null}
 
           <div hidden={activeSection !== 'register'}>

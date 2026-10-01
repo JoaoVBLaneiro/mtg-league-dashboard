@@ -666,10 +666,13 @@ function DeckPowerInfoCard({ deck }: { deck: Deck }) {
   const hasPower = deck.powerLevel !== null && deck.powerLevel !== undefined;
   const hasSalt = deck.saltLevel !== null && deck.saltLevel !== undefined;
   const hasBracketUrl = Boolean(deck.bracketUrl);
+  const canVote = isAvailableDeck(deck);
 
-  if (!hasBracket && !hasPower && !hasSalt) {
+  if (!hasBracket && !hasPower && !hasSalt && !canVote) {
     return null;
   }
+
+  const voteHref = `#editor?section=powercheck&deck=${encodeURIComponent(deck.name)}`;
 
   const infoTitle = [
     `Power-Level calculado com ${deck.powerVotes || 0} voto${Number(deck.powerVotes || 0) === 1 ? "" : "s"} válido${Number(deck.powerVotes || 0) === 1 ? "" : "s"}.`,
@@ -705,7 +708,22 @@ function DeckPowerInfoCard({ deck }: { deck: Deck }) {
     <div className="deck-power-info-card">
       <div className="deck-power-info-header">
         <span>Power Check</span>
-        {infoButton}
+
+        <div className="deck-power-info-actions">
+          {infoButton}
+
+          {canVote ? (
+            <a
+              className="deck-power-info-button deck-power-vote-button"
+              href={voteHref}
+              title="Avaliar este deck"
+              aria-label={`Avaliar ${deck.name} no Power Check`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Zap size={12} aria-hidden="true" />
+            </a>
+          ) : null}
+        </div>
       </div>
 
       <div className="deck-power-info-row">

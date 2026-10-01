@@ -6697,6 +6697,13 @@ footer {
   text-transform: uppercase;
 }
 
+.deck-power-info-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
 .deck-power-info-button {
   width: 20px;
   height: 20px;
@@ -6717,6 +6724,24 @@ footer {
 .deck-power-info-button:hover {
   border-color: rgba(125, 211, 252, 0.9);
   background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+}
+
+.deck-power-info-button svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+}
+
+.deck-power-vote-button {
+  border-color: rgba(190, 242, 100, 0.42);
+  background: rgba(163, 230, 53, 0.11);
+  color: #d9f99d;
+}
+
+.deck-power-vote-button:hover {
+  border-color: rgba(190, 242, 100, 0.9);
+  background: rgba(163, 230, 53, 0.2);
   color: #ffffff;
 }
 
@@ -9401,4 +9426,23 @@ button.dynamic-deck-tag:hover {
 .dynamic-deck-tags.compact .dynamic-deck-tag {
   padding: 4px 7px;
   font-size: 11px;
+}
+
+
+/* POWER CHECK DEEP LINK */
+.player-editor-page .power-check-card.power-check-deep-link-target {
+  outline: 2px solid rgba(190, 242, 100, 0.82);
+  outline-offset: 3px;
+  animation: power-check-deep-link-pulse 1s ease-in-out 2;
+}
+
+@keyframes power-check-deep-link-pulse {
+  0%,
+  100% {
+    outline-color: rgba(190, 242, 100, 0.82);
+  }
+
+  50% {
+    outline-color: rgba(125, 211, 252, 0.95);
+  }
 }
