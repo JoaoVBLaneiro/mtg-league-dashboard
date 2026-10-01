@@ -11,6 +11,10 @@ import type {
   DeckCategory,
 } from "./deckMetadata";
 
+import {
+  keyruneCode,
+} from "./keyruneSymbols";
+
 
 const API_URL =
   "https://api.corneliomove.com.br/mtg-api/api/deck-tags";
@@ -138,6 +142,18 @@ async function loadDefinitions() {
       );
 
   return pending;
+}
+
+
+function plainTagKeyrune(
+  value: string,
+) {
+  const code =
+    keyruneCode(value);
+
+  return code
+    ? `ss ss-${code}`
+    : "ss ss-cmd";
 }
 
 
@@ -328,9 +344,14 @@ export default function DynamicDeckTagBadges({
                 <>
                   <i
                     className={
-                      tag.keyruneClass
-                      || "ss ss-cmd"
+                      plainTagKeyrune(
+                        tag.keyruneClass,
+                      )
                     }
+                    style={{
+                      color:
+                        tag.color,
+                    }}
                   />
                   <span>
                     {tag.label}

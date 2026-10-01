@@ -14,8 +14,9 @@ import KeyrunePicker from "./KeyrunePicker";
 import type {
   DeckCategory,
 } from "./deckMetadata";
-import type {
-  KeyruneUsage,
+import {
+  keyruneCode,
+  type KeyruneUsage,
 } from "./keyruneSymbols";
 
 
@@ -273,6 +274,18 @@ function isLegacySystem(
     tag.appearanceMode
     === "legacy"
   );
+}
+
+
+function plainTagKeyrune(
+  value: string,
+) {
+  const code =
+    keyruneCode(value);
+
+  return code
+    ? `ss ss-${code}`
+    : "ss ss-cmd";
 }
 
 
@@ -704,9 +717,14 @@ export default function AdminTagsPanel({
                       >
                         <i
                           className={
-                            tag.keyruneClass
-                            || "ss ss-cmd"
+                            plainTagKeyrune(
+                              tag.keyruneClass,
+                            )
                           }
+                          style={{
+                            color:
+                              tag.color,
+                          }}
                         />
 
                         {tag.label}
@@ -810,9 +828,14 @@ export default function AdminTagsPanel({
                     >
                       <i
                         className={
-                          draft.keyruneClass
-                          || "ss ss-cmd"
+                          plainTagKeyrune(
+                            draft.keyruneClass,
+                          )
                         }
+                        style={{
+                          color:
+                            draft.color,
+                        }}
                       />
 
                       {
@@ -1005,6 +1028,8 @@ export default function AdminTagsPanel({
                         }
                         usage={usage}
                         playerId={playerId}
+                        finish="plain"
+                        color={draft.color}
                         disabled={
                           disabled
                           || saving

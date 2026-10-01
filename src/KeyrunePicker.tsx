@@ -4,8 +4,22 @@ import { KEYRUNE_SYMBOLS, keyruneCode, loadKeyruneSymbols, mythicKeyrune, symbol
 import './cardArtPicker.css';
 import './keyrunePicker.css';
 
-function KeyruneGallery({ value, usage, playerId, onSelect, onClose }: {
+type KeyruneFinish = 'mythic' | 'plain';
+
+function plainKeyrune(value: string) {
+  const code = keyruneCode(value);
+  return code ? `ss ss-${code}` : '';
+}
+
+function displayKeyrune(value: string, finish: KeyruneFinish) {
+  return finish === 'plain'
+    ? plainKeyrune(value)
+    : mythicKeyrune(value);
+}
+
+function KeyruneGallery({ value, usage, playerId, finish, color, onSelect, onClose }: {
   value: string; usage: KeyruneUsage[]; playerId: string;
+  finish: KeyruneFinish; color?: string;
   onSelect: (value: string, symbol?: KeyruneSymbol) => void; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -29,9 +43,13 @@ function KeyruneGallery({ value, usage, playerId, onSelect, onClose }: {
   }, [extra, query, usage, value]);
   return <dialog ref={dialog} className="editor-art-dialog keyrune-dialog" aria-labelledby={titleId}
     onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose}>
-    <header className="editor-art-heading"><div><span>KEYRUNE · MÍTICO</span><h2 id={titleId}>Escolha seu símbolo</h2></div>
+    <header className="editor-art-heading"><div><span>{finish === 'plain' ? 'KEYRUNE · COR DA TAG' : 'KEYRUNE · MÍTICO'}</span><h2 id={titleId}>Escolha seu símbolo</h2></div>
       <button className="editor-art-close" type="button" onClick={onClose} aria-label="Fechar símbolos"><X size={22} /></button></header>
-    <p className="editor-art-description">Todos usam o acabamento Mítico. Símbolos em uso são sinalizados, mas podem ser compartilhados.</p>
+    <p className="editor-art-description">
+      {finish === 'plain'
+        ? 'O símbolo usa a cor definida para a tag. Símbolos em uso são sinalizados, mas podem ser compartilhados.'
+        : 'Todos usam o acabamento Mítico. Símbolos em uso são sinalizados, mas podem ser compartilhados.'}
+    </p>
     <label className="keyrune-search"><Search size={18} /><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar nome ou código do set" aria-label="Buscar símbolo" /></label>
     {notice ? <p className="editor-art-description" role="status">{notice}</p> : null}
     <div className="keyrune-grid">
@@ -39,10 +57,11 @@ function KeyruneGallery({ value, usage, playerId, onSelect, onClose }: {
         const users = symbolUsers(symbol.code, usage);
         const selected = keyruneCode(value) === symbol.code;
         const owners = users.map(user => user.playerId === playerId ? 'Você' : user.displayName || user.playerId).join(', ');
+        const iconClass = displayKeyrune(`ss-${symbol.code}`, finish);
         return <button type="button" key={symbol.code} className={`keyrune-option${selected ? ' selected' : ''}`} aria-pressed={selected}
           aria-label={`${symbol.name} (${symbol.code.toUpperCase()})${owners ? ` — em uso por ${owners}` : ''}`}
-          onClick={() => { onSelect(mythicKeyrune(`ss-${symbol.code}`), symbol); onClose(); }}>
-          <i className={mythicKeyrune(`ss-${symbol.code}`)} aria-hidden="true" />
+          onClick={() => { onSelect(iconClass, symbol); onClose(); }}>
+          <i className={iconClass} style={finish === 'plain' && color ? { color } : undefined} aria-hidden="true" />
           <strong>{symbol.name}</strong><small>{symbol.code.toUpperCase()}</small>
           {selected ? <span className="keyrune-selected"><Check size={13} /> Selecionado</span> : null}
           {owners ? <span className="keyrune-used">Em uso: {owners}</span> : null}
@@ -53,20 +72,23 @@ function KeyruneGallery({ value, usage, playerId, onSelect, onClose }: {
   </dialog>;
 }
 
-export default function KeyrunePicker({ label, value, usage = [], playerId = '', disabled = false, onChange }: {
+export default function KeyrunePicker({ label, value, usage = [], playerId = '', disabled = false, finish = 'mythic', color, onChange }: {
   label: string; value: string; usage?: KeyruneUsage[]; playerId?: string; disabled?: boolean;
+  finish?: KeyruneFinish; color?: string;
   onChange: (value: string, symbol?: KeyruneSymbol) => void;
 }) {
   const [open, setOpen] = useState(false);
   const current = KEYRUNE_SYMBOLS.find(item => item.code === keyruneCode(value));
+  const iconClass = displayKeyrune(value, finish);
+
   return <div className="editor-field keyrune-field"><span>{label}</span>
     <div className="keyrune-field-controls">
-      {value ? <i className={mythicKeyrune(value)} aria-hidden="true" /> : <span className="keyrune-empty">—</span>}
+      {value ? <i className={iconClass} style={finish === 'plain' && color ? { color } : undefined} aria-hidden="true" /> : <span className="keyrune-empty">—</span>}
       <div><strong>{current?.name || keyruneCode(value).toUpperCase() || 'Nenhum símbolo'}</strong>
-        <small>Acabamento Mítico</small></div>
+        <small>{finish === 'plain' ? 'Cor da tag' : 'Acabamento Mítico'}</small></div>
       <button type="button" className="editor-secondary-button" disabled={disabled} aria-haspopup="dialog" onClick={() => setOpen(true)}>Escolher símbolo</button>
       {value ? <button type="button" className="keyrune-clear" disabled={disabled} onClick={() => onChange('')} aria-label={`Remover ${label}`}>×</button> : null}
     </div>
-    {open ? <KeyruneGallery value={value} usage={usage} playerId={playerId} onSelect={onChange} onClose={() => setOpen(false)} /> : null}
+    {open ? <KeyruneGallery value={value} usage={usage} playerId={playerId} finish={finish} color={color} onSelect={onChange} onClose={() => setOpen(false)} /> : null}
   </div>;
 }
