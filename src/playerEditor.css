@@ -1759,3 +1759,136 @@
   }
 }
 
+/* =========================
+   POWER CHECK CONTROLS V2
+========================= */
+
+.power-check-heading-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.power-check-save-all {
+  white-space: nowrap;
+}
+
+.power-check-tools {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.power-check-tools .power-check-search {
+  width: min(280px, 100%);
+}
+
+.power-check-select {
+  display: grid;
+  min-width: 170px;
+  gap: 5px;
+}
+
+.power-check-select > span {
+  padding-left: 2px;
+  color: var(--editor-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.power-check-select select {
+  min-height: 42px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--editor-border);
+  border-radius: 13px;
+  outline: none;
+  color: #eef1f6;
+  background-color: rgba(4, 6, 11, 0.72);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.power-check-select select:focus {
+  border-color: rgba(185, 241, 139, 0.42);
+  box-shadow: 0 0 0 3px rgba(185, 241, 139, 0.07);
+}
+
+.power-check-deck-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.power-check-deck-stats span {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  color: #aeb5c2;
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.power-check-bulk-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .power-check-heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .power-check-heading-actions .power-check-progress,
+  .power-check-heading-actions .power-check-save-all {
+    flex: 1 1 180px;
+  }
+
+  .power-check-tools {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .power-check-tools .power-check-search,
+  .power-check-select {
+    flex: 1 1 210px;
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .power-check-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .power-check-heading-actions .power-check-save-all,
+  .power-check-bulk-footer .power-check-save-all {
+    width: 100%;
+  }
+
+  .power-check-tools {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .power-check-tools .power-check-search,
+  .power-check-select {
+    width: 100%;
+  }
+}

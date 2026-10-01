@@ -17,6 +17,9 @@ import {
 const API_BASE_URL =
   "https://api.corneliomove.com.br/mtg-api";
 
+const DASHBOARD_URL =
+  `${API_BASE_URL}/api/dashboard`;
+
 
 type Score =
   number | null;
@@ -60,6 +63,32 @@ type PowerCheckResponse = {
 };
 
 
+type DashboardDeckStat = {
+  deck?: string;
+  nome?: string;
+  aparicoes?: number | string;
+  appearances?: number | string;
+  jogos?: number | string;
+  games?: number | string;
+  winrate?: number | string;
+};
+
+
+type DashboardResponse = {
+  leaderboards?: {
+    geral?: {
+      decks?: DashboardDeckStat[];
+    };
+  };
+};
+
+
+type DeckStat = {
+  games: number;
+  winrate: number;
+};
+
+
 type Draft = {
   powerLevel: DraftScore;
   saltLevel: DraftScore;
@@ -70,6 +99,12 @@ type Filter =
   | "pending"
   | "voted"
   | "all";
+
+
+type SortMode =
+  | "games"
+  | "winrate"
+  | "name";
 
 
 function authHeaders(
@@ -123,6 +158,58 @@ function draftFromDeck(
     saltLevel:
       deck.saltLevel,
   };
+}
+
+
+function isCompleteDraft(
+  draft: Draft | undefined,
+): draft is {
+  powerLevel: Score;
+  saltLevel: Score;
+} {
+  return Boolean(
+    draft
+    && draft.powerLevel
+      !== undefined
+    && draft.saltLevel
+      !== undefined,
+  );
+}
+
+
+function isChangedDraft(
+  deck: PowerCheckDeck,
+  draft: Draft | undefined,
+) {
+  if (!isCompleteDraft(draft)) {
+    return false;
+  }
+
+  if (!deck.hasVote) {
+    return true;
+  }
+
+  return (
+    draft.powerLevel
+      !== deck.powerLevel
+    || draft.saltLevel
+      !== deck.saltLevel
+  );
+}
+
+
+function formatWinrate(
+  value: number,
+) {
+  return `${(
+    value * 100
+  ).toLocaleString(
+    "pt-BR",
+    {
+      maximumFractionDigits:
+        1,
+    },
+  )}% WR`;
 }
 
 
@@ -258,6 +345,25 @@ PowerCheckPanel({
   ] = useState("");
 
   const [
+    ownerFilter,
+    setOwnerFilter,
+  ] = useState("all");
+
+  const [
+    sortMode,
+    setSortMode,
+  ] = useState<SortMode>(
+    "games",
+  );
+
+  const [
+    deckStats,
+    setDeckStats,
+  ] = useState<
+    Record<string, DeckStat>
+  >({});
+
+  const [
     drafts,
     setDrafts,
   ] = useState<
@@ -272,6 +378,11 @@ PowerCheckPanel({
   >(null);
 
   const [
+    savingAll,
+    setSavingAll,
+  ] = useState(false);
+
+  const [
     deepLinkDeckId,
     setDeepLinkDeckId,
   ] = useState<
@@ -280,6 +391,7 @@ PowerCheckPanel({
 
   const handledDeepLink =
     useRef("");
+
 
 
   function applyResponse(
@@ -313,33 +425,108 @@ PowerCheckPanel({
       setLoading(true);
       setError("");
 
-      const response =
-        await fetch(
-          `${API_BASE_URL}/api/editor/power-check`,
-          {
-            headers:
-              authHeaders(
-                token,
-              ),
-          },
-        );
+      const [
+        powerResponse,
+        dashboardResponse,
+      ] =
+        await Promise.all([
+          fetch(
+            `${API_BASE_URL}/api/editor/power-check`,
+            {
+              headers:
+                authHeaders(
+                  token,
+                ),
+            },
+          ),
 
-      const json =
-        (await response.json()) as PowerCheckResponse;
+          fetch(
+            `${DASHBOARD_URL}?t=${Date.now()}`,
+          ),
+        ]);
+
+      const powerJson =
+        (await powerResponse.json()) as PowerCheckResponse;
 
       if (
-        !response.ok
-        || json.ok === false
-        || json.error
+        !powerResponse.ok
+        || powerJson.ok === false
+        || powerJson.error
       ) {
         throw new Error(
-          json.error
+          powerJson.error
           || "Não foi possível carregar o Power Check.",
         );
       }
 
+      const dashboardJson =
+        dashboardResponse.ok
+          ? (await dashboardResponse.json()) as DashboardResponse
+          : {};
+
+      const dashboardDecks =
+        dashboardJson
+          .leaderboards
+          ?.geral
+          ?.decks
+        ?? [];
+
+      setDeckStats(
+        Object.fromEntries(
+          dashboardDecks
+            .map(
+              (deck) => {
+                const name =
+                  String(
+                    deck.deck
+                    || deck.nome
+                    || "",
+                  ).trim();
+
+                const games =
+                  Number(
+                    deck.aparicoes
+                    ?? deck.appearances
+                    ?? deck.jogos
+                    ?? deck.games
+                    ?? 0,
+                  );
+
+                const winrate =
+                  Number(
+                    deck.winrate
+                    ?? 0,
+                  );
+
+                return [
+                  name,
+                  {
+                    games:
+                      Number.isFinite(
+                        games,
+                      )
+                        ? games
+                        : 0,
+
+                    winrate:
+                      Number.isFinite(
+                        winrate,
+                      )
+                        ? winrate
+                        : 0,
+                  },
+                ] as const;
+              },
+            )
+            .filter(
+              ([name]) =>
+                Boolean(name),
+            ),
+        ),
+      );
+
       applyResponse(
-        json,
+        powerJson,
       );
 
     } catch (loadError) {
@@ -354,7 +541,6 @@ PowerCheckPanel({
       setLoading(false);
     }
   }
-
 
   useEffect(
     () => {
@@ -386,6 +572,48 @@ PowerCheckPanel({
     );
 
 
+  const authors =
+    useMemo(
+      () =>
+        Array.from(
+          new Set(
+            decks
+              .map(
+                (deck) =>
+                  deck.owner.trim(),
+              )
+              .filter(Boolean),
+          ),
+        ).sort(
+          (a, b) =>
+            a.localeCompare(
+              b,
+              "pt-BR",
+            ),
+        ),
+      [decks],
+    );
+
+
+  const readyToSave =
+    useMemo(
+      () =>
+        decks.filter(
+          (deck) =>
+            isChangedDraft(
+              deck,
+              drafts[
+                deck.deckId
+              ],
+            ),
+        ),
+      [
+        decks,
+        drafts,
+      ],
+    );
+
+
   const visible =
     useMemo(
       () => {
@@ -396,45 +624,114 @@ PowerCheckPanel({
               "pt-BR",
             );
 
-        return decks.filter(
-          (deck) => {
-            if (
-              filter === "pending"
-              && deck.hasVote
-            ) {
-              return false;
-            }
+        return decks
+          .filter(
+            (deck) => {
+              if (
+                filter === "pending"
+                && deck.hasVote
+              ) {
+                return false;
+              }
 
-            if (
-              filter === "voted"
-              && !deck.hasVote
-            ) {
-              return false;
-            }
+              if (
+                filter === "voted"
+                && !deck.hasVote
+              ) {
+                return false;
+              }
 
-            if (!needle) {
-              return true;
-            }
+              if (
+                ownerFilter
+                  !== "all"
+                && deck.owner
+                  !== ownerFilter
+              ) {
+                return false;
+              }
 
-            return [
-              deck.deck,
-              deck.commander,
-              deck.owner,
-            ]
-              .join(" ")
-              .toLocaleLowerCase(
-                "pt-BR",
-              )
-              .includes(
-                needle,
+              if (!needle) {
+                return true;
+              }
+
+              return [
+                deck.deck,
+                deck.commander,
+                deck.owner,
+              ]
+                .join(" ")
+                .toLocaleLowerCase(
+                  "pt-BR",
+                )
+                .includes(
+                  needle,
+                );
+            },
+          )
+          .sort(
+            (a, b) => {
+              const aStats =
+                deckStats[
+                  a.deck
+                ] ?? {
+                  games: 0,
+                  winrate: 0,
+                };
+
+              const bStats =
+                deckStats[
+                  b.deck
+                ] ?? {
+                  games: 0,
+                  winrate: 0,
+                };
+
+              if (
+                sortMode
+                === "winrate"
+              ) {
+                return (
+                  bStats.winrate
+                    - aStats.winrate
+                  || bStats.games
+                    - aStats.games
+                  || a.deck.localeCompare(
+                    b.deck,
+                    "pt-BR",
+                  )
+                );
+              }
+
+              if (
+                sortMode
+                === "name"
+              ) {
+                return a.deck.localeCompare(
+                  b.deck,
+                  "pt-BR",
+                );
+              }
+
+              return (
+                bStats.games
+                  - aStats.games
+                || bStats.winrate
+                  - aStats.winrate
+                || a.deck.localeCompare(
+                  b.deck,
+                  "pt-BR",
+                )
               );
-          },
-        );
+            },
+          );
       },
       [
         decks,
+        deckStats,
         filter,
+        ownerFilter,
         search,
+        sortMode,
       ],
     );
 
@@ -485,6 +782,9 @@ PowerCheckPanel({
         key;
 
       setFilter(
+        "all",
+      );
+      setOwnerFilter(
         "all",
       );
       setSearch(
@@ -677,6 +977,134 @@ PowerCheckPanel({
   }
 
 
+  async function saveAll() {
+    const targets =
+      readyToSave
+        .map(
+          (deck) => ({
+            deck,
+            draft:
+              drafts[
+                deck.deckId
+              ],
+          }),
+        )
+        .filter(
+          (
+            item,
+          ): item is {
+            deck: PowerCheckDeck;
+            draft: {
+              powerLevel: Score;
+              saltLevel: Score;
+            };
+          } =>
+            isCompleteDraft(
+              item.draft,
+            ),
+        );
+
+    if (!targets.length) {
+      setNotice(
+        "Nenhuma avaliação completa foi alterada.",
+      );
+      return;
+    }
+
+    try {
+      setSavingAll(true);
+      setSavingDeckId(null);
+      setError("");
+      setNotice("");
+
+      let latest:
+        PowerCheckResponse
+        | null =
+          null;
+
+      for (
+        const {
+          deck,
+          draft,
+        }
+        of targets
+      ) {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/editor/power-check/${deck.deckId}`,
+            {
+              method:
+                "PUT",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                ...authHeaders(
+                  token,
+                ),
+              },
+
+              body:
+                JSON.stringify({
+                  powerLevel:
+                    draft.powerLevel,
+
+                  saltLevel:
+                    draft.saltLevel,
+                }),
+            },
+          );
+
+        const json =
+          (await response.json()) as PowerCheckResponse;
+
+        if (
+          !response.ok
+          || json.ok === false
+          || json.error
+        ) {
+          throw new Error(
+            json.error
+            || `Não foi possível salvar ${deck.deck}.`,
+          );
+        }
+
+        latest =
+          json;
+      }
+
+      if (latest) {
+        applyResponse(
+          latest,
+        );
+      }
+
+      setNotice(
+        targets.length === 1
+          ? "1 avaliação salva."
+          : `${targets.length} avaliações salvas.`,
+      );
+
+    } catch (saveError) {
+      const message =
+        saveError
+        instanceof Error
+          ? `${saveError.message} As avaliações anteriores deste lote podem já ter sido salvas.`
+          : "Não foi possível concluir o salvamento em lote.";
+
+      await load();
+
+      setError(
+        message,
+      );
+
+    } finally {
+      setSavingAll(false);
+    }
+  }
+
+
   return (
     <>
       <div className="editor-page-heading power-check-heading">
@@ -694,14 +1122,44 @@ PowerCheckPanel({
           </p>
         </div>
 
-        <div className="power-check-progress">
-          <strong>
-            {summary.voted}/{summary.total}
-          </strong>
+        <div className="power-check-heading-actions">
+          <div className="power-check-progress">
+            <strong>
+              {summary.voted}/{summary.total}
+            </strong>
 
-          <span>
-            decks avaliados
-          </span>
+            <span>
+              decks avaliados
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="editor-primary-button power-check-save-all"
+            disabled={
+              savingAll
+              || savingDeckId
+                !== null
+              || readyToSave.length
+                === 0
+            }
+            onClick={() =>
+              void saveAll()
+            }
+          >
+            {savingAll ? (
+              <LoaderCircle
+                size={17}
+                className="spin"
+              />
+            ) : (
+              <Save size={17} />
+            )}
+
+            {savingAll
+              ? "Salvando..."
+              : `Salvar todos (${readyToSave.length})`}
+          </button>
         </div>
       </div>
 
@@ -769,20 +1227,73 @@ PowerCheckPanel({
           </button>
         </div>
 
-        <label className="power-check-search">
-          <Search size={17} />
+        <div className="power-check-tools">
+          <label className="power-check-search">
+            <Search size={17} />
 
-          <input
-            value={search}
-            onChange={
-              (event) =>
-                setSearch(
-                  event.target.value,
-                )
-            }
-            placeholder="Buscar deck..."
-          />
-        </label>
+            <input
+              value={search}
+              onChange={
+                (event) =>
+                  setSearch(
+                    event.target.value,
+                  )
+              }
+              placeholder="Buscar deck..."
+            />
+          </label>
+
+          <label className="power-check-select">
+            <span>Autor</span>
+            <select
+              value={ownerFilter}
+              onChange={
+                (event) =>
+                  setOwnerFilter(
+                    event.target.value,
+                  )
+              }
+            >
+              <option value="all">
+                Todos os autores
+              </option>
+
+              {authors.map(
+                (author) => (
+                  <option
+                    key={author}
+                    value={author}
+                  >
+                    {author}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+
+          <label className="power-check-select">
+            <span>Ordenar</span>
+            <select
+              value={sortMode}
+              onChange={
+                (event) =>
+                  setSortMode(
+                    event.target.value as SortMode,
+                  )
+              }
+            >
+              <option value="games">
+                Mais partidas
+              </option>
+              <option value="winrate">
+                Maior winrate
+              </option>
+              <option value="name">
+                Nome A-Z
+              </option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {notice ? (
@@ -838,6 +1349,14 @@ PowerCheckPanel({
               const saving =
                 savingDeckId
                 === deck.deckId;
+
+              const stats =
+                deckStats[
+                  deck.deck
+                ] ?? {
+                  games: 0,
+                  winrate: 0,
+                };
 
               return (
                 <article
@@ -906,6 +1425,17 @@ PowerCheckPanel({
                           {deck.owner}
                         </p>
                       ) : null}
+
+                      <div className="power-check-deck-stats">
+                        <span>
+                          {stats.games} {stats.games === 1 ? "partida" : "partidas"}
+                        </span>
+                        <span>
+                          {formatWinrate(
+                            stats.winrate,
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -914,7 +1444,10 @@ PowerCheckPanel({
                     value={
                       draft.powerLevel
                     }
-                    disabled={saving}
+                    disabled={
+                      saving
+                      || savingAll
+                    }
                     onChange={
                       (value) =>
                         updateDraft(
@@ -930,7 +1463,10 @@ PowerCheckPanel({
                     value={
                       draft.saltLevel
                     }
-                    disabled={saving}
+                    disabled={
+                      saving
+                      || savingAll
+                    }
                     onChange={
                       (value) =>
                         updateDraft(
@@ -985,7 +1521,8 @@ PowerCheckPanel({
                       type="button"
                       className="editor-primary-button"
                       disabled={
-                        saving
+                        savingAll
+                        || saving
                         || draft.powerLevel
                           === undefined
                         || draft.saltLevel
@@ -1019,6 +1556,38 @@ PowerCheckPanel({
               );
             },
           )}
+        </div>
+      ) : null}
+
+      {!loading ? (
+        <div className="power-check-bulk-footer">
+          <button
+            type="button"
+            className="editor-primary-button power-check-save-all"
+            disabled={
+              savingAll
+              || savingDeckId
+                !== null
+              || readyToSave.length
+                === 0
+            }
+            onClick={() =>
+              void saveAll()
+            }
+          >
+            {savingAll ? (
+              <LoaderCircle
+                size={17}
+                className="spin"
+              />
+            ) : (
+              <Save size={17} />
+            )}
+
+            {savingAll
+              ? "Salvando..."
+              : `Salvar todos (${readyToSave.length})`}
+          </button>
         </div>
       ) : null}
     </>
