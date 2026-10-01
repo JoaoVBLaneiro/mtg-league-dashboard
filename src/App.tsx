@@ -29,8 +29,8 @@ import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
-import DynamicDeckTagBadges from "./DynamicDeckTagBadges";
-import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck, readDeckTags, type DeckCategory } from "./deckMetadata";
+import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBadges";
+import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
 
@@ -5000,7 +5000,7 @@ function ProfileModal({
   onSelectDeck: (deck: Deck) => void;
   onFblthpClick: () => void;
   onOriginClick: (origin: DeckOriginInfo) => void;
-  onCategoryClick: (category: DeckCategory) => void;
+  onCategoryClick: (tag: DeckTagSelection) => void;
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
@@ -5229,7 +5229,7 @@ function ProfileModal({
                 <DynamicDeckTagBadges
                   categories={(item as Deck).categories}
                   compact
-                  onSystemCategoryClick={onCategoryClick}
+                  onTagClick={onCategoryClick}
                 />
                 <DeckLabels
                   inactive={(item as Deck).inactive}
@@ -7521,22 +7521,86 @@ function FblthpInfoModal({
 }
 
 function CategoryDecksModal({ category, decks, onSelectDeck, onClose }: {
-  category: DeckCategory; decks: Deck[]; onSelectDeck: (deck: Deck) => void; onClose: () => void;
+  category: DeckTagSelection; decks: Deck[]; onSelectDeck: (deck: Deck) => void; onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const info = DECK_CATEGORIES.find((item) => item.id === category)!;
-  const matching = decksInCategory(decks, category);
-  useEffect(() => { if (dialog.current && !dialog.current.open) dialog.current.showModal(); }, []);
+
+  const legacyInfo =
+    category.isLegacy
+      ? DECK_CATEGORIES.find(
+          (item) =>
+            item.id === category.slug,
+        )
+      : undefined;
+
+  const matching =
+    decks.filter(
+      (deck) =>
+        isAvailableDeck(deck)
+        &&
+        (deck.categories ?? [])
+          .includes(
+            category.slug,
+          ),
+    );
+
+  const customIconStyle =
+    legacyInfo
+      ? undefined
+      : {
+          color:
+            category.color,
+          borderColor:
+            `${category.color}80`,
+          backgroundColor:
+            `${category.color}18`,
+        };
+
+  useEffect(() => {
+    if (
+      dialog.current
+      &&
+      !dialog.current.open
+    ) {
+      dialog.current.showModal();
+    }
+  }, []);
+
   return <dialog ref={dialog} className="category-decks-dialog" aria-labelledby="category-decks-title"
     onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose}>
-    <button className="modal-close" type="button" onClick={onClose} aria-label="Fechar decks da categoria" autoFocus>×</button>
+    <button className="modal-close" type="button" onClick={onClose} aria-label="Fechar decks da tag" autoFocus>×</button>
     <div className="origin-decks-header">
-      <div className={`origin-decks-icon mtg-deck-category-${category}`}><DeckCategoryIcon category={category} size={32} /></div>
-      <div><span className="profile-type">Categoria</span><h2 id="category-decks-title">{info.label}</h2>
+      <div
+        className={
+          legacyInfo
+            ? `origin-decks-icon mtg-deck-category-${legacyInfo.id}`
+            : "origin-decks-icon"
+        }
+        style={customIconStyle}
+      >
+        {legacyInfo ? (
+          <DeckCategoryIcon
+            category={legacyInfo.id}
+            size={32}
+          />
+        ) : (
+          <i
+            className={category.keyruneClass}
+            style={{
+              color:
+                category.color,
+              fontSize:
+                32,
+            }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+      <div><span className="profile-type">Tag</span><h2 id="category-decks-title">{category.label}</h2>
         <p>{matching.length} {matching.length === 1 ? "deck encontrado" : "decks encontrados"}</p></div>
     </div>
     <div className="origin-decks-list">
-      {!matching.length ? <div className="loading-box">Nenhum deck cadastrado nesta categoria.</div> : matching.map((deck, index) => (
+      {!matching.length ? <div className="loading-box">Nenhum deck cadastrado nesta tag.</div> : matching.map((deck, index) => (
         <LeaderboardCard key={deck.name} item={deck} index={index} type="deck" onClick={() => onSelectDeck(deck)} />
       ))}
     </div>
@@ -8420,7 +8484,7 @@ function DashboardApp() {
   const [showRegisteredDecksModal, setShowRegisteredDecksModal] = useState(false);
 
   const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
-  const [selectedCategory, setSelectedCategory] = useState<DeckCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<DeckTagSelection | null>(null);
   const [manualCatalogPlayer, setManualCatalogPlayer] = useState<string | null>(null);
   const [manualAchievement, setManualAchievement] = useState<PlayerAchievement | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);

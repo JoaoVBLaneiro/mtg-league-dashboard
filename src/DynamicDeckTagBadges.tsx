@@ -4,7 +4,7 @@ import {
 } from "react";
 
 import {
-  DeckLabels,
+  DeckCategoryIcon,
 } from "./DeckLabels";
 
 import type {
@@ -20,12 +20,13 @@ const API_URL =
   "https://api.corneliomove.com.br/mtg-api/api/deck-tags";
 
 
-export type SystemDeckTag =
-  | "aggro"
-  | "combo"
-  | "tribal"
-  | "universes-beyond"
-  | "marvel";
+export type DeckTagSelection = {
+  slug: string;
+  label: string;
+  keyruneClass: string;
+  color: string;
+  isLegacy: boolean;
+};
 
 
 type AppearanceMode =
@@ -46,8 +47,8 @@ type TagDefinition = {
 type Props = {
   categories?: readonly string[];
   compact?: boolean;
-  onSystemCategoryClick?: (
-    category: SystemDeckTag,
+  onTagClick?: (
+    tag: DeckTagSelection,
   ) => void;
 };
 
@@ -172,7 +173,7 @@ function alpha(
 export default function DynamicDeckTagBadges({
   categories = [],
   compact = false,
-  onSystemCategoryClick,
+  onTagClick,
 }: Props) {
   const [
     definitions,
@@ -269,165 +270,161 @@ export default function DynamicDeckTagBadges({
       );
 
 
-  const legacy =
-    visible.filter(
-      (tag) =>
-        tag.appearanceMode
-        === "legacy"
-        &&
-        SYSTEM_TAGS.has(
-          tag.slug,
-        ),
-    );
-
-
-  const custom =
-    visible.filter(
-      (tag) =>
-        !legacy.includes(
-          tag,
-        ),
-    );
-
-
   return (
-    <>
-      {legacy.length ? (
-        <DeckLabels
-          categories={
-            legacy.map(
-              (tag) =>
-                (tag.slug as DeckCategory),
-            )
-          }
-          compact={compact}
-          onCategoryClick={
-            onSystemCategoryClick
-              ? (category) =>
-                  onSystemCategoryClick(
-                    category as SystemDeckTag,
-                  )
-              : undefined
-          }
-        />
-      ) : null}
+    <span
+      className={
+        `mtg-deck-labels${
+          compact
+            ? " mtg-deck-labels-compact"
+            : ""
+        }`
+      }
+    >
+      {visible.map(
+        (tag) => {
+          const isLegacy =
+            tag.appearanceMode
+            === "legacy"
+            &&
+            SYSTEM_TAGS.has(
+              tag.slug,
+            );
 
+          const legacyCategory =
+            isLegacy
+              ? (tag.slug as DeckCategory)
+              : null;
 
-      {custom.length ? (
-        <div
-          className={
-            `dynamic-deck-tags${
-              compact
-                ? " compact"
-                : ""
-            }`
-          }
-        >
-          {custom.map(
-            (tag) => {
-              const iconSize =
-                compact
-                  ? 32
-                  : 36;
+          const keyruneClass =
+            plainTagKeyrune(
+              tag.keyruneClass,
+            );
 
-              const style = {
-                color:
-                  tag.color,
-                borderColor:
-                  alpha(
+          const selection:
+            DeckTagSelection = {
+              slug:
+                tag.slug,
+              label:
+                tag.label,
+              keyruneClass,
+              color:
+                tag.color,
+              isLegacy,
+            };
+
+          const className =
+            isLegacy
+              ? `mtg-deck-label mtg-deck-category-button mtg-deck-category-${tag.slug}`
+              : "mtg-deck-label mtg-deck-category-button";
+
+          const customStyle =
+            isLegacy
+              ? undefined
+              : {
+                  color:
                     tag.color,
-                    "80",
-                  ),
-                backgroundColor:
-                  alpha(
-                    tag.color,
-                    "18",
-                  ),
-                width:
-                  iconSize,
-                minWidth:
-                  iconSize,
-                height:
-                  iconSize,
-                padding:
-                  0,
-                borderRadius:
-                  "999px",
-                display:
-                  "inline-flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                gap:
-                  0,
-                lineHeight:
-                  1,
-                flex:
-                  `0 0 ${iconSize}px`,
-              };
-
-              const body = (
-                <i
-                  className={
-                    plainTagKeyrune(
-                      tag.keyruneClass,
-                    )
-                  }
-                  style={{
-                    color:
+                  borderColor:
+                    alpha(
                       tag.color,
-                    fontSize:
-                      compact
-                        ? 18
-                        : 20,
-                  }}
-                  aria-hidden="true"
-                />
-              );
+                      "80",
+                    ),
+                  backgroundColor:
+                    alpha(
+                      tag.color,
+                      "18",
+                    ),
+                };
 
-              if (
-                onSystemCategoryClick
-                &&
-                SYSTEM_TAGS.has(
-                  tag.slug,
-                )
-              ) {
-                return (
-                  <button
-                    type="button"
-                    key={tag.slug}
-                    className="dynamic-deck-tag"
-                    style={style}
-                    title={tag.label}
-                    aria-label={tag.label}
-                    onClick={() =>
-                      onSystemCategoryClick(
-                        (tag.slug as SystemDeckTag),
-                      )
+          const icon =
+            legacyCategory
+              ? (
+                  <DeckCategoryIcon
+                    category={
+                      legacyCategory
                     }
-                  >
-                    {body}
-                  </button>
+                    size={20}
+                  />
+                )
+              : (
+                  <i
+                    className={
+                      `${keyruneClass} mtg-deck-set-symbol`
+                    }
+                    style={{
+                      fontSize:
+                        20,
+                      color:
+                        tag.color,
+                    }}
+                    aria-hidden="true"
+                  />
                 );
-              }
 
-              return (
-                <span
-                  key={tag.slug}
-                  className="dynamic-deck-tag"
-                  style={style}
-                  title={tag.label}
-                  aria-label={tag.label}
-                  role="img"
-                >
-                  {body}
+          if (onTagClick) {
+            return (
+              <button
+                type="button"
+                className={
+                  className
+                }
+                key={tag.slug}
+                style={
+                  customStyle
+                }
+                data-tooltip={
+                  tag.label
+                }
+                title={
+                  tag.label
+                }
+                aria-label={
+                  `Ver decks da tag ${tag.label}`
+                }
+                onClick={
+                  (event) => {
+                    event.stopPropagation();
+                    onTagClick(
+                      selection,
+                    );
+                  }
+                }
+              >
+                {icon}
+                {!compact ? (
+                  <span>
+                    {tag.label}
+                  </span>
+                ) : null}
+              </button>
+            );
+          }
+
+          return (
+            <span
+              className={
+                className
+              }
+              key={tag.slug}
+              style={
+                customStyle
+              }
+              title={
+                tag.label
+              }
+              aria-label={
+                tag.label
+              }
+            >
+              {icon}
+              {!compact ? (
+                <span>
+                  {tag.label}
                 </span>
-              );
-            },
-          )}
-        </div>
-      ) : null}
-    </>
+              ) : null}
+            </span>
+          );
+        },
+      )}
+    </span>
   );
 }
