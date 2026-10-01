@@ -325,6 +325,11 @@ export default function DynamicDeckTagBadges({
         >
           {custom.map(
             (tag) => {
+              const iconSize =
+                compact
+                  ? 32
+                  : 36;
+
               const style = {
                 color:
                   tag.color,
@@ -338,25 +343,47 @@ export default function DynamicDeckTagBadges({
                     tag.color,
                     "18",
                   ),
+                width:
+                  iconSize,
+                minWidth:
+                  iconSize,
+                height:
+                  iconSize,
+                padding:
+                  0,
+                borderRadius:
+                  "999px",
+                display:
+                  "inline-flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "center",
+                gap:
+                  0,
+                lineHeight:
+                  1,
+                flex:
+                  `0 0 ${iconSize}px`,
               };
 
               const body = (
-                <>
-                  <i
-                    className={
-                      plainTagKeyrune(
-                        tag.keyruneClass,
-                      )
-                    }
-                    style={{
-                      color:
-                        tag.color,
-                    }}
-                  />
-                  <span>
-                    {tag.label}
-                  </span>
-                </>
+                <i
+                  className={
+                    plainTagKeyrune(
+                      tag.keyruneClass,
+                    )
+                  }
+                  style={{
+                    color:
+                      tag.color,
+                    fontSize:
+                      compact
+                        ? 18
+                        : 20,
+                  }}
+                  aria-hidden="true"
+                />
               );
 
               if (
@@ -372,6 +399,8 @@ export default function DynamicDeckTagBadges({
                     key={tag.slug}
                     className="dynamic-deck-tag"
                     style={style}
+                    title={tag.label}
+                    aria-label={tag.label}
                     onClick={() =>
                       onSystemCategoryClick(
                         (tag.slug as SystemDeckTag),
@@ -388,6 +417,9 @@ export default function DynamicDeckTagBadges({
                   key={tag.slug}
                   className="dynamic-deck-tag"
                   style={style}
+                  title={tag.label}
+                  aria-label={tag.label}
+                  role="img"
                 >
                   {body}
                 </span>
