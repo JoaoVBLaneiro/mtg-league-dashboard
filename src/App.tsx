@@ -30,7 +30,7 @@ import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import DynamicDeckTagBadges from "./DynamicDeckTagBadges";
-import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck, readDeckCategories, type DeckCategory } from "./deckMetadata";
+import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck, readDeckTags, type DeckCategory } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
 
@@ -875,7 +875,7 @@ function normalizeDecks(
   return decks
     .map((item) => ({
       name: item.deck || item.nome || "Deck sem nome",
-      categories: readDeckCategories(item.categorias),
+      categories: readDeckTags(item.categorias),
       inactive: item.inativo === true,
       deleted: item.excluido === true,
       appearances: Number(item.aparicoes || item.appearances || item.jogos || 0),

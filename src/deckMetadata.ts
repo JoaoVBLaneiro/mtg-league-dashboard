@@ -8,13 +8,29 @@ export const DECK_CATEGORIES = [
 
 export type DeckCategory = typeof DECK_CATEGORIES[number]["id"];
 
-export function readDeckCategories(value: unknown): DeckCategory[] {
+export function readDeckTags(value: unknown): string[] {
   let parsed = value;
+
   if (typeof value === "string") {
-    try { parsed = JSON.parse(value); } catch { return []; }
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [];
+    }
   }
+
   if (!Array.isArray(parsed)) return [];
-  return DECK_CATEGORIES.map((category) => category.id).filter((id) => parsed.includes(id));
+
+  const tags = parsed
+    .map((item) => typeof item === "string" ? item.trim().toLowerCase() : "")
+    .filter((item) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item));
+
+  return [...new Set(tags)];
+}
+
+export function readDeckCategories(value: unknown): DeckCategory[] {
+  const tags = readDeckTags(value);
+  return DECK_CATEGORIES.map((category) => category.id).filter((id) => tags.includes(id));
 }
 
 export function toggleDeckCategory(value: unknown, category: DeckCategory) {
