@@ -3,6 +3,14 @@ import {
   useState,
 } from "react";
 
+import {
+  DeckLabels,
+} from "./DeckLabels";
+
+import type {
+  DeckCategory,
+} from "./deckMetadata";
+
 
 const API_URL =
   "https://api.corneliomove.com.br/mtg-api/api/deck-tags";
@@ -16,12 +24,18 @@ export type SystemDeckTag =
   | "marvel";
 
 
+type AppearanceMode =
+  | "legacy"
+  | "custom";
+
+
 type TagDefinition = {
   slug: string;
   label: string;
   keyruneClass: string;
   color: string;
   displayOrder: number;
+  appearanceMode: AppearanceMode;
 };
 
 
@@ -45,42 +59,29 @@ const SYSTEM_TAGS =
 
 
 const FALLBACK: TagDefinition[] = [
-  {
-    slug: "aggro",
-    label: "Aggro",
-    keyruneClass: "ss ss-one",
-    color: "#ef4444",
-    displayOrder: 10,
-  },
-  {
-    slug: "combo",
-    label: "Combo",
-    keyruneClass: "ss ss-stx",
-    color: "#a855f7",
-    displayOrder: 20,
-  },
-  {
-    slug: "tribal",
-    label: "Tribal",
-    keyruneClass: "ss ss-lrw",
-    color: "#22c55e",
-    displayOrder: 30,
-  },
-  {
-    slug: "universes-beyond",
-    label: "Universes Beyond",
-    keyruneClass: "ss ss-who",
-    color: "#38bdf8",
-    displayOrder: 40,
-  },
-  {
-    slug: "marvel",
-    label: "Marvel",
-    keyruneClass: "ss ss-spm",
-    color: "#f59e0b",
-    displayOrder: 50,
-  },
-];
+  "aggro",
+  "combo",
+  "tribal",
+  "universes-beyond",
+  "marvel",
+].map(
+  (slug, index) => ({
+    slug,
+    label:
+      slug === "universes-beyond"
+        ? "Universes Beyond"
+        : slug[0]!.toUpperCase()
+          + slug.slice(1),
+    keyruneClass:
+      "ss ss-cmd",
+    color:
+      "#8b5cf6",
+    displayOrder:
+      (index + 1) * 10,
+    appearanceMode:
+      "legacy" as const,
+  }),
+);
 
 
 let cached:
@@ -236,6 +237,8 @@ export default function DynamicDeckTagBadges({
               "#8b5cf6",
             displayOrder:
               9999,
+            appearanceMode:
+              "custom" as const,
           },
       )
       .sort(
@@ -250,81 +253,128 @@ export default function DynamicDeckTagBadges({
       );
 
 
+  const legacy =
+    visible.filter(
+      (tag) =>
+        tag.appearanceMode
+        === "legacy"
+        &&
+        SYSTEM_TAGS.has(
+          tag.slug,
+        ),
+    );
+
+
+  const custom =
+    visible.filter(
+      (tag) =>
+        !legacy.includes(
+          tag,
+        ),
+    );
+
+
   return (
-    <div
-      className={
-        `dynamic-deck-tags${
-          compact
-            ? " compact"
-            : ""
-        }`
-      }
-    >
-      {visible.map(
-        (tag) => {
-          const style = {
-            color:
-              tag.color,
-            borderColor:
-              alpha(
-                tag.color,
-                "80",
-              ),
-            backgroundColor:
-              alpha(
-                tag.color,
-                "18",
-              ),
-          };
-
-          const body = (
-            <>
-              <i
-                className={
-                  tag.keyruneClass
-                  || "ss ss-cmd"
-                }
-              />
-              <span>
-                {tag.label}
-              </span>
-            </>
-          );
-
-          if (
-            onSystemCategoryClick
-            && SYSTEM_TAGS.has(
-              tag.slug,
+    <>
+      {legacy.length ? (
+        <DeckLabels
+          categories={
+            legacy.map(
+              (tag) =>
+                (tag.slug as DeckCategory),
             )
-          ) {
-            return (
-              <button
-                type="button"
-                key={tag.slug}
-                className="dynamic-deck-tag"
-                style={style}
-                onClick={() =>
-                  onSystemCategoryClick(
-                    tag.slug as SystemDeckTag,
-                  )
-                }
-              >
-                {body}
-              </button>
-            );
           }
+          compact={compact}
+          onCategoryClick={
+            onSystemCategoryClick
+              ? (category) =>
+                  onSystemCategoryClick(
+                    category as SystemDeckTag,
+                  )
+              : undefined
+          }
+        />
+      ) : null}
 
-          return (
-            <span
-              key={tag.slug}
-              className="dynamic-deck-tag"
-              style={style}
-            >
-              {body}
-            </span>
-          );
-        },
-      )}
-    </div>
+
+      {custom.length ? (
+        <div
+          className={
+            `dynamic-deck-tags${
+              compact
+                ? " compact"
+                : ""
+            }`
+          }
+        >
+          {custom.map(
+            (tag) => {
+              const style = {
+                color:
+                  tag.color,
+                borderColor:
+                  alpha(
+                    tag.color,
+                    "80",
+                  ),
+                backgroundColor:
+                  alpha(
+                    tag.color,
+                    "18",
+                  ),
+              };
+
+              const body = (
+                <>
+                  <i
+                    className={
+                      tag.keyruneClass
+                      || "ss ss-cmd"
+                    }
+                  />
+                  <span>
+                    {tag.label}
+                  </span>
+                </>
+              );
+
+              if (
+                onSystemCategoryClick
+                &&
+                SYSTEM_TAGS.has(
+                  tag.slug,
+                )
+              ) {
+                return (
+                  <button
+                    type="button"
+                    key={tag.slug}
+                    className="dynamic-deck-tag"
+                    style={style}
+                    onClick={() =>
+                      onSystemCategoryClick(
+                        (tag.slug as SystemDeckTag),
+                      )
+                    }
+                  >
+                    {body}
+                  </button>
+                );
+              }
+
+              return (
+                <span
+                  key={tag.slug}
+                  className="dynamic-deck-tag"
+                  style={style}
+                >
+                  {body}
+                </span>
+              );
+            },
+          )}
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -1316,3 +1316,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ADMIN DECK TAGS V2 — LEGACY VISUAL PRESERVATION */
+.editor-admin-tag-card-visual {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.editor-admin-tag-card-visual .deck-labels,
+.editor-admin-tag-card-visual .deck-label-row,
+.editor-admin-tag-legacy-preview .deck-labels,
+.editor-admin-tag-legacy-preview .deck-label-row {
+  margin: 0;
+}
+
+.editor-admin-tag-legacy-preview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.editor-admin-tag-legacy-preview > span {
+  color: var(--editor-muted);
+  font-size: 12px;
+}
+
+.editor-admin-tag-appearance-actions {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.editor-admin-tag-card .editor-admin-tag-preview-badge {
+  max-width: 100%;
+}

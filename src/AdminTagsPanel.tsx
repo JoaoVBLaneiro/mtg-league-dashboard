@@ -2,15 +2,30 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LoaderCircle,
   Plus,
+  RotateCcw,
   Save,
+  Wand2,
 } from "lucide-react";
 
+import {
+  DeckLabels,
+} from "./DeckLabels";
 import KeyrunePicker from "./KeyrunePicker";
-import type { KeyruneUsage } from "./keyruneSymbols";
+import type {
+  DeckCategory,
+} from "./deckMetadata";
+import type {
+  KeyruneUsage,
+} from "./keyruneSymbols";
 
 
 const API_BASE_URL =
   "https://api.corneliomove.com.br/mtg-api";
+
+
+type AppearanceMode =
+  | "legacy"
+  | "custom";
 
 
 type AdminDeckTag = {
@@ -21,6 +36,7 @@ type AdminDeckTag = {
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
+  appearanceMode: AppearanceMode;
   deckCount: number;
 };
 
@@ -49,6 +65,7 @@ type TagDraft = {
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
+  appearanceMode: AppearanceMode;
   deckIds: number[];
 };
 
@@ -65,9 +82,12 @@ type Props = {
 };
 
 
-function authHeaders(token: string) {
+function authHeaders(
+  token: string,
+) {
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization:
+      `Bearer ${token}`,
   };
 }
 
@@ -151,11 +171,13 @@ async function writeTag(
           creating
             ? "POST"
             : "PUT",
+
         headers: {
           "Content-Type":
             "application/json",
           ...authHeaders(token),
         },
+
         body:
           JSON.stringify({
             label:
@@ -168,6 +190,8 @@ async function writeTag(
               draft.displayOrder,
             isActive:
               draft.isActive,
+            appearanceMode:
+              draft.appearanceMode,
           }),
       },
     );
@@ -194,11 +218,13 @@ async function writeAssignments(
       `${API_BASE_URL}/api/admin/tags/${encodeURIComponent(slug)}/assignments`,
       {
         method: "POST",
+
         headers: {
           "Content-Type":
             "application/json",
           ...authHeaders(token),
         },
+
         body:
           JSON.stringify({
             deckIds,
@@ -226,8 +252,27 @@ function emptyDraft(): TagDraft {
       true,
     isSystem:
       false,
+    appearanceMode:
+      "custom",
     deckIds: [],
   };
+}
+
+
+function isLegacySystem(
+  tag: Pick<
+    TagDraft,
+    "slug"
+    | "isSystem"
+    | "appearanceMode"
+  >,
+) {
+  return (
+    tag.isSystem
+    &&
+    tag.appearanceMode
+    === "legacy"
+  );
 }
 
 
@@ -311,6 +356,13 @@ export default function AdminTagsPanel({
         tag.isActive,
       isSystem:
         tag.isSystem,
+      appearanceMode:
+        tag.appearanceMode
+        ?? (
+          tag.isSystem
+            ? "legacy"
+            : "custom"
+        ),
       deckIds:
         availableDecks
           .filter(
@@ -433,6 +485,38 @@ export default function AdminTagsPanel({
   }
 
 
+  function personalizeAppearance() {
+    setDraft(
+      (current) =>
+        current
+          ? {
+              ...current,
+              appearanceMode:
+                "custom",
+              keyruneClass:
+                "ss ss-cmd",
+              color:
+                "#8b5cf6",
+            }
+          : current,
+    );
+  }
+
+
+  function restoreLegacyAppearance() {
+    setDraft(
+      (current) =>
+        current
+          ? {
+              ...current,
+              appearanceMode:
+                "legacy",
+            }
+          : current,
+    );
+  }
+
+
   async function save() {
     if (
       !draft
@@ -501,6 +585,14 @@ export default function AdminTagsPanel({
   }
 
 
+  const draftIsLegacy =
+    draft
+      ? isLegacySystem(
+          draft,
+        )
+      : false;
+
+
   return (
     <>
       <div className="editor-page-heading">
@@ -514,7 +606,7 @@ export default function AdminTagsPanel({
           </h1>
 
           <p>
-            Crie tags, altere ícone e cor e escolha quais decks recebem cada uma.
+            As tags históricas mantêm o visual original até você decidir personalizá-las.
           </p>
         </div>
 
@@ -568,68 +660,89 @@ export default function AdminTagsPanel({
 
 
           {tags.map(
-            (tag) => (
-              <button
-                type="button"
-                key={tag.slug}
-                className={
-                  `editor-admin-tag-card${
-                    selectedTag?.slug
-                    === tag.slug
-                      ? " selected"
-                      : ""
-                  }`
-                }
-                onClick={() =>
-                  selectTag(tag)
-                }
-              >
-                <span
-                  className="editor-admin-tag-icon"
-                  style={{
-                    color:
-                      tag.color,
-                    borderColor:
-                      tag.color,
-                    backgroundColor:
-                      `${tag.color}18`,
-                  }}
+            (tag) => {
+              const legacy =
+                isLegacySystem(
+                  tag,
+                );
+
+              return (
+                <button
+                  type="button"
+                  key={tag.slug}
+                  className={
+                    `editor-admin-tag-card${
+                      selectedTag?.slug
+                      === tag.slug
+                        ? " selected"
+                        : ""
+                    }`
+                  }
+                  onClick={() =>
+                    selectTag(tag)
+                  }
                 >
-                  <i
-                    className={
-                      tag.keyruneClass
-                      || "ss ss-cmd"
-                    }
-                  />
-                </span>
+                  <span className="editor-admin-tag-card-visual">
+                    {legacy ? (
+                      <DeckLabels
+                        categories={[
+                          (tag.slug as DeckCategory),
+                        ]}
+                        compact
+                      />
+                    ) : (
+                      <span
+                        className="editor-admin-tag-preview-badge"
+                        style={{
+                          color:
+                            tag.color,
+                          borderColor:
+                            tag.color,
+                          backgroundColor:
+                            `${tag.color}18`,
+                        }}
+                      >
+                        <i
+                          className={
+                            tag.keyruneClass
+                            || "ss ss-cmd"
+                          }
+                        />
 
-                <span className="editor-admin-tag-card-copy">
-                  <strong>
-                    {tag.label}
-                  </strong>
+                        {tag.label}
+                      </span>
+                    )}
+                  </span>
 
-                  <small>
-                    {tag.deckCount}{" "}
-                    {
-                      tag.deckCount
-                      === 1
-                        ? "deck"
-                        : "decks"
-                    }
-                    {
-                      tag.isSystem
-                        ? " · sistema"
-                        : ""
-                    }
-                    {
-                      !tag.isActive
-                        ? " · inativa"
-                        : ""
-                    }
-                  </small>
-                </span>
-              </button>
-            ),
+                  <span className="editor-admin-tag-card-copy">
+                    <small>
+                      {tag.deckCount}{" "}
+                      {
+                        tag.deckCount
+                        === 1
+                          ? "deck"
+                          : "decks"
+                      }
+                      {
+                        tag.isSystem
+                          ? " · sistema"
+                          : ""
+                      }
+                      {
+                        legacy
+                          ? " · visual original"
+                          : ""
+                      }
+                      {
+                        !tag.isActive
+                          ? " · inativa"
+                          : ""
+                      }
+                    </small>
+                  </span>
+                </button>
+              );
+            },
           )}
         </div>
 
@@ -662,7 +775,7 @@ export default function AdminTagsPanel({
                   <p>
                     {
                       draft.isSystem
-                        ? "Tag de sistema: o identificador e a ativação são protegidos porque conquistas dependem dela."
+                        ? "Tag de sistema: o identificador, o nome e a ativação são protegidos porque recursos históricos dependem dela."
                         : "O identificador é criado automaticamente a partir do nome e não muda depois."
                     }
                   </p>
@@ -670,30 +783,82 @@ export default function AdminTagsPanel({
 
 
                 <div className="editor-admin-tag-preview">
-                  <span
-                    className="editor-admin-tag-preview-badge"
-                    style={{
-                      color:
-                        draft.color,
-                      borderColor:
-                        draft.color,
-                      backgroundColor:
-                        `${draft.color}18`,
-                    }}
-                  >
-                    <i
-                      className={
-                        draft.keyruneClass
-                        || "ss ss-cmd"
-                      }
-                    />
+                  {draftIsLegacy ? (
+                    <div className="editor-admin-tag-legacy-preview">
+                      <DeckLabels
+                        categories={[
+                          (draft.slug as DeckCategory),
+                        ]}
+                        compact
+                      />
 
-                    {
-                      draft.label
-                      || "Nova tag"
-                    }
-                  </span>
+                      <span>
+                        Aparência original preservada.
+                      </span>
+                    </div>
+                  ) : (
+                    <span
+                      className="editor-admin-tag-preview-badge"
+                      style={{
+                        color:
+                          draft.color,
+                        borderColor:
+                          draft.color,
+                        backgroundColor:
+                          `${draft.color}18`,
+                      }}
+                    >
+                      <i
+                        className={
+                          draft.keyruneClass
+                          || "ss ss-cmd"
+                        }
+                      />
+
+                      {
+                        draft.label
+                        || "Nova tag"
+                      }
+                    </span>
+                  )}
                 </div>
+
+
+                {draft.isSystem ? (
+                  <div className="editor-admin-tag-appearance-actions">
+                    {draftIsLegacy ? (
+                      <button
+                        type="button"
+                        className="editor-secondary-button"
+                        disabled={
+                          disabled
+                          || saving
+                        }
+                        onClick={
+                          personalizeAppearance
+                        }
+                      >
+                        <Wand2 size={16} />
+                        Personalizar aparência
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="editor-secondary-button"
+                        disabled={
+                          disabled
+                          || saving
+                        }
+                        onClick={
+                          restoreLegacyAppearance
+                        }
+                      >
+                        <RotateCcw size={16} />
+                        Restaurar visual original
+                      </button>
+                    )}
+                  </div>
+                ) : null}
 
 
                 <div className="editor-admin-tags-fields">
@@ -705,6 +870,9 @@ export default function AdminTagsPanel({
                     <input
                       type="text"
                       value={draft.label}
+                      readOnly={
+                        draft.isSystem
+                      }
                       disabled={
                         disabled
                         || saving
@@ -744,57 +912,6 @@ export default function AdminTagsPanel({
 
                   <label className="editor-field">
                     <span>
-                      Cor
-                    </span>
-
-                    <div className="editor-admin-color-field">
-                      <input
-                        type="color"
-                        value={draft.color}
-                        disabled={
-                          disabled
-                          || saving
-                        }
-                        onChange={(event) =>
-                          setDraft(
-                            (current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    color:
-                                      event.target.value,
-                                  }
-                                : current,
-                          )
-                        }
-                      />
-
-                      <input
-                        type="text"
-                        value={draft.color}
-                        disabled={
-                          disabled
-                          || saving
-                        }
-                        onChange={(event) =>
-                          setDraft(
-                            (current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    color:
-                                      event.target.value,
-                                  }
-                                : current,
-                          )
-                        }
-                      />
-                    </div>
-                  </label>
-
-
-                  <label className="editor-field">
-                    <span>
                       Ordem de exibição
                     </span>
 
@@ -828,30 +945,85 @@ export default function AdminTagsPanel({
                   </label>
 
 
-                  <KeyrunePicker
-                    label="Ícone da tag"
-                    value={
-                      draft.keyruneClass
-                    }
-                    usage={usage}
-                    playerId={playerId}
-                    disabled={
-                      disabled
-                      || saving
-                    }
-                    onChange={(value) =>
-                      setDraft(
-                        (current) =>
-                          current
-                            ? {
-                                ...current,
-                                keyruneClass:
-                                  value,
-                              }
-                            : current,
-                      )
-                    }
-                  />
+                  {!draftIsLegacy ? (
+                    <>
+                      <label className="editor-field">
+                        <span>
+                          Cor
+                        </span>
+
+                        <div className="editor-admin-color-field">
+                          <input
+                            type="color"
+                            value={draft.color}
+                            disabled={
+                              disabled
+                              || saving
+                            }
+                            onChange={(event) =>
+                              setDraft(
+                                (current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        color:
+                                          event.target.value,
+                                      }
+                                    : current,
+                              )
+                            }
+                          />
+
+                          <input
+                            type="text"
+                            value={draft.color}
+                            disabled={
+                              disabled
+                              || saving
+                            }
+                            onChange={(event) =>
+                              setDraft(
+                                (current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        color:
+                                          event.target.value,
+                                      }
+                                    : current,
+                              )
+                            }
+                          />
+                        </div>
+                      </label>
+
+
+                      <KeyrunePicker
+                        label="Ícone da tag"
+                        value={
+                          draft.keyruneClass
+                        }
+                        usage={usage}
+                        playerId={playerId}
+                        disabled={
+                          disabled
+                          || saving
+                        }
+                        onChange={(value) =>
+                          setDraft(
+                            (current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    keyruneClass:
+                                      value,
+                                  }
+                                : current,
+                          )
+                        }
+                      />
+                    </>
+                  ) : null}
                 </div>
 
 
