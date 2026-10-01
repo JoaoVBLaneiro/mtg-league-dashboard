@@ -45,8 +45,8 @@ import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckM
 import { DeckCategoryIcon, DeckLabels, InactiveDeckIcon } from "./DeckLabels";
 import "./playerEditor.css";
 
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbwureAMUuD7InHeJL72eailwyiYe-tafREBax46DTpqG4yNPnMrcs_ZGTQluvh-csNi/exec";
+const API_BASE_URL = "https://api.corneliomove.com.br/mtg-api";
+const DASHBOARD_URL = `${API_BASE_URL}/api/dashboard`;
 
 const SESSION_STORAGE_KEY = "mtg-player-editor-session";
 
@@ -90,10 +90,12 @@ type EditorApiResponse = {
   error?: string;
   token?: string;
   data?: EditorSessionData;
-  status?: "pending" | "complete" | "error";
+  status?: "valid" | "pending" | "complete" | "error";
   deckId?: string;
   playerId?: string;
   warnings?: string[];
+  duplicate?: boolean;
+  message?: string;
 };
 
 type PublicPlayer = {
@@ -324,15 +326,6 @@ function normalizeErrorMessage(error: unknown) {
   return "Ocorreu um erro inesperado.";
 }
 
-function editorApiUrl(parameters: Record<string, string>) {
-  const query = new URLSearchParams({
-    ...parameters,
-    t: String(Date.now()),
-  });
-
-  return `${API_URL}?${query.toString()}`;
-}
-
 async function readJsonResponse(response: Response) {
   const json = (await response.json()) as EditorApiResponse;
 
@@ -343,10 +336,28 @@ async function readJsonResponse(response: Response) {
   return json;
 }
 
+function editorAuthHeaders(currentToken: string) {
+  return {
+    Authorization: `Bearer ${currentToken}`,
+  };
+}
+
+async function requestEditorLogin(player: string, pin: string) {
+  const response = await fetch(`${API_BASE_URL}/api/editor/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ player, pin }),
+  });
+
+  return readJsonResponse(response);
+}
+
 async function requestEditorSession(currentToken: string) {
-  const response = await fetch(
-    editorApiUrl({ action: "editorSession", token: currentToken })
-  );
+  const response = await fetch(`${API_BASE_URL}/api/editor/session`, {
+    headers: editorAuthHeaders(currentToken),
+  });
   const json = await readJsonResponse(response);
 
   if (!json.data) {
@@ -356,42 +367,13 @@ async function requestEditorSession(currentToken: string) {
   return json.data;
 }
 
-async function waitForDeckCreation(currentToken: string, requestId: string) {
-  // O POST de Apps Script é opaco (no-cors). Só confirma após consultar o resultado.
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const response = await fetch(editorApiUrl({
-      action: "editorCreateDeckStatus", token: currentToken, requestId,
-    }));
-    const result = await readJsonResponse(response);
-    if (result.status === "complete" && result.deckId) return result;
-    if (result.status !== "pending") {
-      throw new Error("Atualize a implantação do Apps Script para habilitar o cadastro de decks.");
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 1500));
-  }
-  throw new Error("O cadastro ainda não foi confirmado. Aguarde e tente novamente; o mesmo envio não criará uma cópia.");
-}
+async function requestEditorLogout(currentToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/editor/logout`, {
+    method: "POST",
+    headers: editorAuthHeaders(currentToken),
+  });
 
-async function waitForDeckMutation(currentToken: string, requestId: string, deckId: string) {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const response = await fetch(editorApiUrl({ action: "editorDeckMutationStatus", token: currentToken, requestId }));
-    const result = await readJsonResponse(response);
-    if (result.status === "complete" && result.deckId === deckId) return result;
-    if (result.status !== "pending") throw new Error("Atualize a implantação do Apps Script para habilitar esta alteração.");
-    await new Promise((resolve) => window.setTimeout(resolve, 1500));
-  }
-  throw new Error("A alteração ainda não foi confirmada. Recarregue e confira o deck antes de tentar novamente.");
-}
-
-async function waitForPlayerCreation(currentToken: string, requestId: string) {
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const response = await fetch(editorApiUrl({ action: 'editorCreatePlayerStatus', token: currentToken, requestId }));
-    const result = await readJsonResponse(response);
-    if (result.status === 'complete' && result.playerId) return { playerId: result.playerId, warnings: result.warnings };
-    if (result.status !== 'pending') throw new Error('Publique o Apps Script atualizado para habilitar o cadastro de jogadores.');
-    await new Promise(resolve => window.setTimeout(resolve, 1500));
-  }
-  throw new Error('O cadastro ainda não foi confirmado. Aguarde e tente novamente sem recarregar a página; o mesmo envio não cria duplicatas.');
+  return readJsonResponse(response);
 }
 
 async function loadImageElement(file: File) {
@@ -785,6 +767,8 @@ export default function PlayerEditorApp() {
   const newDeckRequestId = useRef("");
   const createInFlight = useRef(false);
   const deckActionInFlight = useRef(false);
+  const deckMutationRequestIds = useRef<Record<string, string>>({});
+  const deckDeleteRequestIds = useRef<Record<string, string>>({});
   const [deleteDeckTarget, setDeleteDeckTarget] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
@@ -828,7 +812,7 @@ export default function PlayerEditorApp() {
     async function loadDirectory() {
       try {
         setDirectoryLoading(true);
-        const response = await fetch(`${API_URL}?t=${Date.now()}`);
+        const response = await fetch(`${DASHBOARD_URL}?t=${Date.now()}`);
 
         if (!response.ok) {
           throw new Error("Não foi possível carregar os jogadores.");
@@ -903,14 +887,10 @@ export default function PlayerEditorApp() {
     try {
       setLoginLoading(true);
       setLoginError("");
-      const response = await fetch(
-        editorApiUrl({
-          action: "editorLogin",
-          player: selectedPlayer,
-          pin,
-        })
+      const json = await requestEditorLogin(
+        selectedPlayer,
+        pin
       );
-      const json = await readJsonResponse(response);
 
       if (!json.token || !json.data) {
         throw new Error("Não foi possível iniciar a sessão.");
@@ -935,15 +915,32 @@ export default function PlayerEditorApp() {
       throw new Error("Sua sessão expirou. Entre novamente.");
     }
 
-    await fetch(API_URL, {
+    const route =
+      action === "editorUpdateProfile"
+        ? "/api/editor/profile"
+        : action === "editorUpdatePin"
+          ? "/api/editor/pin"
+          : action === "editorCreatePlayer"
+            ? "/api/editor/players"
+            : "/api/editor/decks";
+
+    const body =
+      action === "editorUpdateDeck" ||
+      action === "editorCreateDeck" ||
+      action === "editorDeleteDeck"
+        ? { action, ...payload }
+        : payload;
+
+    const response = await fetch(`${API_BASE_URL}${route}`, {
       method: "POST",
-      mode: "no-cors",
-      body: JSON.stringify({
-        action,
-        token,
-        ...payload,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        ...editorAuthHeaders(token),
+      },
+      body: JSON.stringify(body),
     });
+
+    return readJsonResponse(response);
   }
 
   function updateProfileField(field: string, value: string) {
@@ -955,6 +952,9 @@ export default function PlayerEditorApp() {
       setNewDeckFields((current) => ({ ...current, [field]: value }));
       return;
     }
+
+    delete deckMutationRequestIds.current[`${deckId}:fields`];
+
     setDeckFields((current) => ({
       ...current,
       [deckId]: {
@@ -996,12 +996,13 @@ export default function PlayerEditorApp() {
     if (!newDeckRequestId.current) newDeckRequestId.current = crypto.randomUUID();
     const requestId = newDeckRequestId.current;
     try {
-      // Em falhas de rede, consulta o mesmo ID antes de permitir um novo envio.
-      await sendEditorAction("editorCreateDeck", {
+      const result = await sendEditorAction("editorCreateDeck", {
         requestId, deckName: normalizeDeckName(newDeckName), fields: newDeckFields,
-      }).catch(() => undefined);
-      const result = await waitForDeckCreation(token, requestId);
-      const createdId = result.deckId!;
+      });
+      if (!result.deckId) {
+        throw new Error("O backend não retornou o deck criado.");
+      }
+      const createdId = result.deckId;
       const warnings = [...(result.warnings || [])];
 
       setIsCreatingDeck(false);
@@ -1040,7 +1041,7 @@ export default function PlayerEditorApp() {
       const updated = await requestEditorSession(token);
       for (const field of ['Ícone Keyrune', 'Ícone Set Favorito']) {
         if (sessionData?.playerManagementVersion && stringValue(updated.player.fields[field]) !== mythicKeyrune(stringValue(profileFields[field]))) {
-          throw new Error('O símbolo ainda não foi confirmado. Confira a implantação do Apps Script e tente novamente.');
+          throw new Error('O símbolo ainda não foi confirmado pelo backend. Recarregue e tente novamente.');
         }
       }
       applySessionData(updated);
@@ -1055,19 +1056,32 @@ export default function PlayerEditorApp() {
   async function saveDeck(deckId: string, statusOnly?: "Ativo" | "Inativo") {
     if (savingTarget || deckActionInFlight.current) return;
     if (!sessionData?.deckManagementVersion) {
-      setNotice({ kind: "error", text: "Publique o novo Apps Script antes de salvar status e categorias." });
+      setNotice({ kind: "error", text: "O backend ainda não habilitou a edição de status e categorias." });
       return;
     }
     deckActionInFlight.current = true;
     try {
       setSavingTarget(`deck:${deckId}`);
       setNotice(null);
-      const requestId = crypto.randomUUID();
-      await sendEditorAction("editorUpdateDeck", {
-        deckId, requestId,
+
+      const requestKey = statusOnly
+        ? `${deckId}:status:${statusOnly}`
+        : `${deckId}:fields`;
+
+      const requestId =
+        deckMutationRequestIds.current[requestKey]
+        || crypto.randomUUID();
+
+      deckMutationRequestIds.current[requestKey] = requestId;
+
+      const result = await sendEditorAction("editorUpdateDeck", {
+        deckId,
+        requestId,
         fields: statusOnly ? { Status: statusOnly } : deckFields[deckId] || {},
-      }).catch(() => undefined);
-      const result = await waitForDeckMutation(token, requestId, deckId);
+      });
+
+      delete deckMutationRequestIds.current[requestKey];
+
       const warnings = [...(result.warnings || [])];
       if (statusOnly) {
         setDeckFields((current) => ({ ...current, [deckId]: { ...current[deckId], Status: statusOnly } }));
@@ -1094,22 +1108,39 @@ export default function PlayerEditorApp() {
   }
 
   async function registerPlayer(input: PlayerRegistrationInput) {
-    if (!sessionData?.playerManagementVersion) throw new Error('Atualize o Apps Script primeiro.');
-    setSavingTarget('new-player');
+    if (!sessionData?.playerManagementVersion) throw new Error("Cadastro de jogador indisponível no backend.");
+    setSavingTarget("new-player");
     try {
-      await sendEditorAction('editorCreatePlayer', input).catch(() => undefined);
-      const result = await waitForPlayerCreation(token, input.requestId);
-      setPublicPlayers(current => current.some(player => player.id === result.playerId) ? current : [...current, { id: result.playerId, label: result.playerId }]);
-      try { setSessionData(await requestEditorSession(token)); }
-      catch { result.warnings = [...(result.warnings || []), 'Reabra a área para atualizar os símbolos em uso.']; }
-      return result;
-    } finally { setSavingTarget(''); }
+      const result = await sendEditorAction("editorCreatePlayer", input);
+      if (!result.playerId) {
+        throw new Error("O backend não retornou o jogador criado.");
+      }
+      setPublicPlayers((current) =>
+        current.some((player) => player.id === result.playerId)
+          ? current
+          : [...current, { id: result.playerId!, label: result.playerId! }]
+      );
+      try {
+        setSessionData(await requestEditorSession(token));
+      } catch {
+        result.warnings = [
+          ...(result.warnings || []),
+          "Reabra a área para atualizar os símbolos em uso.",
+        ];
+      }
+      return {
+        playerId: result.playerId,
+        warnings: result.warnings,
+      };
+    } finally {
+      setSavingTarget("");
+    }
   }
 
   async function deleteDeck() {
     if (savingTarget || deckActionInFlight.current || !deleteDeckTarget || deleteConfirmation.trim() !== deleteDeckTarget) return;
     if (!sessionData?.deckManagementVersion) {
-      setNotice({ kind: "error", text: "Publique o novo Apps Script antes de excluir decks." });
+      setNotice({ kind: "error", text: "O backend ainda não habilitou a exclusão de decks." });
       return;
     }
     deckActionInFlight.current = true;
@@ -1117,9 +1148,20 @@ export default function PlayerEditorApp() {
     try {
       setSavingTarget(`delete:${deckId}`);
       setNotice(null);
-      const requestId = crypto.randomUUID();
-      await sendEditorAction("editorDeleteDeck", { deckId, requestId, confirmDeckName: deleteConfirmation.trim() }).catch(() => undefined);
-      const result = await waitForDeckMutation(token, requestId, deckId);
+
+      const requestId =
+        deckDeleteRequestIds.current[deckId]
+        || crypto.randomUUID();
+
+      deckDeleteRequestIds.current[deckId] = requestId;
+
+      const result = await sendEditorAction("editorDeleteDeck", {
+        deckId,
+        requestId,
+        confirmDeckName: deleteConfirmation.trim(),
+      });
+
+      delete deckDeleteRequestIds.current[deckId];
       const remaining = sessionData.decks.filter((deck) => deck.id !== deckId);
       setSessionData({ ...sessionData, decks: remaining });
       setDeckFields((current) => {
@@ -1156,16 +1198,26 @@ export default function PlayerEditorApp() {
     try {
       setSavingTarget("pin");
       setNotice(null);
-      await sendEditorAction("editorUpdatePin", { nextPin });
 
-      const response = await fetch(
-        editorApiUrl({
-          action: "editorLogin",
-          player: sessionData.player.id,
-          pin: nextPin,
-        })
-      );
-      const json = await readJsonResponse(response);
+      let json: EditorApiResponse;
+
+      try {
+        await sendEditorAction("editorUpdatePin", { nextPin });
+
+        json = await requestEditorLogin(
+          sessionData.player.id,
+          nextPin
+        );
+      } catch (error) {
+        try {
+          json = await requestEditorLogin(
+            sessionData.player.id,
+            nextPin
+          );
+        } catch {
+          throw error;
+        }
+      }
 
       if (!json.token || !json.data) {
         throw new Error("O novo PIN não pôde ser confirmado.");
@@ -1187,7 +1239,7 @@ export default function PlayerEditorApp() {
   function logout() {
     if (savingTarget) return;
     if (token) {
-      void fetch(editorApiUrl({ action: "editorLogout", token })).catch(() => undefined);
+      void requestEditorLogout(token).catch(() => undefined);
     }
 
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -1384,7 +1436,7 @@ export default function PlayerEditorApp() {
                   <KeyrunePicker label="Seu símbolo Keyrune" value={stringValue(profileFields['Ícone Keyrune'])}
                     usage={sessionData.keyruneUsage} playerId={sessionData.player.id} disabled={!sessionData.playerManagementVersion || Boolean(savingTarget)}
                     onChange={value => updateProfileField('Ícone Keyrune', value)} />
-                  {!sessionData.playerManagementVersion ? <p className="editor-field-hint">Atualize o Apps Script para escolher seu símbolo.</p> : null}
+                  {!sessionData.playerManagementVersion ? <p className="editor-field-hint">Atualize o backend para escolher seu símbolo.</p> : null}
                   <TextField
                     label="Nome de exibição"
                     value={stringValue(profileFields["Nome de Exibição"])}
@@ -1424,7 +1476,7 @@ export default function PlayerEditorApp() {
 
                 {!sessionData.featuredAchievementsVersion ? (
                   <p className="editor-field-hint">
-                    Atualize o Apps Script para habilitar a seleção de conquistas em destaque.
+                    Atualize o backend para habilitar a seleção de conquistas em destaque.
                   </p>
                 ) : (
                   <FeaturedAchievementsPicker
@@ -1616,7 +1668,7 @@ export default function PlayerEditorApp() {
                             <option value="Fixo">Fixo da salinha</option><option value="Fora">De fora</option>
                           </select>
                         </label>
-                        {(sessionData.deckManagementVersion || 0) < 2 ? <p className="editor-field-hint">Atualize o Apps Script para editar a origem.</p> : null}
+                        {(sessionData.deckManagementVersion || 0) < 2 ? <p className="editor-field-hint">Atualize o backend para editar a origem.</p> : null}
                         <div className="editor-deck-management">
                           <button type="button" className="editor-secondary-button"
                             aria-pressed={currentDeckFields.Status === "Inativo"}
