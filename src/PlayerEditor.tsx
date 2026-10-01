@@ -40,6 +40,7 @@ import { findCardOnScryfall } from "./editorScryfall";
 import CardArtPicker from "./CardArtPicker";
 import KeyrunePicker from "./KeyrunePicker";
 import RegisterPlayer, { type PlayerRegistrationInput } from "./RegisterPlayer";
+import AdminTagsPanel from "./AdminTagsPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
 import { DeckCategoryIcon, DeckLabels, InactiveDeckIcon } from "./DeckLabels";
@@ -840,6 +841,7 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
   const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminTab, setAdminTab] = useState<"matches" | "tags">("matches");
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -1987,6 +1989,29 @@ export default function PlayerEditorApp() {
 
           {activeSection === "admin" && sessionData.player.id === "JBL" ? (
             <>
+              <div className="editor-admin-subtabs" role="tablist" aria-label="Administração">
+                <button
+                  type="button"
+                  className={adminTab === "matches" ? "active" : ""}
+                  onClick={() => {
+                    setAdminTab("matches");
+                    void loadAdminMatches();
+                  }}
+                >
+                  Partidas
+                </button>
+
+                <button
+                  type="button"
+                  className={adminTab === "tags" ? "active" : ""}
+                  onClick={() => setAdminTab("tags")}
+                >
+                  Tags
+                </button>
+              </div>
+
+              {adminTab === "matches" ? (
+                <>
               <div className="editor-page-heading">
                 <div>
                   <span>Administração JBL</span>
@@ -2063,6 +2088,16 @@ export default function PlayerEditorApp() {
                   </article>
                 ))}
               </div>
+                </>
+              ) : (
+                <AdminTagsPanel
+                  token={token}
+                  playerId={sessionData.player.id}
+                  usage={sessionData.keyruneUsage}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
+              )}
             </>
           ) : null}
 

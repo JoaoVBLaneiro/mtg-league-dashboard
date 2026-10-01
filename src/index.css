@@ -9355,3 +9355,50 @@ footer {
     page-break-after: auto;
   }
 }
+
+
+/* DYNAMIC DECK TAGS V1 */
+.dynamic-deck-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.dynamic-deck-tags.compact {
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.dynamic-deck-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: transparent;
+  text-decoration: none;
+}
+
+button.dynamic-deck-tag {
+  cursor: pointer;
+}
+
+button.dynamic-deck-tag:hover {
+  filter: brightness(1.12);
+}
+
+.dynamic-deck-tag .ss {
+  font-size: 1.05em;
+}
+
+.dynamic-deck-tags.compact .dynamic-deck-tag {
+  padding: 4px 7px;
+  font-size: 11px;
+}

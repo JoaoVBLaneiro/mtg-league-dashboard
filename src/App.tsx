@@ -29,6 +29,7 @@ import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
+import DynamicDeckTagBadges from "./DynamicDeckTagBadges";
 import { DECK_CATEGORIES, decksInCategory, getDeckDisplayImage, isAvailableDeck, readDeckCategories, type DeckCategory } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
@@ -5223,7 +5224,21 @@ function ProfileModal({
   ) : null}
 </div>
 
-            {!isPlayer ? <DeckLabels categories={(item as Deck).categories} inactive={(item as Deck).inactive} deleted={(item as Deck).deleted} compact statusIconOnly onCategoryClick={onCategoryClick} /> : null}
+            {!isPlayer ? (
+              <>
+                <DynamicDeckTagBadges
+                  categories={(item as Deck).categories}
+                  compact
+                  onSystemCategoryClick={onCategoryClick}
+                />
+                <DeckLabels
+                  inactive={(item as Deck).inactive}
+                  deleted={(item as Deck).deleted}
+                  compact
+                  statusIconOnly
+                />
+              </>
+            ) : null}
 
             {!isPlayer &&
               ((item as Deck).commander ||
