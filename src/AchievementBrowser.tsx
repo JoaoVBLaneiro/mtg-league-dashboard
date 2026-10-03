@@ -95,7 +95,7 @@ export function ManualAchievementCatalog({
     setDraftValues(nextValues);
     setSaveMessage('');
     setSaveError('');
-  }, [playerId, directory]);
+  }, [playerId]);
 
   function getDraftValue(id: string) {
     return Math.max(0, Math.floor(Number(draftValues[id] || 0)));
@@ -114,7 +114,20 @@ export function ManualAchievementCatalog({
   }
 
   function addAchievementValue(id: string, delta: number) {
-    setAchievementValue(id, getDraftValue(id) + delta);
+    setDraftValues(current => {
+      const currentValue = Math.max(
+        0,
+        Math.floor(Number(current[id] || 0))
+      );
+
+      return {
+        ...current,
+        [id]: Math.max(0, currentValue + delta),
+      };
+    });
+
+    setSaveMessage('');
+    setSaveError('');
   }
 
   const hasUnsavedChanges = Boolean(player) && catalog.some(template => {
