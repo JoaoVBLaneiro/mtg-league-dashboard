@@ -8304,6 +8304,53 @@ footer {
   color: #d4d4d8;
 }
 
+
+.registered-decks-view-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 20px;
+  padding: 5px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.registered-decks-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: #a1a1aa;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.registered-decks-view-tabs button:hover {
+  color: #e4e4e7;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.registered-decks-view-tabs button.active {
+  color: #ffffff;
+  border-color: rgba(167, 139, 250, 0.42);
+  background: rgba(167, 139, 250, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.08);
+}
+
+
 .registered-decks-summary {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -8437,6 +8484,59 @@ footer {
   margin-top: 6px;
 }
 
+
+.registered-decks-author-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.registered-decks-author-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.1);
+  color: #bae6fd;
+}
+
+.registered-decks-author-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.registered-decks-author-avatar .ss {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.registered-decks-tag-header {
+  justify-content: flex-start;
+}
+
+.registered-decks-tag-header .mtg-deck-labels,
+.registered-decks-tag-header .dynamic-deck-tags {
+  margin-top: 0;
+}
+
+.registered-decks-untagged-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+}
+
+.registered-decks-untagged-title h3 {
+  margin: 0;
+}
+
+
 .registered-decks-missing-section {
   margin-top: 24px;
   padding: 16px;
@@ -8500,6 +8600,10 @@ footer {
   .registered-decks-icon {
     width: 54px;
     height: 54px;
+  }
+
+  .registered-decks-view-tabs {
+    grid-template-columns: 1fr;
   }
 
   .registered-decks-grid {

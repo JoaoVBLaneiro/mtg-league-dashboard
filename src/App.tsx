@@ -4,6 +4,8 @@ import {
   Trophy,
   Users,
   Wand2,
+  Palette,
+  Tags,
   RefreshCw,
   AlertTriangle,
   Flame,
@@ -1207,6 +1209,172 @@ function buildRegisteredDeckColorGroups(decks: Deck[]) {
       (a, b) => getColorCombinationSortValue(a.key) - getColorCombinationSortValue(b.key)
     );
 }
+
+
+function buildRegisteredDeckAuthorGroups(decks: Deck[]) {
+  const groupsMap = new Map<
+    string,
+    {
+      key: string;
+      label: string;
+      playerId: string;
+      photoUrl: string;
+      keyruneClass: string;
+      decks: Deck[];
+    }
+  >();
+
+  decks.forEach((deck) => {
+    const authorName = String(
+      deck.autor?.nome
+      || deck.autor?.jogador
+      || "",
+    ).trim();
+
+    const playerId = String(
+      deck.autor?.jogador
+      || authorName,
+    ).trim();
+
+    const key = authorName
+      ? normalizeNameKey(playerId || authorName)
+      : "__without-author__";
+
+    const current = groupsMap.get(key);
+
+    if (current) {
+      current.decks.push(deck);
+
+      if (!current.photoUrl && deck.autor?.fotoUrl) {
+        current.photoUrl = deck.autor.fotoUrl;
+      }
+
+      if (!current.keyruneClass && deck.autor?.iconeKeyrune) {
+        current.keyruneClass = deck.autor.iconeKeyrune;
+      }
+
+      return;
+    }
+
+    groupsMap.set(key, {
+      key,
+      label: authorName || "Sem autor",
+      playerId,
+      photoUrl: deck.autor?.fotoUrl || "",
+      keyruneClass: deck.autor?.iconeKeyrune || "",
+      decks: [deck],
+    });
+  });
+
+  return [...groupsMap.values()]
+    .map((group) => ({
+      ...group,
+      decks: group.decks
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    }))
+    .sort((a, b) => {
+      if (a.key === "__without-author__") return 1;
+      if (b.key === "__without-author__") return -1;
+
+      return a.label.localeCompare(b.label, "pt-BR");
+    });
+}
+
+
+function humanizeDeckTagSlug(slug: string) {
+  const legacy =
+    DECK_CATEGORIES.find(
+      (category) => category.id === slug,
+    );
+
+  if (legacy) {
+    return legacy.label;
+  }
+
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map(
+      (part) =>
+        part[0]
+          ? part[0].toUpperCase() + part.slice(1)
+          : part,
+    )
+    .join(" ");
+}
+
+
+function buildRegisteredDeckTagGroups(decks: Deck[]) {
+  const groupsMap = new Map<
+    string,
+    {
+      key: string;
+      slug: string | null;
+      label: string;
+      decks: Deck[];
+    }
+  >();
+
+  decks.forEach((deck) => {
+    const categories = [
+      ...new Set(
+        (deck.categories || [])
+          .map((category) => String(category || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+
+    if (!categories.length) {
+      const key = "__without-tags__";
+      const current = groupsMap.get(key);
+
+      if (current) {
+        current.decks.push(deck);
+      } else {
+        groupsMap.set(key, {
+          key,
+          slug: null,
+          label: "Sem tags",
+          decks: [deck],
+        });
+      }
+
+      return;
+    }
+
+    categories.forEach((slug) => {
+      const current = groupsMap.get(slug);
+
+      if (current) {
+        current.decks.push(deck);
+        return;
+      }
+
+      groupsMap.set(slug, {
+        key: slug,
+        slug,
+        label: humanizeDeckTagSlug(slug),
+        decks: [deck],
+      });
+    });
+  });
+
+  return [...groupsMap.values()]
+    .map((group) => ({
+      ...group,
+      decks: group.decks
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    }))
+    .sort((a, b) => {
+      if (a.key === "__without-tags__") return 1;
+      if (b.key === "__without-tags__") return -1;
+
+      return a.label.localeCompare(b.label, "pt-BR");
+    });
+}
+
 
 function buildMissingDeckColorCombinations(decks: Deck[]) {
   const existingKeys = new Set(
@@ -7060,6 +7228,9 @@ function RegisteredDecksModal({
   onClose: () => void;
 }) {
   const [selectionMode, setSelectionMode] = useState(false);
+  const [libraryGrouping, setLibraryGrouping] = useState<
+    "colors" | "authors" | "tags"
+  >("colors");
   const [selectedDeckNames, setSelectedDeckNames] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [decksPerPage, setDecksPerPage] = useState<DecksPerPage>(3);
@@ -7067,6 +7238,16 @@ function RegisteredDecksModal({
 
   const deckGroups = useMemo(
     () => buildRegisteredDeckColorGroups(decks),
+    [decks]
+  );
+
+  const authorGroups = useMemo(
+    () => buildRegisteredDeckAuthorGroups(decks),
+    [decks]
+  );
+
+  const tagGroups = useMemo(
+    () => buildRegisteredDeckTagGroups(decks),
     [decks]
   );
 
@@ -7088,7 +7269,9 @@ function RegisteredDecksModal({
           deck.commander,
           deck.secondaryCommander,
           deck.autor?.nome || "",
+          deck.autor?.jogador || "",
           deck.colors,
+          (deck.categories || []).join(" "),
         ].join(" ")
       ).includes(query)
     );
@@ -7122,6 +7305,74 @@ function RegisteredDecksModal({
       Array.from(new Set([...current, ...filteredNames]))
     );
   }
+
+
+  const authorsWithDecks =
+    authorGroups.filter(
+      (group) =>
+        group.key !== "__without-author__",
+    ).length;
+
+  const decksWithoutAuthor =
+    authorGroups.find(
+      (group) =>
+        group.key === "__without-author__",
+    )?.decks.length || 0;
+
+  const tagsWithDecks =
+    tagGroups.filter(
+      (group) =>
+        group.key !== "__without-tags__",
+    ).length;
+
+  const decksWithoutTags =
+    tagGroups.find(
+      (group) =>
+        group.key === "__without-tags__",
+    )?.decks.length || 0;
+
+  const libraryDescription =
+    libraryGrouping === "authors"
+      ? "Todos os decks cadastrados, agrupados por autor."
+      : libraryGrouping === "tags"
+        ? "Todos os decks cadastrados, agrupados pelas tags atribuídas."
+        : "Todos os decks cadastrados, agrupados por identidade de cor.";
+
+  function renderLibraryDeckCard(deck: Deck) {
+    return (
+      <button
+        className="registered-deck-card"
+        key={deck.name}
+        type="button"
+        onClick={() => handleDeckClick(deck)}
+      >
+        <div className="registered-deck-image">
+          {deck.imageUrl ? (
+            <img
+              src={deck.imageUrl}
+              alt={deck.commander || deck.name}
+            />
+          ) : (
+            <Wand2 size={20} />
+          )}
+        </div>
+
+        <div className="registered-deck-info">
+          <strong>{deck.name}</strong>
+
+          <span>
+            {deck.commander || "Comandante não informado"}
+            {deck.secondaryCommander
+              ? ` + ${deck.secondaryCommander}`
+              : ""}
+          </span>
+
+          <ManaPips colors={deck.colors} />
+        </div>
+      </button>
+    );
+  }
+
 
   if (printDecks) {
     return (
@@ -7157,10 +7408,51 @@ function RegisteredDecksModal({
             <p>
               {selectionMode
                 ? "Selecione os decks que entrarão no PDF. A ordem final será definida pela facilidade de uso."
-                : "Todos os decks cadastrados, agrupados por identidade de cor."}
+                : libraryDescription}
             </p>
           </div>
         </div>
+
+        {!selectionMode ? (
+          <div
+            className="registered-decks-view-tabs"
+            role="tablist"
+            aria-label="Agrupar biblioteca de decks"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={libraryGrouping === "colors"}
+              className={libraryGrouping === "colors" ? "active" : ""}
+              onClick={() => setLibraryGrouping("colors")}
+            >
+              <Palette size={17} aria-hidden="true" />
+              Cores
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={libraryGrouping === "authors"}
+              className={libraryGrouping === "authors" ? "active" : ""}
+              onClick={() => setLibraryGrouping("authors")}
+            >
+              <Users size={17} aria-hidden="true" />
+              Autores
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={libraryGrouping === "tags"}
+              className={libraryGrouping === "tags" ? "active" : ""}
+              onClick={() => setLibraryGrouping("tags")}
+            >
+              <Tags size={17} aria-hidden="true" />
+              Tags
+            </button>
+          </div>
+        ) : null}
 
         <div className="registered-decks-top-actions">
           <button
@@ -7181,7 +7473,7 @@ function RegisteredDecksModal({
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar deck, comandante ou autor"
+                placeholder="Buscar deck, comandante, autor ou tag"
               />
             </label>
           ) : null}
@@ -7195,6 +7487,22 @@ function RegisteredDecksModal({
             <>
               <strong>{selectedDeckNames.length}</strong>
               <span>selecionados para exportação</span>
+            </>
+          ) : libraryGrouping === "authors" ? (
+            <>
+              <strong>{authorsWithDecks}</strong>
+              <span>autores com decks</span>
+
+              <strong>{decksWithoutAuthor}</strong>
+              <span>decks sem autor</span>
+            </>
+          ) : libraryGrouping === "tags" ? (
+            <>
+              <strong>{tagsWithDecks}</strong>
+              <span>tags usadas</span>
+
+              <strong>{decksWithoutTags}</strong>
+              <span>decks sem tags</span>
             </>
           ) : (
             <>
@@ -7317,74 +7625,119 @@ function RegisteredDecksModal({
           </>
         ) : (
           <>
-            <div className="registered-decks-groups">
-              {deckGroups.map((group) => (
-                <section className="registered-decks-group" key={group.key}>
-                  <div className="registered-decks-group-header">
-                    <div>
-                      <h3>{group.label}</h3>
-                      <span>
-                        {group.decks.length} deck
-                        {group.decks.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
+            {libraryGrouping === "colors" ? (
+              <>
+                <div className="registered-decks-groups">
+                  {deckGroups.map((group) => (
+                    <section className="registered-decks-group" key={group.key}>
+                      <div className="registered-decks-group-header">
+                        <div>
+                          <h3>{group.label}</h3>
+                          <span>
+                            {group.decks.length} deck
+                            {group.decks.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
 
-                    <ManaPips colors={group.key} />
+                        <ManaPips colors={group.key} />
+                      </div>
+
+                      <div className="registered-decks-grid">
+                        {group.decks.map(renderLibraryDeckCard)}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+
+                <section className="registered-decks-missing-section">
+                  <div className="registered-decks-missing-header">
+                    <h3>Combinações sem deck cadastrado</h3>
+                    <span>{missingCombinations.length} faltando</span>
                   </div>
 
-                  <div className="registered-decks-grid">
-                    {group.decks.map((deck) => (
-                      <button
-                        className="registered-deck-card"
-                        key={deck.name}
-                        type="button"
-                        onClick={() => handleDeckClick(deck)}
+                  <div className="registered-decks-missing-grid">
+                    {missingCombinations.map((combination) => (
+                      <div
+                        className="registered-decks-missing-pill"
+                        key={combination.key}
                       >
-                        <div className="registered-deck-image">
-                          {deck.imageUrl ? (
-                            <img src={deck.imageUrl} alt={deck.commander || deck.name} />
-                          ) : (
-                            <Wand2 size={20} />
-                          )}
-                        </div>
-
-                        <div className="registered-deck-info">
-                          <strong>{deck.name}</strong>
-
-                          <span>
-                            {deck.commander || "Comandante não informado"}
-                            {deck.secondaryCommander
-                              ? ` + ${deck.secondaryCommander}`
-                              : ""}
-                          </span>
-
-                          <ManaPips colors={deck.colors} />
-                        </div>
-                      </button>
+                        <ManaPips colors={combination.key} />
+                        <strong>{combination.label}</strong>
+                      </div>
                     ))}
                   </div>
                 </section>
-              ))}
-            </div>
+              </>
+            ) : null}
 
-            <section className="registered-decks-missing-section">
-              <div className="registered-decks-missing-header">
-                <h3>Combinações sem deck cadastrado</h3>
-                <span>{missingCombinations.length} faltando</span>
-              </div>
+            {libraryGrouping === "authors" ? (
+              <div className="registered-decks-groups">
+                {authorGroups.map((group) => (
+                  <section className="registered-decks-group" key={group.key}>
+                    <div className="registered-decks-group-header">
+                      <div className="registered-decks-author-heading">
+                        <div className="registered-decks-author-avatar">
+                          {group.photoUrl ? (
+                            <img src={group.photoUrl} alt="" />
+                          ) : group.keyruneClass ? (
+                            <i
+                              className={group.keyruneClass}
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <Users size={20} aria-hidden="true" />
+                          )}
+                        </div>
 
-              <div className="registered-decks-missing-grid">
-                {missingCombinations.map((combination) => (
-                  <div
-                    className="registered-decks-missing-pill"
-                    key={combination.key}
-                  >
-                    <ManaPips colors={combination.key} />
-                    <strong>{combination.label}</strong>
-                  </div>
+                        <div>
+                          <h3>{group.label}</h3>
+                          <span>
+                            {group.decks.length} deck
+                            {group.decks.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="registered-decks-grid">
+                      {group.decks.map(renderLibraryDeckCard)}
+                    </div>
+                  </section>
                 ))}
               </div>
-            </section>
+            ) : null}
+
+            {libraryGrouping === "tags" ? (
+              <div className="registered-decks-groups">
+                {tagGroups.map((group) => (
+                  <section className="registered-decks-group" key={group.key}>
+                    <div className="registered-decks-group-header registered-decks-tag-header">
+                      <div>
+                        {group.slug ? (
+                          <DynamicDeckTagBadges
+                            categories={[group.slug]}
+                          />
+                        ) : (
+                          <div className="registered-decks-untagged-title">
+                            <Tags size={19} aria-hidden="true" />
+                            <h3>{group.label}</h3>
+                          </div>
+                        )}
+
+                        <span>
+                          {group.decks.length} deck
+                          {group.decks.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="registered-decks-grid">
+                      {group.decks.map(renderLibraryDeckCard)}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : null}
           </>
         )}
       </motion.div>
