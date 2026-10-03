@@ -21,6 +21,7 @@ import {
   BookOpen,
   Hammer,
   Printer,
+  Dice5,
   Check,
   Search,
   ArrowUpDown,
@@ -7218,6 +7219,363 @@ function DeckPrintPreviewModal({
   );
 }
 
+function RandomDeckModal({
+  decks,
+  onSelectDeck,
+  onClose,
+}: {
+  decks: Deck[];
+  onSelectDeck: (deck: Deck) => void;
+  onClose: () => void;
+}) {
+  const activeDecks = useMemo(
+    () => decks.filter((deck) => !deck.inactive && !deck.deleted),
+    [decks]
+  );
+
+  const activeRoomDecks = useMemo(
+    () => activeDecks.filter((deck) => deck.origem?.tipo === "Fixo"),
+    [activeDecks]
+  );
+
+  const authorGroups = useMemo(
+    () => buildRegisteredDeckAuthorGroups(decks),
+    [decks]
+  );
+
+  const [selectedDeckNames, setSelectedDeckNames] = useState<string[]>(() =>
+    decks
+      .filter((deck) => !deck.inactive && !deck.deleted)
+      .map((deck) => deck.name)
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showAuthorExclusion, setShowAuthorExclusion] = useState(false);
+  const [authorExclusionKeys, setAuthorExclusionKeys] = useState<string[]>([]);
+  const [drawnDeck, setDrawnDeck] = useState<Deck | null>(null);
+
+  const selectedDecks = useMemo(() => {
+    const selectedSet = new Set(selectedDeckNames);
+    return decks.filter((deck) => selectedSet.has(deck.name));
+  }, [decks, selectedDeckNames]);
+
+  const filteredDecks = useMemo(() => {
+    const query = normalizeDeckSearchText(searchTerm);
+    const sorted = decks
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    if (!query) return sorted;
+
+    return sorted.filter((deck) =>
+      normalizeDeckSearchText(
+        [
+          deck.name,
+          deck.commander,
+          deck.secondaryCommander,
+          deck.autor?.nome || "",
+          deck.autor?.jogador || "",
+          deck.origem?.tipo || "",
+          deck.origem?.label || "",
+          deck.colors,
+          (deck.categories || []).join(" "),
+        ].join(" ")
+      ).includes(query)
+    );
+  }, [decks, searchTerm]);
+
+  useEffect(() => {
+    if (drawnDeck && !selectedDeckNames.includes(drawnDeck.name)) {
+      setDrawnDeck(null);
+    }
+  }, [drawnDeck, selectedDeckNames]);
+
+  function toggleDeck(deckName: string) {
+    setSelectedDeckNames((current) =>
+      current.includes(deckName)
+        ? current.filter((name) => name !== deckName)
+        : [...current, deckName]
+    );
+  }
+
+  function selectActiveRoomDecks() {
+    setSelectedDeckNames(activeRoomDecks.map((deck) => deck.name));
+  }
+
+  function selectAllActiveDecks() {
+    setSelectedDeckNames(activeDecks.map((deck) => deck.name));
+  }
+
+  function toggleAuthorExclusion(authorKey: string) {
+    setAuthorExclusionKeys((current) =>
+      current.includes(authorKey)
+        ? current.filter((key) => key !== authorKey)
+        : [...current, authorKey]
+    );
+  }
+
+  function applyAuthorExclusions() {
+    const excludedKeys = new Set(authorExclusionKeys);
+    const excludedDeckNames = new Set(
+      authorGroups
+        .filter((group) => excludedKeys.has(group.key))
+        .flatMap((group) => group.decks.map((deck) => deck.name))
+    );
+
+    setSelectedDeckNames((current) =>
+      current.filter((deckName) => !excludedDeckNames.has(deckName))
+    );
+    setShowAuthorExclusion(false);
+  }
+
+  function drawDeck() {
+    if (!selectedDecks.length) return;
+
+    const index = Math.floor(Math.random() * selectedDecks.length);
+    setDrawnDeck(selectedDecks[index] || null);
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <motion.div
+        className="random-deck-modal"
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button className="modal-close" type="button" onClick={onClose}>
+          ×
+        </button>
+
+        <div className="registered-decks-header random-deck-header">
+          <div className="registered-decks-icon random-deck-icon">
+            <Dice5 size={30} aria-hidden="true" />
+          </div>
+
+          <div>
+            <span className="profile-type">Sorteio</span>
+            <h2>Deck aleatório</h2>
+            <p>
+              Escolha quais decks podem participar e sorteie um deles aleatoriamente.
+            </p>
+          </div>
+        </div>
+
+        <div className="random-deck-summary">
+          <div>
+            <strong>{selectedDeckNames.length}</strong>
+            <span>selecionados</span>
+          </div>
+          <div>
+            <strong>{activeDecks.length}</strong>
+            <span>ativos</span>
+          </div>
+          <div>
+            <strong>{activeRoomDecks.length}</strong>
+            <span>ativos da salinha</span>
+          </div>
+        </div>
+
+        <div className="random-deck-actions">
+          <button type="button" onClick={selectActiveRoomDecks}>
+            Ativos da salinha
+          </button>
+          <button type="button" onClick={selectAllActiveDecks}>
+            Todos os ativos
+          </button>
+          <button
+            type="button"
+            className={showAuthorExclusion ? "active" : ""}
+            onClick={() => setShowAuthorExclusion((current) => !current)}
+          >
+            <Users size={16} aria-hidden="true" />
+            Excluir decks de...
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedDeckNames([])}
+            disabled={!selectedDeckNames.length}
+          >
+            Limpar seleção
+          </button>
+        </div>
+
+        {showAuthorExclusion ? (
+          <div className="random-deck-author-exclusion">
+            <div className="random-deck-author-exclusion-header">
+              <div>
+                <strong>Excluir decks por autor</strong>
+                <span>
+                  Os autores marcados serão removidos da seleção atual.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={applyAuthorExclusions}
+                disabled={!authorExclusionKeys.length}
+              >
+                Excluir selecionados
+              </button>
+            </div>
+
+            <div className="random-deck-author-options">
+              {authorGroups.map((group) => {
+                const checked = authorExclusionKeys.includes(group.key);
+
+                return (
+                  <button
+                    type="button"
+                    className={checked ? "selected" : ""}
+                    key={group.key}
+                    onClick={() => toggleAuthorExclusion(group.key)}
+                  >
+                    <span className="random-deck-author-check">
+                      {checked ? <Check size={14} aria-hidden="true" /> : null}
+                    </span>
+                    <span>
+                      <strong>{group.label}</strong>
+                      <small>
+                        {group.decks.length} deck
+                        {group.decks.length === 1 ? "" : "s"}
+                      </small>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="random-deck-draw-area">
+          {drawnDeck ? (
+            <div className="random-deck-result">
+              <div className="random-deck-result-image">
+                {drawnDeck.imageUrl ? (
+                  <img
+                    src={drawnDeck.imageUrl}
+                    alt={drawnDeck.commander || drawnDeck.name}
+                  />
+                ) : (
+                  <Wand2 size={26} aria-hidden="true" />
+                )}
+              </div>
+
+              <div className="random-deck-result-info">
+                <span>Deck sorteado</span>
+                <strong>{drawnDeck.name}</strong>
+                <p>
+                  {drawnDeck.commander || "Comandante não informado"}
+                  {drawnDeck.autor?.nome
+                    ? ` · ${drawnDeck.autor.nome}`
+                    : ""}
+                </p>
+                <div className="random-deck-result-meta">
+                  <ManaPips colors={drawnDeck.colors} />
+                  <DynamicDeckTagBadges
+                    categories={drawnDeck.categories}
+                    compact
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="random-deck-open-button"
+                onClick={() => onSelectDeck(drawnDeck)}
+              >
+                Abrir deck
+              </button>
+            </div>
+          ) : (
+            <div className="random-deck-empty-result">
+              <Dice5 size={30} aria-hidden="true" />
+              <strong>Pronto para sortear</strong>
+              <span>
+                O sorteio usa somente os decks atualmente selecionados.
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="random-deck-draw-button"
+            disabled={!selectedDeckNames.length}
+            onClick={drawDeck}
+          >
+            <Dice5 size={20} aria-hidden="true" />
+            {drawnDeck ? "Sortear novamente" : "Sortear"}
+          </button>
+        </div>
+
+        <label className="registered-decks-search random-deck-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar deck, comandante, autor ou tag"
+          />
+        </label>
+
+        <div className="random-deck-selection-heading">
+          <strong>Decks participantes</strong>
+          <span>
+            Exibindo {filteredDecks.length} deck
+            {filteredDecks.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="random-deck-selection-grid">
+          {filteredDecks.map((deck) => {
+            const selected = selectedDeckNames.includes(deck.name);
+            const isRoomDeck = deck.origem?.tipo === "Fixo";
+
+            return (
+              <button
+                type="button"
+                className={
+                  selected
+                    ? "registered-deck-card registered-deck-card-selectable random-deck-option selected"
+                    : "registered-deck-card registered-deck-card-selectable random-deck-option"
+                }
+                key={deck.name}
+                onClick={() => toggleDeck(deck.name)}
+              >
+                <span className="registered-deck-checkbox">
+                  {selected ? <Check size={15} aria-hidden="true" /> : null}
+                </span>
+
+                <div className="registered-deck-image">
+                  {deck.imageUrl ? (
+                    <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+                  ) : (
+                    <Wand2 size={20} aria-hidden="true" />
+                  )}
+                </div>
+
+                <div className="registered-deck-info">
+                  <strong>{deck.name}</strong>
+                  <DeckLabels inactive={deck.inactive} compact />
+
+                  <span>
+                    {deck.commander || "Comandante não informado"}
+                    {deck.autor?.nome ? ` · ${deck.autor.nome}` : ""}
+                  </span>
+
+                  <div className="random-deck-option-meta">
+                    <ManaPips colors={deck.colors} />
+                    <small>{isRoomDeck ? "Salinha" : "Fora"}</small>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+
 function RegisteredDecksModal({
   decks,
   onSelectDeck,
@@ -7235,6 +7593,7 @@ function RegisteredDecksModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [decksPerPage, setDecksPerPage] = useState<DecksPerPage>(3);
   const [printDecks, setPrintDecks] = useState<Deck[] | null>(null);
+  const [randomizerOpen, setRandomizerOpen] = useState(false);
 
   const deckGroups = useMemo(
     () => buildRegisteredDeckColorGroups(decks),
@@ -7374,6 +7733,16 @@ function RegisteredDecksModal({
   }
 
 
+  if (randomizerOpen) {
+    return (
+      <RandomDeckModal
+        decks={decks}
+        onSelectDeck={onSelectDeck}
+        onClose={() => setRandomizerOpen(false)}
+      />
+    );
+  }
+
   if (printDecks) {
     return (
       <DeckPrintPreviewModal
@@ -7466,6 +7835,17 @@ function RegisteredDecksModal({
             <Printer size={18} />
             {selectionMode ? "Voltar à biblioteca" : "Selecionar para PDF"}
           </button>
+
+          {!selectionMode ? (
+            <button
+              className="registered-random-toggle"
+              type="button"
+              onClick={() => setRandomizerOpen(true)}
+            >
+              <Dice5 size={18} aria-hidden="true" />
+              Deck Aleatório
+            </button>
+          ) : null}
 
           {selectionMode ? (
             <label className="registered-decks-search">

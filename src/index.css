@@ -9550,3 +9550,423 @@ button.dynamic-deck-tag:hover {
     outline-color: rgba(125, 211, 252, 0.95);
   }
 }
+
+/* ============================================================
+   Deck aleatório
+   ============================================================ */
+
+.registered-random-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 11px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.1);
+  color: #bae6fd;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.registered-random-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.82);
+  background: rgba(56, 189, 248, 0.18);
+}
+
+.random-deck-modal {
+  position: relative;
+  width: min(1040px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 30px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 30%),
+    linear-gradient(145deg, rgba(24, 24, 27, 0.99), rgba(9, 9, 11, 0.99));
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.58);
+}
+
+.random-deck-icon {
+  color: #bae6fd;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.random-deck-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.random-deck-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 13px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.random-deck-summary strong {
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.random-deck-summary span {
+  color: #a1a1aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.random-deck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.random-deck-actions button,
+.random-deck-author-exclusion-header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.055);
+  color: #e4e4e7;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.random-deck-actions button:hover,
+.random-deck-actions button.active,
+.random-deck-author-exclusion-header button:hover {
+  border-color: rgba(56, 189, 248, 0.52);
+  background: rgba(56, 189, 248, 0.11);
+  color: #e0f2fe;
+}
+
+.random-deck-actions button:disabled,
+.random-deck-author-exclusion-header button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.random-deck-author-exclusion {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  background: rgba(127, 29, 29, 0.09);
+}
+
+.random-deck-author-exclusion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.random-deck-author-exclusion-header > div {
+  min-width: 0;
+}
+
+.random-deck-author-exclusion-header strong,
+.random-deck-author-exclusion-header span {
+  display: block;
+}
+
+.random-deck-author-exclusion-header strong {
+  color: #ffffff;
+}
+
+.random-deck-author-exclusion-header span {
+  margin-top: 3px;
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.random-deck-author-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.random-deck-author-options > button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.16);
+  color: #e4e4e7;
+  text-align: left;
+  cursor: pointer;
+}
+
+.random-deck-author-options > button.selected {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.18);
+}
+
+.random-deck-author-check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.random-deck-author-options > button.selected .random-deck-author-check {
+  border-color: #fca5a5;
+  background: #fca5a5;
+  color: #450a0a;
+}
+
+.random-deck-author-options > button > span:last-child {
+  min-width: 0;
+}
+
+.random-deck-author-options strong,
+.random-deck-author-options small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.random-deck-author-options small {
+  margin-top: 2px;
+  color: #a1a1aa;
+  font-size: 11px;
+}
+
+.random-deck-draw-area {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(2, 6, 23, 0.52);
+}
+
+.random-deck-empty-result {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 22px 14px 12px;
+  color: #bae6fd;
+  text-align: center;
+}
+
+.random-deck-empty-result span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.random-deck-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(34, 197, 94, 0.26);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.random-deck-result-image {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  aspect-ratio: 63 / 88;
+  overflow: hidden;
+  border-radius: 9px;
+  background: rgba(39, 39, 42, 0.9);
+  color: #86efac;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.random-deck-result-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.random-deck-result-info {
+  min-width: 0;
+}
+
+.random-deck-result-info > span {
+  color: #86efac;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.random-deck-result-info > strong {
+  display: block;
+  margin-top: 3px;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.random-deck-result-info > p {
+  margin: 5px 0 0;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.random-deck-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.random-deck-result-meta .mtg-deck-labels,
+.random-deck-result-meta .dynamic-deck-tags {
+  margin-top: 0;
+}
+
+.random-deck-open-button,
+.random-deck-draw-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.random-deck-open-button {
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+  color: #bbf7d0;
+}
+
+.random-deck-draw-button {
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  color: #082f49;
+  box-shadow: 0 10px 24px rgba(56, 189, 248, 0.16);
+}
+
+.random-deck-draw-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.random-deck-search {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.random-deck-selection-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.random-deck-selection-heading strong {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.random-deck-selection-heading span {
+  color: #a1a1aa;
+  font-size: 12px;
+}
+
+.random-deck-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.random-deck-option-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.random-deck-option-meta small {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  color: #a1a1aa;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .registered-random-toggle {
+    width: 100%;
+  }
+
+  .random-deck-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .random-deck-author-exclusion-header,
+  .random-deck-result,
+  .random-deck-selection-heading {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .random-deck-result {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .random-deck-result-meta {
+    justify-content: center;
+  }
+
+  .random-deck-open-button {
+    width: 100%;
+  }
+
+  .random-deck-selection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
