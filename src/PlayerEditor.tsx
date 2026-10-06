@@ -840,6 +840,390 @@ function EditorNotice({
   );
 }
 
+
+type AdminDeckRecord = {
+  dbId: number;
+  id: string;
+  ownerPlayerId: number | null;
+  ownerId: string;
+  ownerDisplayName: string;
+  fields: EditorFields;
+  tags: string[];
+  isDeleted: boolean;
+  deletedAt: string;
+  deletedBy: string;
+  updatedAt: string;
+};
+
+type AdminDeckOwner = {
+  id: number;
+  playerId: string;
+  displayName: string;
+};
+
+type AdminDecksResponse = {
+  ok?: boolean;
+  error?: string;
+  decks?: AdminDeckRecord[];
+  players?: AdminDeckOwner[];
+};
+
+async function requestAdminDecks(currentToken: string) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/decks`, {
+    headers: editorAuthHeaders(currentToken),
+  });
+
+  const json = (await response.json()) as AdminDecksResponse;
+  if (!response.ok || json.ok === false || json.error) {
+    throw new Error(json.error || "Não foi possível carregar os decks administrativos.");
+  }
+
+  return {
+    decks: json.decks || [],
+    players: json.players || [],
+  };
+}
+
+async function writeAdminDeck(
+  currentToken: string,
+  dbId: number,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/decks/${dbId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...editorAuthHeaders(currentToken),
+    },
+    body: JSON.stringify(body),
+  });
+
+  return readJsonResponse(response);
+}
+
+function AdminDecksPanel({
+  token,
+  cloudinary,
+  disabled = false,
+  onNotice,
+}: {
+  token: string;
+  cloudinary: CloudinaryConfig;
+  disabled?: boolean;
+  onNotice: (kind: "success" | "error" | "info", text: string) => void;
+}) {
+  const [decks, setDecks] = useState<AdminDeckRecord[]>([]);
+  const [players, setPlayers] = useState<AdminDeckOwner[]>([]);
+  const [drafts, setDrafts] = useState<Record<number, EditorFields>>({});
+  const [ownerDrafts, setOwnerDrafts] = useState<Record<number, string>>({});
+  const [activeDbId, setActiveDbId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "deleted">("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  function applyLoaded(next: { decks: AdminDeckRecord[]; players: AdminDeckOwner[] }) {
+    setDecks(next.decks);
+    setPlayers(next.players);
+    setDrafts(Object.fromEntries(next.decks.map((deck) => [deck.dbId, { ...deck.fields }])));
+    setOwnerDrafts(Object.fromEntries(next.decks.map((deck) => [deck.dbId, deck.ownerPlayerId == null ? "" : String(deck.ownerPlayerId)])));
+    setActiveDbId((current) => next.decks.some((deck) => deck.dbId === current) ? current : next.decks[0]?.dbId ?? null);
+  }
+
+  async function load() {
+    try {
+      setLoading(true);
+      applyLoaded(await requestAdminDecks(token));
+    } catch (error) {
+      onNotice("error", normalizeErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, [token]);
+
+  const activeDeck = useMemo(
+    () => decks.find((deck) => deck.dbId === activeDbId) || null,
+    [decks, activeDbId],
+  );
+
+  const currentFields = activeDeck ? drafts[activeDeck.dbId] || activeDeck.fields : {};
+
+  const filteredDecks = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("pt-BR");
+
+    return decks.filter((deck) => {
+      const active = stringValue(deck.fields.Status) !== "Inativo";
+      if (statusFilter === "active" && (!active || deck.isDeleted)) return false;
+      if (statusFilter === "inactive" && (active || deck.isDeleted)) return false;
+      if (statusFilter === "deleted" && !deck.isDeleted) return false;
+      if (ownerFilter === "none" && deck.ownerPlayerId !== null) return false;
+      if (ownerFilter !== "all" && ownerFilter !== "none" && String(deck.ownerPlayerId ?? "") !== ownerFilter) return false;
+
+      if (!needle) return true;
+      return [
+        deck.id,
+        deck.ownerId,
+        deck.ownerDisplayName,
+        stringValue(deck.fields.Comandante),
+        stringValue(deck.fields["Comandante Secundário"]),
+        ...deck.tags,
+      ].join(" ").toLocaleLowerCase("pt-BR").includes(needle);
+    });
+  }, [decks, ownerFilter, query, statusFilter]);
+
+  function updateField(field: string, value: string) {
+    if (!activeDeck) return;
+    setDrafts((current) => ({
+      ...current,
+      [activeDeck.dbId]: {
+        ...(current[activeDeck.dbId] || activeDeck.fields),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveCurrent() {
+    if (!activeDeck || saving || disabled) return;
+
+    try {
+      setSaving(true);
+      const fields = { ...(drafts[activeDeck.dbId] || activeDeck.fields) };
+      delete fields.Categorias;
+
+      await writeAdminDeck(token, activeDeck.dbId, {
+        fields,
+        ownerPlayerId: ownerDrafts[activeDeck.dbId] || null,
+      });
+      await load();
+      setActiveDbId(activeDeck.dbId);
+      onNotice("success", `Deck ${activeDeck.id} salvo pela administração.`);
+    } catch (error) {
+      onNotice("error", normalizeErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function quickStatus(nextStatus: "Ativo" | "Inativo") {
+    if (!activeDeck || saving || disabled) return;
+    try {
+      setSaving(true);
+      await writeAdminDeck(token, activeDeck.dbId, { fields: { Status: nextStatus } });
+      await load();
+      setActiveDbId(activeDeck.dbId);
+      onNotice("success", `Deck ${activeDeck.id} marcado como ${nextStatus.toLowerCase()}.`);
+    } catch (error) {
+      onNotice("error", normalizeErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setDeleted(nextDeleted: boolean) {
+    if (!activeDeck || saving || disabled) return;
+    const message = nextDeleted
+      ? `Excluir administrativamente ${activeDeck.id}? O histórico será preservado e o deck poderá ser restaurado aqui.`
+      : `Restaurar ${activeDeck.id} ao cadastro?`;
+    if (!window.confirm(message)) return;
+
+    try {
+      setSaving(true);
+      await writeAdminDeck(token, activeDeck.dbId, { isDeleted: nextDeleted });
+      await load();
+      setActiveDbId(activeDeck.dbId);
+      onNotice("success", nextDeleted ? `Deck ${activeDeck.id} excluído.` : `Deck ${activeDeck.id} restaurado.`);
+    } catch (error) {
+      onNotice("error", normalizeErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="editor-admin-decks-panel">
+      <div className="editor-page-heading">
+        <div>
+          <span>Administração JBL</span>
+          <h1>Gerenciar decks</h1>
+          <p>Edite qualquer deck cadastrado, independente do autor. Tags dinâmicas continuam sendo gerenciadas na aba Tags.</p>
+        </div>
+        <button className="editor-secondary-button" type="button" disabled={loading || saving || disabled} onClick={() => void load()}>
+          {loading ? <LoaderCircle size={17} className="spin" /> : null}
+          Atualizar
+        </button>
+      </div>
+
+      <div className="editor-admin-deck-filters">
+        <label className="editor-field">
+          <span>Buscar</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Deck, comandante, autor ou tag" />
+        </label>
+        <label className="editor-field">
+          <span>Estado</span>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+            <option value="all">Todos</option>
+            <option value="active">Ativos</option>
+            <option value="inactive">Inativos</option>
+            <option value="deleted">Excluídos</option>
+          </select>
+        </label>
+        <label className="editor-field">
+          <span>Autor</span>
+          <select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+            <option value="all">Todos os autores</option>
+            <option value="none">Sem autor</option>
+            {players.map((player) => (
+              <option key={player.id} value={String(player.id)}>{player.displayName}{player.displayName !== player.playerId ? ` (${player.playerId})` : ""}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <p className="editor-admin-deck-count">{filteredDecks.length} de {decks.length} decks</p>
+
+      <div className="editor-admin-decks-layout">
+        <div className="editor-admin-decks-list">
+          {loading && !decks.length ? <EditorNotice kind="info">Carregando decks...</EditorNotice> : null}
+          {!loading && !filteredDecks.length ? <EditorNotice kind="info">Nenhum deck corresponde aos filtros.</EditorNotice> : null}
+          {filteredDecks.map((deck) => {
+            const inactive = stringValue(deck.fields.Status) === "Inativo";
+            return (
+              <button
+                type="button"
+                key={deck.dbId}
+                className={`editor-admin-deck-list-item${activeDbId === deck.dbId ? " active" : ""}${deck.isDeleted ? " deleted" : ""}`}
+                onClick={() => setActiveDbId(deck.dbId)}
+              >
+                <strong>{deck.id}</strong>
+                <span>{deck.ownerDisplayName || deck.ownerId || "Sem autor"}</span>
+                <small>{deck.isDeleted ? "Excluído" : inactive ? "Inativo" : "Ativo"}{deck.tags.length ? ` · ${deck.tags.join(", ")}` : ""}</small>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="editor-admin-deck-editor-wrap">
+          {activeDeck ? (
+            <fieldset className="editor-deck-editor editor-admin-deck-editor" disabled={saving || disabled}>
+              <div className="editor-page-heading editor-deck-heading">
+                <div>
+                  <span>{activeDeck.isDeleted ? "Deck excluído" : "Deck cadastrado"}</span>
+                  <h2>{activeDeck.id}</h2>
+                  <p>O nome/ID histórico do deck não é renomeado por esta tela.</p>
+                </div>
+                <div className="editor-heading-actions">
+                  <button className="editor-primary-button editor-save-button" type="button" onClick={() => void saveCurrent()}>
+                    {saving ? <LoaderCircle size={18} className="spin" /> : <Save size={18} />}
+                    {saving ? "Salvando..." : "Salvar deck"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-form-section">
+                <div className="editor-section-heading">
+                  <h2>Administração</h2>
+                  <p>Autor, disponibilidade e origem. A exclusão é reversível e preserva o histórico.</p>
+                </div>
+                <div className="editor-form-grid">
+                  <label className="editor-field">
+                    <span>Autor</span>
+                    <select value={ownerDrafts[activeDeck.dbId] ?? ""} onChange={(event) => setOwnerDrafts((current) => ({ ...current, [activeDeck.dbId]: event.target.value }))}>
+                      <option value="">Sem autor</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={String(player.id)}>{player.displayName}{player.displayName !== player.playerId ? ` (${player.playerId})` : ""}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="editor-field">
+                    <span>Origem</span>
+                    <select value={stringValue(currentFields.Origem) || "Fora"} onChange={(event) => updateField("Origem", event.target.value)}>
+                      <option value="Fixo">Fixo da salinha</option>
+                      <option value="Fora">De fora</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="editor-deck-management">
+                  {!activeDeck.isDeleted ? (
+                    <button type="button" className="editor-secondary-button" onClick={() => void quickStatus(stringValue(currentFields.Status) === "Inativo" ? "Ativo" : "Inativo")}>
+                      {stringValue(currentFields.Status) === "Inativo" ? <PlayCircle size={17} /> : <PauseCircle size={17} />}
+                      {stringValue(currentFields.Status) === "Inativo" ? "Marcar como ativo" : "Marcar como inativo"}
+                    </button>
+                  ) : null}
+                  <button type="button" className={activeDeck.isDeleted ? "editor-secondary-button" : "editor-danger-button"} onClick={() => void setDeleted(!activeDeck.isDeleted)}>
+                    {activeDeck.isDeleted ? <PlayCircle size={17} /> : <Trash2 size={17} />}
+                    {activeDeck.isDeleted ? "Restaurar deck" : "Excluir deck"}
+                  </button>
+                </div>
+                <div className="editor-admin-deck-tags">
+                  <strong>Tags atuais</strong>
+                  <div>{activeDeck.tags.length ? activeDeck.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>Sem tags</small>}</div>
+                  <p className="editor-field-hint">Para adicionar/remover tags dinâmicas, use a aba Tags. Assim preservamos a regra única de atribuição.</p>
+                </div>
+              </div>
+
+              <div className="editor-form-section">
+                <div className="editor-section-heading">
+                  <h2>Informações do deck</h2>
+                  <p>Mesmos campos usados na edição normal do autor.</p>
+                </div>
+                <div className="editor-card-lookup-grid editor-commander-lookup-grid">
+                  <CardLookupFields key={`admin-commander:${activeDeck.dbId}`} label="Comandante" nameField="Comandante" imageField="Foto URL" fields={currentFields} onChange={updateField} allowArtSelection />
+                  <CardLookupFields key={`admin-secondary:${activeDeck.dbId}`} label="Comandante secundário" nameField="Comandante Secundário" imageField="Foto Comandante Secundário" fields={currentFields} onChange={updateField} allowArtSelection />
+                </div>
+                <div className="editor-form-grid">
+                  <TextField label="Cores" value={stringValue(currentFields.Cores)} onChange={(value) => updateField("Cores", value)} placeholder="Ex.: WUBRG, Izzet, Incolor" />
+                  <TextField label="Tipo do secundário" value={stringValue(currentFields["Tipo Comandante Secundário"])} onChange={(value) => updateField("Tipo Comandante Secundário", value)} />
+                  <TextField label="Bracket" value={stringValue(currentFields.Bracket)} onChange={(value) => updateField("Bracket", value)} />
+                  <TextField label="Facilidade de uso (1 a 5)" type="number" value={stringValue(currentFields["Facilidade de Uso"])} onChange={(value) => updateField("Facilidade de Uso", value)} />
+                  <TextField label="Link da justificativa de bracket" type="url" value={stringValue(currentFields["Bracket URL"])} onChange={(value) => updateField("Bracket URL", value)} />
+                  <TextField label="Link externo da decklist" type="url" value={stringValue(currentFields["Decklist URL"])} onChange={(value) => updateField("Decklist URL", value)} />
+                  <TextAreaField label="Bio do deck" value={stringValue(currentFields.Bio)} onChange={(value) => updateField("Bio", value)} rows={5} />
+                  <TextAreaField label="Decklist em texto" value={stringValue(currentFields["Decklist Texto"])} onChange={(value) => updateField("Decklist Texto", value)} rows={10} />
+                </div>
+              </div>
+
+              <div className="editor-form-section">
+                <div className="editor-section-heading"><h2>Imagens do deck</h2></div>
+                <div className="editor-form-grid">
+                  <ImageUrlField label="Foto do comandante" value={stringValue(currentFields["Foto URL"])} onChange={(value) => updateField("Foto URL", value)} cloudinary={cloudinary} />
+                  <ImageUrlField label="Arte do deck" value={stringValue(currentFields["Arte URL"])} onChange={(value) => updateField("Arte URL", value)} cloudinary={cloudinary} />
+                  <ImageUrlField label="Imagem de capa" value={stringValue(currentFields["Header URL"])} onChange={(value) => updateField("Header URL", value)} cloudinary={cloudinary} />
+                  <ImageUrlField label="Foto do comandante secundário" value={stringValue(currentFields["Foto Comandante Secundário"])} onChange={(value) => updateField("Foto Comandante Secundário", value)} cloudinary={cloudinary} />
+                </div>
+              </div>
+
+              <div className="editor-form-section">
+                <div className="editor-section-heading"><h2>Cartas-chave</h2></div>
+                <div className="editor-card-lookup-grid">
+                  {[1, 2, 3, 4, 5].map((index) => (
+                    <CardLookupFields
+                      key={`admin:${activeDeck.dbId}:key-card:${index}`}
+                      label={`Carta-chave ${index}`}
+                      nameField={`Carta Chave ${index}`}
+                      imageField={`Arte Carta Chave ${index}`}
+                      linkField={`Scryfall Carta Chave ${index}`}
+                      allowArtSelection
+                      fields={currentFields}
+                      onChange={updateField}
+                    />
+                  ))}
+                </div>
+              </div>
+            </fieldset>
+          ) : (
+            <EditorNotice kind="info">Selecione um deck para editar.</EditorNotice>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PlayerEditorApp() {
   const editorIntent = useMemo(
     () => readEditorIntent(),
@@ -887,7 +1271,7 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
   const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [adminTab, setAdminTab] = useState<"matches" | "tags">("matches");
+  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags">("matches");
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -2066,6 +2450,14 @@ export default function PlayerEditorApp() {
 
                 <button
                   type="button"
+                  className={adminTab === "decks" ? "active" : ""}
+                  onClick={() => setAdminTab("decks")}
+                >
+                  Decks
+                </button>
+
+                <button
+                  type="button"
                   className={adminTab === "tags" ? "active" : ""}
                   onClick={() => setAdminTab("tags")}
                 >
@@ -2152,6 +2544,13 @@ export default function PlayerEditorApp() {
                 ))}
               </div>
                 </>
+              ) : adminTab === "decks" ? (
+                <AdminDecksPanel
+                  token={token}
+                  cloudinary={sessionData.cloudinary}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
               ) : (
                 <AdminTagsPanel
                   token={token}

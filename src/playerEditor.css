@@ -1892,3 +1892,70 @@
     width: 100%;
   }
 }
+
+
+/* =========================
+   ADMIN DECKS
+========================= */
+.editor-admin-decks-panel { min-width: 0; }
+.editor-admin-deck-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, .7fr) minmax(190px, 1fr);
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+.editor-admin-deck-count { margin: 0 0 14px; color: #94a3b8; font-size: 13px; }
+.editor-admin-decks-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.editor-admin-decks-list {
+  display: grid;
+  gap: 8px;
+  max-height: 72vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+.editor-admin-deck-list-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, .62);
+  color: #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+}
+.editor-admin-deck-list-item:hover,
+.editor-admin-deck-list-item.active {
+  border-color: rgba(56, 189, 248, .65);
+  background: rgba(14, 116, 144, .14);
+}
+.editor-admin-deck-list-item.deleted { opacity: .7; border-style: dashed; }
+.editor-admin-deck-list-item strong { color: #f8fafc; }
+.editor-admin-deck-list-item span { color: #cbd5e1; font-size: 12px; }
+.editor-admin-deck-list-item small { color: #94a3b8; line-height: 1.3; }
+.editor-admin-deck-editor-wrap { min-width: 0; }
+.editor-admin-deck-editor { margin-top: 0; }
+.editor-admin-deck-tags { margin-top: 14px; }
+.editor-admin-deck-tags > strong { display: block; margin-bottom: 8px; }
+.editor-admin-deck-tags > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.editor-admin-deck-tags > div > span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, .35);
+  background: rgba(139, 92, 246, .1);
+  color: #ddd6fe;
+  font-size: 12px;
+}
+.editor-admin-deck-tags > div > small { color: #94a3b8; }
+
+@media (max-width: 900px) {
+  .editor-admin-deck-filters { grid-template-columns: 1fr; }
+  .editor-admin-decks-layout { grid-template-columns: 1fr; }
+  .editor-admin-decks-list { max-height: 320px; }
+}
