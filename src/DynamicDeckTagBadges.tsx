@@ -58,8 +58,6 @@ const SYSTEM_TAGS =
     "aggro",
     "combo",
     "tribal",
-    "universes-beyond",
-    "marvel",
   ]);
 
 
@@ -67,16 +65,12 @@ const FALLBACK: TagDefinition[] = [
   "aggro",
   "combo",
   "tribal",
-  "universes-beyond",
-  "marvel",
 ].map(
   (slug, index) => ({
     slug,
     label:
-      slug === "universes-beyond"
-        ? "Universes Beyond"
-        : slug[0]!.toUpperCase()
-          + slug.slice(1),
+      slug[0]!.toUpperCase()
+      + slug.slice(1),
     keyruneClass:
       "ss ss-cmd",
     color:

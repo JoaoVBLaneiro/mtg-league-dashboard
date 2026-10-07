@@ -33,6 +33,7 @@ import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBadges";
+import { PlanarOriginBadges, type PlanarOriginDefinition } from "./PlanarOrigins";
 import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
@@ -312,6 +313,7 @@ type RawPlayer = {
 
 type RawDeck = {
   categorias?: string[];
+  planarOrigins?: PlanarOriginDefinition[];
   inativo?: boolean;
   excluido?: boolean;
   deck?: string;
@@ -388,6 +390,7 @@ type Player = {
 
 type Deck = {
   categories?: string[];
+  planarOrigins: PlanarOriginDefinition[];
   inactive?: boolean;
   deleted?: boolean;
   name: string;
@@ -897,6 +900,7 @@ function normalizeDecks(
     .map((item) => ({
       name: item.deck || item.nome || "Deck sem nome",
       categories: readDeckTags(item.categorias),
+      planarOrigins: Array.isArray(item.planarOrigins) ? item.planarOrigins : [],
       inactive: item.inativo === true,
       deleted: item.excluido === true,
       appearances: Number(item.aparicoes || item.appearances || item.jogos || 0),
@@ -3684,6 +3688,7 @@ function buildFallbackDeckFromCombo(item: ComboStatItem): Deck {
 
   return {
     name: getComboStatName(item),
+    planarOrigins: [],
     appearances: item.games,
     wins: item.wins,
     winrate: item.winrate,
@@ -3905,6 +3910,7 @@ function describePieSlice(
 function createDeckFromCombo(combo: PlayerDeckComboStat): Deck {
   return {
     name: combo.nome || combo.deck,
+    planarOrigins: [],
     appearances: combo.games,
     wins: combo.wins,
     winrate: combo.winrate,
@@ -5382,7 +5388,7 @@ function ProfileModal({
             <CommanderStack deck={item as Deck} variant="profile" />
           )}
 
-          <div>
+          <div className="profile-header-main">
             <span className="profile-type">
               {isPlayer ? "Jogador" : "Deck"}
             </span>
@@ -5462,6 +5468,13 @@ function ProfileModal({
               <DeckPowerInfoCard deck={item as Deck} />
             ) : null}
           </div>
+
+          {!isPlayer && (item as Deck).planarOrigins.length ? (
+            <PlanarOriginBadges
+              origins={(item as Deck).planarOrigins}
+              panel
+            />
+          ) : null}
         </div>
 
         <div className="profile-stats profile-stats-pills">

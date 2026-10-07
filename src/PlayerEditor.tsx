@@ -41,6 +41,8 @@ import CardArtPicker from "./CardArtPicker";
 import KeyrunePicker from "./KeyrunePicker";
 import RegisterPlayer, { type PlayerRegistrationInput } from "./RegisterPlayer";
 import AdminTagsPanel from "./AdminTagsPanel";
+import AdminPlanarOriginsPanel from "./AdminPlanarOriginsPanel";
+import { PlanarOriginSelector } from "./PlanarOrigins";
 import PowerCheckPanel from "./PowerCheckPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
@@ -1164,6 +1166,12 @@ function AdminDecksPanel({
                   <div>{activeDeck.tags.length ? activeDeck.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>Sem tags</small>}</div>
                   <p className="editor-field-hint">Para adicionar/remover tags dinâmicas, use a aba Tags. Assim preservamos a regra única de atribuição.</p>
                 </div>
+
+                <PlanarOriginSelector
+                  value={currentFields["Origens Planares"]}
+                  disabled={saving || disabled}
+                  onChange={(value) => updateField("Origens Planares", value)}
+                />
               </div>
 
               <div className="editor-form-section">
@@ -1271,7 +1279,7 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
   const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags">("matches");
+  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags" | "origins">("matches");
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -1460,6 +1468,10 @@ export default function PlayerEditorApp() {
   function openNewDeck() {
     if (savingTarget) return;
     if (!newDeckRequestId.current) newDeckRequestId.current = crypto.randomUUID();
+    setNewDeckFields((current) => ({
+      ...current,
+      "Origens Planares": current["Origens Planares"] || JSON.stringify(["magic-the-gathering"]),
+    }));
     setIsCreatingDeck(true);
     setNotice(null);
   }
@@ -2269,6 +2281,12 @@ export default function PlayerEditorApp() {
                           })}
                         </div>
                         <p className="editor-field-hint">Pode marcar mais de uma. As categorias são usadas pelas conquistas; clique em {isCreatingDeck ? "Criar deck" : "Salvar deck"} para aplicar.</p>
+
+                        <PlanarOriginSelector
+                          value={currentDeckFields["Origens Planares"]}
+                          disabled={Boolean(savingTarget)}
+                          onChange={(value) => updateDeckField(activeDeck.id, "Origens Planares", value)}
+                        />
                       </div>
 
                       <div className="editor-form-section">
@@ -2463,6 +2481,14 @@ export default function PlayerEditorApp() {
                 >
                   Tags
                 </button>
+
+                <button
+                  type="button"
+                  className={adminTab === "origins" ? "active" : ""}
+                  onClick={() => setAdminTab("origins")}
+                >
+                  Origens Planares
+                </button>
               </div>
 
               {adminTab === "matches" ? (
@@ -2551,8 +2577,16 @@ export default function PlayerEditorApp() {
                   disabled={Boolean(savingTarget)}
                   onNotice={(kind, message) => setNotice({ kind, text: message })}
                 />
-              ) : (
+              ) : adminTab === "tags" ? (
                 <AdminTagsPanel
+                  token={token}
+                  playerId={sessionData.player.id}
+                  usage={sessionData.keyruneUsage}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
+              ) : (
+                <AdminPlanarOriginsPanel
                   token={token}
                   playerId={sessionData.player.id}
                   usage={sessionData.keyruneUsage}

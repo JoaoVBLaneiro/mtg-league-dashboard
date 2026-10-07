@@ -2,8 +2,6 @@ export const DECK_CATEGORIES = [
   { id: "aggro", label: "Aggro", keyrune: "frf", setName: "Fate Reforged" },
   { id: "combo", label: "Combo", keyrune: "usg", setName: "Urza’s Saga" },
   { id: "tribal", label: "Tribal", keyrune: "lrw", setName: "Lorwyn" },
-  { id: "universes-beyond", label: "Universes Beyond", keyrune: "ltr", setName: "The Lord of the Rings" },
-  { id: "marvel", label: "Marvel", keyrune: "spm", setName: "Marvel’s Spider-Man" },
 ] as const;
 
 export type DeckCategory = typeof DECK_CATEGORIES[number]["id"];
