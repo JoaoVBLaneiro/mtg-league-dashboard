@@ -1,0 +1,105 @@
+.admin-achievements-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, .72fr) minmax(0, 1.7fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-achievements-sidebar,
+.admin-achievement-editor {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 18px;
+  background: rgba(5,7,12,.32);
+}
+
+.admin-achievements-sidebar { padding: 13px; }
+.admin-achievement-editor { padding: 18px; display: grid; gap: 18px; }
+
+.admin-achievements-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 12px;
+  background: rgba(0,0,0,.25);
+}
+.admin-achievements-search input {
+  width: 100%; min-width: 0; padding: 10px 0; border: 0; outline: 0;
+  color: #f4f5f7; background: transparent; font: inherit;
+}
+
+.admin-achievements-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.admin-achievements-filters button {
+  border: 1px solid rgba(255,255,255,.09); border-radius: 999px; padding: 6px 9px;
+  color: #aeb4c1; background: rgba(255,255,255,.025); cursor: pointer; font: inherit; font-size: 11px;
+}
+.admin-achievements-filters button.active { color: #fff; border-color: rgba(168,85,247,.5); background: rgba(168,85,247,.12); }
+
+.admin-achievements-list { display: grid; gap: 7px; max-height: 68vh; overflow: auto; padding-right: 3px; }
+.admin-achievement-list-item {
+  display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 10px; align-items: center;
+  width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 13px;
+  color: #e9ecf2; background: rgba(255,255,255,.025); cursor: pointer; text-align: left;
+}
+.admin-achievement-list-item:hover, .admin-achievement-list-item.selected {
+  border-color: rgba(168,85,247,.38); background: rgba(168,85,247,.08);
+}
+.admin-achievement-list-item.deleted { opacity: .58; }
+.admin-achievement-list-icon {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  color: #c4b5fd; background: rgba(139,92,246,.12); font-size: 10px; overflow: hidden;
+}
+.admin-achievement-list-item > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.admin-achievement-list-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-achievement-list-item small { color: #777f8f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-achievement-list-item em { color: #9299a7; font-size: 10px; font-style: normal; }
+
+.admin-achievement-editor-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
+.admin-achievement-editor-topline > div > span { color: #9ca3af; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.admin-achievement-editor-topline h2 { margin: 4px 0 0; font-size: 24px; }
+
+.admin-achievement-basic-grid { grid-template-columns: minmax(180px,1fr) minmax(220px,1.4fr) minmax(120px,.7fr) 100px; }
+.admin-achievement-mode-row { display: grid; grid-template-columns: minmax(150px,.65fr) minmax(190px,.85fr) minmax(160px,1fr); gap: 12px; align-items: end; }
+.admin-achievement-toggle { min-height: 43px; display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; color: #d7dbe3; }
+
+.admin-achievement-thresholds, .admin-achievement-code-section { display: grid; gap: 12px; padding: 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 15px; background: rgba(0,0,0,.16); }
+.admin-achievement-threshold-grid { display: grid; grid-template-columns: repeat(5,minmax(85px,1fr)); gap: 8px; }
+.admin-achievement-threshold { display: grid; gap: 6px; padding: 9px; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; }
+.admin-achievement-threshold span { font-size: 11px; font-weight: 800; }
+.admin-achievement-threshold input { width: 100%; }
+.admin-achievement-threshold.tier-common { border-color: rgba(156,163,175,.22); }
+.admin-achievement-threshold.tier-uncommon { border-color: rgba(52,211,153,.24); }
+.admin-achievement-threshold.tier-rare { border-color: rgba(96,165,250,.3); }
+.admin-achievement-threshold.tier-mythic { border-color: rgba(251,146,60,.3); }
+.admin-achievement-threshold.tier-legendary { border-color: rgba(250,204,21,.34); }
+
+.admin-achievement-code {
+  width: 100%; min-height: 230px; resize: vertical; padding: 14px;
+  border: 1px solid rgba(139,92,246,.28); border-radius: 13px; outline: none;
+  color: #e5e7eb; background: #080a10; font: 12px/1.6 Consolas, "Courier New", monospace; tab-size: 2;
+}
+.admin-achievement-code:focus { border-color: rgba(167,139,250,.68); box-shadow: 0 0 0 3px rgba(139,92,246,.08); }
+.admin-achievement-code-help { color: #aab0bd; font-size: 12px; }
+.admin-achievement-code-help summary { cursor: pointer; color: #c4b5fd; font-weight: 750; }
+.admin-achievement-code-help code { display: block; margin: 10px 0; padding: 11px; white-space: pre-wrap; border-radius: 10px; background: rgba(0,0,0,.3); }
+.admin-achievement-code-help ul { margin: 0; padding-left: 20px; }
+
+.admin-achievement-test-row { display: flex; gap: 12px; align-items: end; }
+.admin-achievement-test-row .editor-field { flex: 1 1 240px; }
+.admin-achievement-test-result { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 11px; border: 1px solid rgba(52,211,153,.22); border-radius: 12px; background: rgba(16,185,129,.06); }
+.admin-achievement-test-result strong { margin-right: auto; }
+.admin-achievement-test-result span { color: #aeb5c2; font-size: 11px; }
+.admin-achievement-test-result b { color: #eef2f7; }
+.admin-achievement-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+
+@media (max-width: 1050px) {
+  .admin-achievements-layout { grid-template-columns: 1fr; }
+  .admin-achievements-list { max-height: 360px; }
+  .admin-achievement-basic-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 700px) {
+  .admin-achievement-basic-grid, .admin-achievement-mode-row, .admin-achievement-threshold-grid { grid-template-columns: 1fr; }
+  .admin-achievement-test-row { align-items: stretch; flex-direction: column; }
+}

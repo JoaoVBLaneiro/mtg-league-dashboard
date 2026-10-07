@@ -42,6 +42,7 @@ import KeyrunePicker from "./KeyrunePicker";
 import RegisterPlayer, { type PlayerRegistrationInput } from "./RegisterPlayer";
 import AdminTagsPanel from "./AdminTagsPanel";
 import AdminPlanarOriginsPanel from "./AdminPlanarOriginsPanel";
+import AdminAchievementsPanel from "./AdminAchievementsPanel";
 import { PlanarOriginSelector } from "./PlanarOrigins";
 import PowerCheckPanel from "./PowerCheckPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
@@ -1290,7 +1291,7 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
   const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags" | "origins">("matches");
+  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags" | "origins" | "achievements">("matches");
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -2517,6 +2518,14 @@ export default function PlayerEditorApp() {
                 >
                   Origens Planares
                 </button>
+
+                <button
+                  type="button"
+                  className={adminTab === "achievements" ? "active" : ""}
+                  onClick={() => setAdminTab("achievements")}
+                >
+                  Conquistas
+                </button>
               </div>
 
               {adminTab === "matches" ? (
@@ -2613,11 +2622,17 @@ export default function PlayerEditorApp() {
                   disabled={Boolean(savingTarget)}
                   onNotice={(kind, message) => setNotice({ kind, text: message })}
                 />
-              ) : (
+              ) : adminTab === "origins" ? (
                 <AdminPlanarOriginsPanel
                   token={token}
                   playerId={sessionData.player.id}
                   usage={sessionData.keyruneUsage}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
+              ) : (
+                <AdminAchievementsPanel
+                  token={token}
                   disabled={Boolean(savingTarget)}
                   onNotice={(kind, message) => setNotice({ kind, text: message })}
                 />
