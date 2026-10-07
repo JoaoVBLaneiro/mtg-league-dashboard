@@ -25,6 +25,21 @@
     0 8px 22px rgba(0, 0, 0, 0.16);
 }
 
+.planar-origin-badge.is-clickable {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.planar-origin-badge.is-clickable:hover {
+  transform: translateY(-1px);
+}
+
+.planar-origin-badge.is-clickable:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.72);
+  outline-offset: 2px;
+}
+
 .planar-origin-badge i {
   flex: 0 0 auto;
   font-size: 23px;
@@ -60,52 +75,64 @@
 }
 
 .profile-header:has(.deck-planar-origin-panel) {
-  align-items: center;
+  align-items: flex-start;
 }
 
 .deck-planar-origin-panel {
-  flex: 0 0 215px;
-  align-self: center;
+  flex: 0 0 auto;
+  align-self: flex-start;
   margin-left: auto;
-  padding: 14px;
-  border: 1px solid rgba(245, 201, 92, 0.24);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(250, 204, 21, 0.09), transparent 48%),
-    rgba(9, 9, 11, 0.68);
-  box-shadow:
-    0 18px 36px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.deck-planar-origin-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.deck-planar-origin-heading > span {
-  color: #fde68a;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-}
-
-.deck-planar-origin-heading small {
-  color: #8f856b;
-  font-size: 9px;
-  white-space: nowrap;
+  padding-top: 6px;
 }
 
 .deck-planar-origin-panel .planar-origin-badges {
-  display: grid;
-  grid-template-columns: 1fr;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: 200px;
 }
 
 .deck-planar-origin-panel .planar-origin-badge {
-  width: 100%;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #f4f4f5;
+  background: rgba(18, 20, 27, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 8px 20px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.deck-planar-origin-panel .planar-origin-badge.is-clickable:hover {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(30, 33, 43, 0.96);
+}
+
+.deck-planar-origin-panel .planar-origin-badge > span {
+  display: none;
+}
+
+.deck-planar-origin-panel .planar-origin-badge i {
+  font-size: 22px;
+}
+
+.deck-planar-origin-panel .planar-origin-badge.planar-origin-universe,
+.deck-planar-origin-panel .planar-origin-badge.planar-origin-origin {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(18, 20, 27, 0.92);
+}
+
+.planar-origin-decks-icon {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(18, 20, 27, 0.92);
+}
+
+.planar-origin-decks-icon i {
+  font-size: 32px;
 }
 
 .editor-planar-origin-selector {
@@ -204,13 +231,14 @@
   }
 
   .deck-planar-origin-panel {
-    flex: 1 1 100%;
     width: 100%;
-    margin: 14px 0 0;
+    margin: 10px 0 0;
+    padding-top: 0;
   }
 
   .deck-planar-origin-panel .planar-origin-badges {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    justify-content: flex-start;
+    max-width: none;
   }
 }
 

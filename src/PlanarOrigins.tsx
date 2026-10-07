@@ -78,10 +78,12 @@ export function PlanarOriginBadges({
   origins = [],
   compact = false,
   panel = false,
+  onOriginClick,
 }: {
   origins?: readonly PlanarOriginDefinition[];
   compact?: boolean;
   panel?: boolean;
+  onOriginClick?: (origin: PlanarOriginDefinition) => void;
 }) {
   if (!origins.length) return null;
 
@@ -93,27 +95,43 @@ export function PlanarOriginBadges({
 
   const body = (
     <div className={`planar-origin-badges${compact ? " compact" : ""}`}>
-      {ordered.map((origin) => (
-        <span
-          className={`planar-origin-badge planar-origin-${origin.kind}`}
-          key={origin.slug}
-          title={`${origin.kind === "universe" ? "Universo" : "Plano / origem"}: ${origin.label}`}
-        >
-          <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
-          <span>{origin.label}</span>
-        </span>
-      ))}
+      {ordered.map((origin) => {
+        const content = (
+          <>
+            <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
+            <span>{origin.label}</span>
+          </>
+        );
+
+        return onOriginClick ? (
+          <button
+            type="button"
+            className={`planar-origin-badge planar-origin-${origin.kind} is-clickable`}
+            key={origin.slug}
+            title={`Ver decks de ${origin.label}`}
+            aria-label={`Ver decks de ${origin.label}`}
+            onClick={() => onOriginClick(origin)}
+          >
+            {content}
+          </button>
+        ) : (
+          <span
+            className={`planar-origin-badge planar-origin-${origin.kind}`}
+            key={origin.slug}
+            title={`${origin.kind === "universe" ? "Universo" : "Plano / origem"}: ${origin.label}`}
+            aria-label={origin.label}
+          >
+            {content}
+          </span>
+        );
+      })}
     </div>
   );
 
   if (!panel) return body;
 
   return (
-    <aside className="deck-planar-origin-panel" aria-label="Origem planar do deck">
-      <div className="deck-planar-origin-heading">
-        <span>ORIGEM PLANAR</span>
-        <small>Keyrune · Raro</small>
-      </div>
+    <aside className="deck-planar-origin-panel" aria-label="Origens planares do deck">
       {body}
     </aside>
   );

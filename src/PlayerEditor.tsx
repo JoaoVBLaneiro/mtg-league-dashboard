@@ -846,6 +846,7 @@ function EditorNotice({
 type AdminDeckRecord = {
   dbId: number;
   id: string;
+  displayName: string;
   ownerPlayerId: number | null;
   ownerId: string;
   ownerDisplayName: string;
@@ -968,6 +969,7 @@ function AdminDecksPanel({
 
       if (!needle) return true;
       return [
+        stringValue(deck.fields["Nome de Exibição"]),
         deck.id,
         deck.ownerId,
         deck.ownerDisplayName,
@@ -1101,7 +1103,7 @@ function AdminDecksPanel({
                 className={`editor-admin-deck-list-item${activeDbId === deck.dbId ? " active" : ""}${deck.isDeleted ? " deleted" : ""}`}
                 onClick={() => setActiveDbId(deck.dbId)}
               >
-                <strong>{deck.id}</strong>
+                <strong>{stringValue(deck.fields["Nome de Exibição"]) || deck.id}</strong>
                 <span>{deck.ownerDisplayName || deck.ownerId || "Sem autor"}</span>
                 <small>{deck.isDeleted ? "Excluído" : inactive ? "Inativo" : "Ativo"}{deck.tags.length ? ` · ${deck.tags.join(", ")}` : ""}</small>
               </button>
@@ -1115,7 +1117,7 @@ function AdminDecksPanel({
               <div className="editor-page-heading editor-deck-heading">
                 <div>
                   <span>{activeDeck.isDeleted ? "Deck excluído" : "Deck cadastrado"}</span>
-                  <h2>{activeDeck.id}</h2>
+                  <h2>{stringValue(currentFields["Nome de Exibição"]) || activeDeck.id}</h2>
                   <p>O nome/ID histórico do deck não é renomeado por esta tela.</p>
                 </div>
                 <div className="editor-heading-actions">
@@ -1178,6 +1180,15 @@ function AdminDecksPanel({
                 <div className="editor-section-heading">
                   <h2>Informações do deck</h2>
                   <p>Mesmos campos usados na edição normal do autor.</p>
+                </div>
+                <div className="editor-form-grid">
+                  <TextField
+                    label="Nome de exibição"
+                    value={stringValue(currentFields["Nome de Exibição"])}
+                    onChange={(value) => updateField("Nome de Exibição", value)}
+                    placeholder={activeDeck.id}
+                  />
+                  <TextField label="Identificador interno" value={activeDeck.id} readOnly />
                 </div>
                 <div className="editor-card-lookup-grid editor-commander-lookup-grid">
                   <CardLookupFields key={`admin-commander:${activeDeck.dbId}`} label="Comandante" nameField="Comandante" imageField="Foto URL" fields={currentFields} onChange={updateField} allowArtSelection />
@@ -2190,7 +2201,7 @@ export default function PlayerEditorApp() {
                         disabled={Boolean(savingTarget)}
                         onClick={() => { setIsCreatingDeck(false); setActiveDeckId(deck.id); }}
                       >
-                        {deck.id}
+                        {stringValue(deck.fields["Nome de Exibição"]) || deck.id}
                         {deck.fields.Status === "Inativo" ? <span role="img" aria-label="Inativo" title="Inativo · Ice Age"><InactiveDeckIcon size={14} /></span> : null}
                       </button>
                     ))}
@@ -2201,7 +2212,7 @@ export default function PlayerEditorApp() {
                       <div className="editor-page-heading editor-deck-heading">
                         <div>
                           <span>{isCreatingDeck ? "Novo cadastro" : "Deck cadastrado"}</span>
-                          <h2>{isCreatingDeck ? "Monte o perfil do seu deck" : activeDeck.id}</h2>
+                          <h2>{isCreatingDeck ? "Monte o perfil do seu deck" : stringValue(currentDeckFields["Nome de Exibição"]) || activeDeck.id}</h2>
                           <DeckLabels categories={currentDeckFields.Categorias} inactive={currentDeckFields.Status === "Inativo"} />
                           {isCreatingDeck ? <p>Nome e comandante são obrigatórios. Você pode completar o restante depois.</p> : null}
                         </div>
@@ -2235,9 +2246,15 @@ export default function PlayerEditorApp() {
                               <input value={newDeckName} onChange={(event) => setNewDeckName(event.target.value)}
                                 maxLength={80} placeholder={`Ex.: Meren - ${sessionData.player.id}`} autoFocus />
                             </label>
+                            <TextField
+                              label="Nome de exibição"
+                              value={stringValue(currentDeckFields["Nome de Exibição"])}
+                              onChange={(value) => updateDeckField("", "Nome de Exibição", value)}
+                              placeholder="Opcional · se vazio, usa o identificador"
+                            />
                             <TextField label="Autor (automático)" value={sessionData.player.id} readOnly />
                           </div>
-                          <p className="editor-field-hint">Use um nome único, sem vírgulas. Ele será o identificador do histórico e não poderá ser renomeado aqui.</p>
+                          <p className="editor-field-hint">O primeiro nome é o identificador permanente do histórico. O nome de exibição pode ser alterado depois sem quebrar partidas ou estatísticas.</p>
                         </div>
                       ) : null}
 
@@ -2294,6 +2311,17 @@ export default function PlayerEditorApp() {
                           <h2>Informações do deck</h2>
                           <p>Digite o comandante e use Buscar ou Escolher arte para selecionar uma edição. O secundário é opcional.</p>
                         </div>
+                        {!isCreatingDeck ? (
+                          <div className="editor-form-grid">
+                            <TextField
+                              label="Nome de exibição"
+                              value={stringValue(currentDeckFields["Nome de Exibição"])}
+                              onChange={(value) => updateDeckField(activeDeck.id, "Nome de Exibição", value)}
+                              placeholder={activeDeck.id}
+                            />
+                            <TextField label="Identificador interno" value={activeDeck.id} readOnly />
+                          </div>
+                        ) : null}
                         <div className="editor-card-lookup-grid editor-commander-lookup-grid">
                           <CardLookupFields
                             key={`commander:${activeDeck.id}`}

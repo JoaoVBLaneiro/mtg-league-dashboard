@@ -33,7 +33,7 @@ import LifeTrackerApp from "./LifeTracker";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBadges";
-import { PlanarOriginBadges, type PlanarOriginDefinition } from "./PlanarOrigins";
+import { PlanarOriginBadges, rareKeyrune, type PlanarOriginDefinition } from "./PlanarOrigins";
 import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
@@ -263,6 +263,7 @@ const emptyPlayerProfileExtras: PlayerProfileExtras = {
 };
 
 type DeckMiniInfo = {
+  deck?: string;
   nome: string;
   fotoUrl: string;
   arteUrl?: string;
@@ -394,6 +395,7 @@ type Deck = {
   inactive?: boolean;
   deleted?: boolean;
   name: string;
+  displayName: string;
   appearances: number;
   wins: number;
   winrate: number;
@@ -629,6 +631,10 @@ function getPlayerDisplayName(player: Player) {
   return player.displayName || player.name;
 }
 
+function getDeckDisplayName(deck: Deck) {
+  return deck.displayName || deck.name;
+}
+
 function buildPlayerTrophyMap(rows: RawPlayerTrophy[] = []) {
   const map: Record<string, PlayerTrophyInfo> = {};
 
@@ -723,7 +729,7 @@ function DeckPowerInfoCard({ deck }: { deck: Deck }) {
               className="deck-power-info-button deck-power-vote-button"
               href={voteHref}
               title="Avaliar este deck"
-              aria-label={`Avaliar ${deck.name} no Power Check`}
+              aria-label={`Avaliar ${getDeckDisplayName(deck)} no Power Check`}
               onClick={(event) => event.stopPropagation()}
             >
               <Zap size={12} aria-hidden="true" />
@@ -899,6 +905,7 @@ function normalizeDecks(
   return decks
     .map((item) => ({
       name: item.deck || item.nome || "Deck sem nome",
+      displayName: item.nome || item.deck || "Deck sem nome",
       categories: readDeckTags(item.categorias),
       planarOrigins: Array.isArray(item.planarOrigins) ? item.planarOrigins : [],
       inactive: item.inativo === true,
@@ -1208,7 +1215,7 @@ function buildRegisteredDeckColorGroups(decks: Deck[]) {
       label: getColorCombinationLabel(key),
       decks: groupsMap[key]
         .slice()
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => getDeckDisplayName(a).localeCompare(getDeckDisplayName(b))),
     }))
     .sort(
       (a, b) => getColorCombinationSortValue(a.key) - getColorCombinationSortValue(b.key)
@@ -1276,7 +1283,7 @@ function buildRegisteredDeckAuthorGroups(decks: Deck[]) {
       ...group,
       decks: group.decks
         .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+        .sort((a, b) => getDeckDisplayName(a).localeCompare(getDeckDisplayName(b), "pt-BR")),
     }))
     .sort((a, b) => {
       if (a.key === "__without-author__") return 1;
@@ -1370,7 +1377,7 @@ function buildRegisteredDeckTagGroups(decks: Deck[]) {
       ...group,
       decks: group.decks
         .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+        .sort((a, b) => getDeckDisplayName(a).localeCompare(getDeckDisplayName(b), "pt-BR")),
     }))
     .sort((a, b) => {
       if (a.key === "__without-tags__") return 1;
@@ -2240,7 +2247,7 @@ function CommanderStack({
 
   const mainScryfallUrl =
     variant === "profile"
-      ? getScryfallCardSearchUrl(deck.commander || deck.name)
+      ? getScryfallCardSearchUrl(deck.commander || getDeckDisplayName(deck))
       : "";
 
   const secondaryScryfallUrl =
@@ -2262,12 +2269,12 @@ function CommanderStack({
           className="commander-card commander-card-main"
           title={
             variant === "profile"
-              ? `Abrir ${deck.commander || deck.name} no Scryfall`
-              : `Comandante: ${deck.commander || deck.name}`
+              ? `Abrir ${deck.commander || getDeckDisplayName(deck)} no Scryfall`
+              : `Comandante: ${deck.commander || getDeckDisplayName(deck)}`
           }
         >
           {mainImage ? (
-            <img src={mainImage} alt={deck.commander || deck.name} />
+            <img src={mainImage} alt={deck.commander || getDeckDisplayName(deck)} />
           ) : (
             <div className="avatar-placeholder">
               <Wand2 size={variant === "profile" ? 36 : 22} />
@@ -2305,12 +2312,12 @@ function CommanderStack({
         className="commander-card commander-card-main"
         title={
           variant === "profile"
-            ? `Abrir ${deck.commander || deck.name} no Scryfall`
-            : `Comandante: ${deck.commander || deck.name}`
+            ? `Abrir ${deck.commander || getDeckDisplayName(deck)} no Scryfall`
+            : `Comandante: ${deck.commander || getDeckDisplayName(deck)}`
         }
       >
         {mainImage ? (
-          <img src={mainImage} alt={deck.commander || deck.name} />
+          <img src={mainImage} alt={deck.commander || getDeckDisplayName(deck)} />
         ) : (
           <div className="avatar-placeholder">
             <Wand2 size={variant === "profile" ? 36 : 22} />
@@ -2343,7 +2350,7 @@ function LeaderboardCard({
   const isPlayer = type === "player";
   const visibleName = isPlayer
     ? getPlayerDisplayName(item as Player)
-    : item.name;
+    : getDeckDisplayName(item as Deck);
 
   const hasFblthp = isPlayer && (item as Player).hasFblthp;
 
@@ -2578,9 +2585,9 @@ function PlayerDeckMiniCard({
   return (
     <button
       className="player-deck-mini-card"
-      onClick={() => onClick(deck.nome)}
-      onMouseEnter={(event) => onPreview?.(deck.nome, event)}
-      onMouseMove={(event) => onPreview?.(deck.nome, event)}
+      onClick={() => onClick(deck.deck || deck.nome)}
+      onMouseEnter={(event) => onPreview?.(deck.deck || deck.nome, event)}
+      onMouseMove={(event) => onPreview?.(deck.deck || deck.nome, event)}
       onMouseLeave={onPreviewClose}
     >
       <MiniCommanderStack deck={deck} />
@@ -2901,7 +2908,7 @@ function ProfileHoverCard({
   const item = preview.item;
   const visibleName = isPlayer
     ? getPlayerDisplayName(item as Player)
-    : item.name;
+    : getDeckDisplayName(item as Deck);
 
   const playerHasFblthp = isPlayer && (item as Player).hasFblthp;
 
@@ -3687,7 +3694,8 @@ function buildFallbackDeckFromCombo(item: ComboStatItem): Deck {
   const deckItem = item as PlayerDeckComboStat & ComboSimpleStat;
 
   return {
-    name: getComboStatName(item),
+    name: getComboStatSelectionName(item),
+    displayName: getComboStatName(item),
     planarOrigins: [],
     appearances: item.games,
     wins: item.wins,
@@ -3909,7 +3917,8 @@ function describePieSlice(
 
 function createDeckFromCombo(combo: PlayerDeckComboStat): Deck {
   return {
-    name: combo.nome || combo.deck,
+    name: combo.deck || combo.nome,
+    displayName: combo.nome || combo.deck,
     planarOrigins: [],
     appearances: combo.games,
     wins: combo.wins,
@@ -5173,6 +5182,7 @@ function ProfileModal({
   onFblthpClick,
   onOriginClick,
   onCategoryClick,
+  onPlanarOriginClick,
   onAuthorIconClick,
   onDecklistClick,
   onCardPreview,
@@ -5194,6 +5204,7 @@ function ProfileModal({
   onFblthpClick: () => void;
   onOriginClick: (origin: DeckOriginInfo) => void;
   onCategoryClick: (tag: DeckTagSelection) => void;
+  onPlanarOriginClick: (origin: PlanarOriginDefinition) => void;
   onAuthorIconClick: (player: Player) => void;
   onDecklistClick: (deck: Deck) => void;
   onCardPreview: (preview: CardPreviewState) => void;
@@ -5231,7 +5242,7 @@ function ProfileModal({
   const item = selected.item;
   const visibleName = isPlayer
     ? getPlayerDisplayName(item as Player)
-    : item.name;
+    : getDeckDisplayName(item as Deck);
 
   const image = isPlayer ? (item as Player).photoUrl : (item as Deck).imageUrl;
 
@@ -5297,10 +5308,13 @@ function ProfileModal({
   }
 
   function getRelatedProfileDisplayName(name: string) {
-    if (!isPlayer) return name;
+    if (isPlayer) {
+      const relatedPlayer = players.find((player) => player.name === name);
+      return relatedPlayer ? getPlayerDisplayName(relatedPlayer) : name;
+    }
 
-    const relatedPlayer = players.find((player) => player.name === name);
-    return relatedPlayer ? getPlayerDisplayName(relatedPlayer) : name;
+    const relatedDeck = decks.find((deck) => deck.name === name);
+    return relatedDeck ? getDeckDisplayName(relatedDeck) : name;
   }
 
   return (
@@ -5473,6 +5487,7 @@ function ProfileModal({
             <PlanarOriginBadges
               origins={(item as Deck).planarOrigins}
               panel
+              onOriginClick={onPlanarOriginClick}
             />
           ) : null}
         </div>
@@ -6177,11 +6192,13 @@ function RecentMatches({
   onSelectPlayer,
   onSelectDeck,
   getPlayerVisibleName = (name) => name,
+  getDeckVisibleName = (name) => name,
 }: {
   matches: ActivityMatch[];
   onSelectPlayer: (name: string) => void;
   onSelectDeck: (name: string) => void;
   getPlayerVisibleName?: (name: string) => string;
+  getDeckVisibleName?: (name: string) => string;
 }) {
   return (
     <div className="activity-panel recent-matches-panel">
@@ -6237,7 +6254,7 @@ function RecentMatches({
                       className="inline-activity-link"
                       onClick={() => onSelectDeck(deck)}
                     >
-                      {deck}
+                      {getDeckVisibleName(deck)}
                     </button>
                     {index < match.decks.length - 1 ? ", " : ""}
                   </span>
@@ -6251,7 +6268,7 @@ function RecentMatches({
                     className="inline-activity-link"
                     onClick={() => onSelectDeck(match.winningDeck)}
                   >
-                    {match.winningDeck}
+                    {getDeckVisibleName(match.winningDeck)}
                   </button>
                 ) : (
                   "Não informado"
@@ -6695,6 +6712,11 @@ function ActivityView({
     return player ? getPlayerDisplayName(player) : name;
   }
 
+  function resolveDeckDisplayName(name: string) {
+    const deck = decks.find((item) => item.name === name);
+    return deck ? getDeckDisplayName(deck) : name;
+  }
+
   function openPlayerByName(name: string) {
     const player = players.find((player) => player.name === name);
 
@@ -6861,6 +6883,7 @@ function ActivityView({
           title="Decks mais usados"
           items={filteredActivity.decksActivity}
           onSelectEntity={openDeckByName}
+          getDisplayName={resolveDeckDisplayName}
         />
       </div>
 
@@ -6869,6 +6892,7 @@ function ActivityView({
         onSelectPlayer={openPlayerByName}
         onSelectDeck={openDeckByName}
         getPlayerVisibleName={resolvePlayerDisplayName}
+        getDeckVisibleName={resolveDeckDisplayName}
       />
     </section>
   );
@@ -6941,7 +6965,7 @@ function sortDecksByEase(
         : Number(b.easeOfUse) - Number(a.easeOfUse);
     }
 
-    return a.name.localeCompare(b.name, "pt-BR");
+    return getDeckDisplayName(a).localeCompare(getDeckDisplayName(b), "pt-BR");
   });
 }
 
@@ -6977,7 +7001,7 @@ function DeckPrintCard({
       <div className="deck-print-commanders">
         <div className="deck-print-commander-main">
           {deck.imageUrl ? (
-            <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+            <img src={deck.imageUrl} alt={deck.commander || getDeckDisplayName(deck)} />
           ) : (
             <div className="deck-print-image-placeholder">
               <Wand2 size={24} />
@@ -6998,7 +7022,7 @@ function DeckPrintCard({
 
       <div className="deck-print-main">
         <header className="deck-print-title-block">
-          <h2>{deck.name}</h2>
+          <h2>{getDeckDisplayName(deck)}</h2>
 
           <div className="deck-print-subtitle">
             <span>
@@ -7275,13 +7299,14 @@ function RandomDeckModal({
     const query = normalizeDeckSearchText(searchTerm);
     const sorted = decks
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      .sort((a, b) => getDeckDisplayName(a).localeCompare(getDeckDisplayName(b), "pt-BR"));
 
     if (!query) return sorted;
 
     return sorted.filter((deck) =>
       normalizeDeckSearchText(
         [
+          deck.displayName,
           deck.name,
           deck.commander,
           deck.secondaryCommander,
@@ -7466,7 +7491,7 @@ function RandomDeckModal({
                 {drawnDeck.imageUrl ? (
                   <img
                     src={drawnDeck.imageUrl}
-                    alt={drawnDeck.commander || drawnDeck.name}
+                    alt={drawnDeck.commander || getDeckDisplayName(drawnDeck)}
                   />
                 ) : (
                   <Wand2 size={26} aria-hidden="true" />
@@ -7475,7 +7500,7 @@ function RandomDeckModal({
 
               <div className="random-deck-result-info">
                 <span>Deck sorteado</span>
-                <strong>{drawnDeck.name}</strong>
+                <strong>{getDeckDisplayName(drawnDeck)}</strong>
                 <p>
                   {drawnDeck.commander || "Comandante não informado"}
                   {drawnDeck.autor?.nome
@@ -7559,14 +7584,14 @@ function RandomDeckModal({
 
                 <div className="registered-deck-image">
                   {deck.imageUrl ? (
-                    <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+                    <img src={deck.imageUrl} alt={deck.commander || getDeckDisplayName(deck)} />
                   ) : (
                     <Wand2 size={20} aria-hidden="true" />
                   )}
                 </div>
 
                 <div className="registered-deck-info">
-                  <strong>{deck.name}</strong>
+                  <strong>{getDeckDisplayName(deck)}</strong>
                   <DeckLabels inactive={deck.inactive} compact />
 
                   <span>
@@ -7637,6 +7662,7 @@ function RegisteredDecksModal({
     return sorted.filter((deck) =>
       normalizeDeckSearchText(
         [
+          deck.displayName,
           deck.name,
           deck.commander,
           deck.secondaryCommander,
@@ -7722,7 +7748,7 @@ function RegisteredDecksModal({
           {deck.imageUrl ? (
             <img
               src={deck.imageUrl}
-              alt={deck.commander || deck.name}
+              alt={deck.commander || getDeckDisplayName(deck)}
             />
           ) : (
             <Wand2 size={20} />
@@ -7730,7 +7756,7 @@ function RegisteredDecksModal({
         </div>
 
         <div className="registered-deck-info">
-          <strong>{deck.name}</strong>
+          <strong>{getDeckDisplayName(deck)}</strong>
 
           <span>
             {deck.commander || "Comandante não informado"}
@@ -7950,14 +7976,14 @@ function RegisteredDecksModal({
 
                     <div className="registered-deck-image">
                       {deck.imageUrl ? (
-                        <img src={deck.imageUrl} alt={deck.commander || deck.name} />
+                        <img src={deck.imageUrl} alt={deck.commander || getDeckDisplayName(deck)} />
                       ) : (
                         <Wand2 size={20} />
                       )}
                     </div>
 
                     <div className="registered-deck-info">
-                      <strong>{deck.name}</strong>
+                      <strong>{getDeckDisplayName(deck)}</strong>
                       <DeckLabels inactive={deck.inactive} compact />
 
                       <span>
@@ -8369,6 +8395,89 @@ function CategoryDecksModal({ category, decks, onSelectDeck, onClose }: {
       ))}
     </div>
   </dialog>;
+}
+
+function PlanarOriginDecksModal({
+  origin,
+  decks,
+  onSelectDeck,
+  onClose,
+}: {
+  origin: PlanarOriginDefinition;
+  decks: Deck[];
+  onSelectDeck: (deck: Deck) => void;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  const matching = decks.filter(
+    (deck) =>
+      isAvailableDeck(deck)
+      && deck.planarOrigins.some(
+        (deckOrigin) => deckOrigin.slug === origin.slug,
+      ),
+  );
+
+  useEffect(() => {
+    if (dialog.current && !dialog.current.open) {
+      dialog.current.showModal();
+    }
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="category-decks-dialog"
+      aria-labelledby="planar-origin-decks-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      <button
+        className="modal-close"
+        type="button"
+        onClick={onClose}
+        aria-label="Fechar decks desta origem planar"
+        autoFocus
+      >
+        ×
+      </button>
+
+      <div className="origin-decks-header">
+        <div className="origin-decks-icon planar-origin-decks-icon">
+          <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
+        </div>
+
+        <div>
+          <span className="profile-type">
+            {origin.kind === "universe" ? "Universo" : "Plano / franquia"}
+          </span>
+          <h2 id="planar-origin-decks-title">{origin.label}</h2>
+          <p>
+            {matching.length} {matching.length === 1 ? "deck encontrado" : "decks encontrados"}
+          </p>
+        </div>
+      </div>
+
+      <div className="origin-decks-list">
+        {!matching.length ? (
+          <div className="loading-box">Nenhum deck cadastrado nesta origem planar.</div>
+        ) : (
+          matching.map((deck, index) => (
+            <LeaderboardCard
+              key={deck.name}
+              item={deck}
+              index={index}
+              type="deck"
+              onClick={() => onSelectDeck(deck)}
+            />
+          ))
+        )}
+      </div>
+    </dialog>
+  );
 }
 
 function OriginDecksModal({
@@ -8992,12 +9101,16 @@ async function buildPlayerTopNonlandCards({
     return !typeLine.includes("land");
   })
     .map((item) => {
-      const deckNames = Array.from(item.deckNames);
+      const deckIds = Array.from(item.deckNames);
+      const deckNames = deckIds.map((deckId) => {
+        const deck = decks.find((candidate) => candidate.name === deckId);
+        return deck ? getDeckDisplayName(deck) : deckId;
+      });
 
       return {
         name: item.name,
         uses: item.uses,
-        deckCount: deckNames.length,
+        deckCount: deckIds.length,
         deckNames,
         imageUrl: item.imageUrl,
         scryfallUrl: item.scryfallUrl,
@@ -9117,7 +9230,7 @@ function DecklistModal({
         <div className="decklist-modal-header">
           <div className="decklist-modal-cover">
             {deck.imageUrl ? (
-              <img src={deck.imageUrl} alt={deck.name} />
+              <img src={deck.imageUrl} alt={getDeckDisplayName(deck)} />
             ) : (
               <div className="avatar-placeholder">
                 <Wand2 size={28} />
@@ -9127,7 +9240,7 @@ function DecklistModal({
 
           <div>
             <span className="profile-type">Decklist</span>
-            <h2>{deck.name}</h2>
+            <h2>{getDeckDisplayName(deck)}</h2>
             <p>
               {parsedCount} {parsedCount === 1 ? "carta listada" : "cartas listadas"}
               {loadingCards ? " • carregando artes..." : ""}
@@ -9249,6 +9362,7 @@ function DashboardApp() {
 
   const [selectedOrigin, setSelectedOrigin] = useState<DeckOriginInfo>(null);
   const [selectedCategory, setSelectedCategory] = useState<DeckTagSelection | null>(null);
+  const [selectedPlanarOrigin, setSelectedPlanarOrigin] = useState<PlanarOriginDefinition | null>(null);
   const [manualCatalogPlayer, setManualCatalogPlayer] = useState<string | null>(null);
   const [manualAchievement, setManualAchievement] = useState<PlayerAchievement | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
@@ -9340,6 +9454,7 @@ function DashboardApp() {
       if (event.key !== "Escape") return;
 
       if (selectedCategory) { event.preventDefault(); setSelectedCategory(null); return; }
+      if (selectedPlanarOrigin) { event.preventDefault(); setSelectedPlanarOrigin(null); return; }
 
       setCardPreview(null);
       setSetPreview(null);
@@ -9386,6 +9501,7 @@ function DashboardApp() {
     showRegisteredDecksModal,
     selectedOrigin,
     selectedCategory,
+    selectedPlanarOrigin,
     selectedAuthor,
     selectedProfile,
   ]);
@@ -9742,6 +9858,7 @@ const hasMorePlayers =
         onFblthpClick={() => setShowFblthpInfo(true)}
         onOriginClick={(origin) => setSelectedOrigin(origin)}
         onCategoryClick={setSelectedCategory}
+        onPlanarOriginClick={setSelectedPlanarOrigin}
         onAuthorIconClick={(player) => setSelectedAuthor(player)}
         onDecklistClick={(deck) => setSelectedDecklist(deck)}
         onCardPreview={setCardPreview}
@@ -9773,6 +9890,18 @@ const hasMorePlayers =
         onClose={() => setSelectedCategory(null)} onSelectDeck={(deck) => {
           setSelectedCategory(null); setSelectedProfile({ type: "deck", item: deck });
         }} /> : null}
+
+      {selectedPlanarOrigin ? (
+        <PlanarOriginDecksModal
+          origin={selectedPlanarOrigin}
+          decks={allDecks}
+          onClose={() => setSelectedPlanarOrigin(null)}
+          onSelectDeck={(deck) => {
+            setSelectedPlanarOrigin(null);
+            setSelectedProfile({ type: "deck", item: deck });
+          }}
+        />
+      ) : null}
 
       {selectedOrigin ? (
         <OriginDecksModal
