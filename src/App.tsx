@@ -9345,6 +9345,8 @@ function DashboardApp() {
 
   const [showAllDecks, setShowAllDecks] = useState(false);
 
+  const [showHiddenLeaderboardEntries, setShowHiddenLeaderboardEntries] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -9546,15 +9548,37 @@ const playerSectionSubtitle = isPlayerTrophyRanking
     [activeLeaderboard.decks, leaderboardSortMode]
   );
 
+  const leaderboardPlayers = useMemo(
+    () =>
+      showHiddenLeaderboardEntries
+        ? players
+        : players.filter(
+            (player) => !/^jogador\s+[1-6]$/i.test(player.name.trim())
+          ),
+    [players, showHiddenLeaderboardEntries]
+  );
+
+  const leaderboardDecks = useMemo(
+    () =>
+      showHiddenLeaderboardEntries
+        ? decks
+        : decks.filter((deck) => !deck.inactive),
+    [decks, showHiddenLeaderboardEntries]
+  );
+
+  const hiddenLeaderboardCount =
+    players.length - leaderboardPlayers.length +
+    decks.length - leaderboardDecks.length;
+
   const shouldFilterLowParticipationPlayers =
   activePeriod === "geral" || activePeriod === "semestre";
 
   const sortedPlayers = useMemo(() => {
   if (!isPlayerTrophyRanking) {
-    return players;
+    return leaderboardPlayers;
   }
 
-  return players.slice().sort((a, b) => {
+  return leaderboardPlayers.slice().sort((a, b) => {
     if (b.trophy.trophies !== a.trophy.trophies) {
       return b.trophy.trophies - a.trophy.trophies;
     }
@@ -9573,7 +9597,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
 
     return a.name.localeCompare(b.name);
   });
-}, [players, isPlayerTrophyRanking]);
+}, [leaderboardPlayers, isPlayerTrophyRanking]);
 
 const eligiblePlayers = sortedPlayers.filter((player) =>
   hasEnoughParticipations(player.games)
@@ -9591,10 +9615,10 @@ const hasMorePlayers =
   const initialDeckLimit = getBalancedDeckLimit(visiblePlayers.length);
 
   const visibleDecks = showAllDecks
-    ? decks
-    : decks.slice(0, initialDeckLimit);
+    ? leaderboardDecks
+    : leaderboardDecks.slice(0, initialDeckLimit);
 
-  const hasMoreDecks = decks.length > visibleDecks.length;
+  const hasMoreDecks = leaderboardDecks.length > visibleDecks.length;
 
   function showProfilePreview(
     type: "player" | "deck",
@@ -9634,7 +9658,7 @@ const hasMorePlayers =
     idleDelay: 10000,
     scrollSpeed: 0.9,
     edgePause: 3000,
-    resetKey: `${activeView}-${activePeriod}-${visiblePlayers.length}-${decks.length}-${visibleDecks.length}-${showAllPlayers}-${showAllDecks}`,
+    resetKey: `${activeView}-${activePeriod}-${visiblePlayers.length}-${leaderboardDecks.length}-${visibleDecks.length}-${showAllPlayers}-${showAllDecks}-${showHiddenLeaderboardEntries}`,
   });
 
   return (
@@ -9674,7 +9698,33 @@ const hasMorePlayers =
         <MainTabs activeView={activeView} onChange={setActiveView} />
 
         {activeView === "ranking" ? (
-          <PeriodTabs activePeriod={activePeriod} onChange={setActivePeriod} />
+          <div className="ranking-period-controls">
+            <PeriodTabs activePeriod={activePeriod} onChange={setActivePeriod} />
+
+            <button
+              type="button"
+              className={`leaderboard-hidden-toggle${showHiddenLeaderboardEntries ? " active" : ""}`}
+              onClick={() => {
+                setShowHiddenLeaderboardEntries((current) => !current);
+                setShowAllPlayers(false);
+                setShowAllDecks(false);
+              }}
+              aria-pressed={showHiddenLeaderboardEntries}
+              title={
+                showHiddenLeaderboardEntries
+                  ? "Ocultar decks inativos e Jogador 1–6"
+                  : "Exibir decks inativos e Jogador 1–6"
+              }
+            >
+              <Eye size={14} />
+              <span>
+                {showHiddenLeaderboardEntries ? "Ocultar extras" : "Exibir ocultos"}
+              </span>
+              {!showHiddenLeaderboardEntries && hiddenLeaderboardCount > 0 ? (
+                <small>{hiddenLeaderboardCount}</small>
+              ) : null}
+            </button>
+          </div>
         ) : null}
 
         {error ? (
@@ -9816,10 +9866,10 @@ const hasMorePlayers =
                   >
                     Mostrar mais decks
                     <span>
-                      {decks.length - visibleDecks.length} restantes
+                      {leaderboardDecks.length - visibleDecks.length} restantes
                     </span>
                   </button>
-                ) : showAllDecks && decks.length > initialDeckLimit ? (
+                ) : showAllDecks && leaderboardDecks.length > initialDeckLimit ? (
                   <button
                     className="show-more-decks-button show-less-decks-button"
                     onClick={() => setShowAllDecks(false)}

@@ -1959,3 +1959,41 @@
   .editor-admin-decks-layout { grid-template-columns: 1fr; }
   .editor-admin-decks-list { max-height: 320px; }
 }
+
+
+/* Dynamic deck tags in deck editor */
+.editor-dynamic-tag-selector {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.editor-dynamic-tag-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #eef2f7;
+  font-size: 13px;
+}
+
+.editor-dynamic-tag-choice {
+  --deck-tag-color: #8b5cf6;
+  color: color-mix(in srgb, var(--deck-tag-color) 72%, white);
+  border-color: color-mix(in srgb, var(--deck-tag-color) 42%, transparent);
+}
+
+.editor-dynamic-tag-choice i {
+  color: var(--deck-tag-color);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.editor-dynamic-tag-choice:hover:not(:disabled),
+.editor-dynamic-tag-choice.selected {
+  border-color: color-mix(in srgb, var(--deck-tag-color) 72%, white 8%);
+  background: color-mix(in srgb, var(--deck-tag-color) 12%, transparent);
+}
+
+.editor-dynamic-tag-error {
+  color: #fca5a5 !important;
+}

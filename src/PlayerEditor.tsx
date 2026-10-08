@@ -5,7 +5,6 @@ import {
   BookOpen,
   Camera,
   CheckCircle2,
-  Check,
   Eye,
   EyeOff,
   ImageUp,
@@ -44,10 +43,11 @@ import AdminTagsPanel from "./AdminTagsPanel";
 import AdminPlanarOriginsPanel from "./AdminPlanarOriginsPanel";
 import AdminAchievementsPanel from "./AdminAchievementsPanel";
 import { PlanarOriginSelector } from "./PlanarOrigins";
+import DeckTagSelector from "./DeckTagSelector";
 import PowerCheckPanel from "./PowerCheckPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
-import { DECK_CATEGORIES, readDeckCategories, toggleDeckCategory } from "./deckMetadata";
-import { DeckCategoryIcon, DeckLabels, InactiveDeckIcon } from "./DeckLabels";
+
+import { DeckLabels, InactiveDeckIcon } from "./DeckLabels";
 import "./playerEditor.css";
 
 const API_BASE_URL = "https://api.corneliomove.com.br/mtg-api";
@@ -955,7 +955,14 @@ function AdminDecksPanel({
     [decks, activeDbId],
   );
 
-  const currentFields = activeDeck ? drafts[activeDeck.dbId] || activeDeck.fields : {};
+  const currentFields: EditorFields = activeDeck
+    ? {
+        ...(drafts[activeDeck.dbId] || activeDeck.fields),
+        Categorias:
+          (drafts[activeDeck.dbId] || activeDeck.fields).Categorias
+          ?? JSON.stringify(activeDeck.tags),
+      }
+    : {};
 
   const filteredDecks = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("pt-BR");
@@ -998,7 +1005,6 @@ function AdminDecksPanel({
     try {
       setSaving(true);
       const fields = { ...(drafts[activeDeck.dbId] || activeDeck.fields) };
-      delete fields.Categorias;
 
       await writeAdminDeck(token, activeDeck.dbId, {
         fields,
@@ -1164,11 +1170,12 @@ function AdminDecksPanel({
                     {activeDeck.isDeleted ? "Restaurar deck" : "Excluir deck"}
                   </button>
                 </div>
-                <div className="editor-admin-deck-tags">
-                  <strong>Tags atuais</strong>
-                  <div>{activeDeck.tags.length ? activeDeck.tags.map((tag) => <span key={tag}>{tag}</span>) : <small>Sem tags</small>}</div>
-                  <p className="editor-field-hint">Para adicionar/remover tags dinâmicas, use a aba Tags. Assim preservamos a regra única de atribuição.</p>
-                </div>
+                <DeckTagSelector
+                  value={currentFields.Categorias}
+                  disabled={saving || disabled}
+                  onChange={(value) => updateField("Categorias", value)}
+                />
+                <p className="editor-field-hint">As definições das tags continuam sendo criadas/editadas na aba Tags; aqui você escolhe quais pertencem a este deck.</p>
 
                 <PlanarOriginSelector
                   value={currentFields["Origens Planares"]}
@@ -2287,18 +2294,12 @@ export default function PlayerEditorApp() {
                             setDeleteConfirmation(""); setDeleteDeckTarget(activeDeck.id); setNotice(null);
                           }}><Trash2 size={17} /> Excluir deck</button> : null}
                         </div>
-                        <div className="editor-category-choices" role="group" aria-label="Categorias do deck">
-                          {DECK_CATEGORIES.map((category) => {
-                            const selected = readDeckCategories(currentDeckFields.Categorias).includes(category.id);
-                            return <button type="button" key={category.id} aria-pressed={selected}
-                              className={`editor-category-choice mtg-deck-category-${category.id}${selected ? " selected" : ""}`}
-                              onClick={() => updateDeckField(activeDeck.id, "Categorias", toggleDeckCategory(currentDeckFields.Categorias, category.id))}>
-                              <DeckCategoryIcon category={category.id} size={20} /> <span>{category.label}</span>
-                              {selected ? <Check size={15} aria-hidden="true" /> : null}
-                            </button>;
-                          })}
-                        </div>
-                        <p className="editor-field-hint">Pode marcar mais de uma. As categorias são usadas pelas conquistas; clique em {isCreatingDeck ? "Criar deck" : "Salvar deck"} para aplicar.</p>
+                        <DeckTagSelector
+                          value={currentDeckFields.Categorias}
+                          disabled={Boolean(savingTarget)}
+                          onChange={(value) => updateDeckField(activeDeck.id, "Categorias", value)}
+                        />
+                        <p className="editor-field-hint">Pode marcar mais de uma. As tags são usadas pelas conquistas; clique em {isCreatingDeck ? "Criar deck" : "Salvar deck"} para aplicar.</p>
 
                         <PlanarOriginSelector
                           value={currentDeckFields["Origens Planares"]}
