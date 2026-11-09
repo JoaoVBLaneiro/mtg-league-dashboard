@@ -30,6 +30,7 @@ import {
 import { motion } from "framer-motion";
 import "./index.css";
 import LifeTrackerApp from "./LifeTracker";
+import CardRatingsPanel from "./CardRatingsPanel";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBadges";
@@ -183,7 +184,7 @@ const emptyPlayerTrophyInfo: PlayerTrophyInfo = {
   lastMatchDate: "",
 };
 
-type ViewKey = "ranking" | "activity";
+type ViewKey = "ranking" | "activity" | "cards";
 
 type ActivityPeriodKey = "geral" | "semana" | "mes" | "semestre" | "custom";
 
@@ -5790,6 +5791,11 @@ function MainTabs({
       label: "Atividade",
       description: "Dias, horários e histórico",
     },
+    {
+      key: "cards",
+      label: "Paiômetro",
+      description: "Cartas paias em pontos",
+    },
   ];
 
   return (
@@ -9674,8 +9680,9 @@ const hasMorePlayers =
             <h1>Leaderboard - Formato Pina</h1>
 
             <p>
-              Ranking automático por winrate. Em caso de empate, vence quem tem
-              mais partidas registradas.
+              {activeView === "cards"
+                ? "Pontuação média atribuída às cartas pelos jogadores do Formato Pina."
+                : "Ranking automático por winrate. Em caso de empate, vence quem tem mais partidas registradas."}
             </p>
           </div>
 
@@ -9727,14 +9734,16 @@ const hasMorePlayers =
           </div>
         ) : null}
 
-        {error ? (
+        {error && activeView !== "cards" ? (
           <div className="error-box">
             <AlertTriangle size={20} />
             <span>{error}</span>
           </div>
         ) : null}
 
-        {loading && !players.length && !decks.length ? (
+        {activeView === "cards" ? (
+          <CardRatingsPanel />
+        ) : loading && !players.length && !decks.length ? (
           <div className="loading-box">Carregando dados da liga...</div>
         ) : activeView === "activity" ? (
           <ActivityView
