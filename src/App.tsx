@@ -29,7 +29,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
+import "./deckProfileLayout.css";
 import LifeTrackerApp from "./LifeTracker";
+import DeckPaiometro from "./DeckPaiometro";
 import CardRatingsPanel from "./CardRatingsPanel";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
@@ -347,6 +349,7 @@ type RawDeck = {
   autor?: DeckAuthorInfo;
   origem?: DeckOriginInfo;
   decklistTexto?: string;
+  paiometroConceitos?: unknown;
   comandanteSecundario?: string;
   secondaryCommander?: string;
   fotoComandanteSecundario?: string;
@@ -417,6 +420,7 @@ type Deck = {
   autor: DeckAuthorInfo;
   origem: DeckOriginInfo;
   decklistTexto: string;
+  paiometroConceitos: unknown;
   secondaryCommander: string;
   secondaryCommanderImageUrl: string;
   secondaryCommanderType: string;
@@ -937,6 +941,7 @@ function normalizeDecks(
       autor: item.autor || null,
       origem: item.origem || null,
       decklistTexto: item.decklistTexto || "",
+      paiometroConceitos: item.paiometroConceitos ?? [],
       secondaryCommander:
         item.comandanteSecundario || item.secondaryCommander || "",
       secondaryCommanderImageUrl:
@@ -3718,6 +3723,7 @@ function buildFallbackDeckFromCombo(item: ComboStatItem): Deck {
     autor: null,
     origem: null,
     decklistTexto: "",
+    paiometroConceitos: [],
     secondaryCommander: deckItem.comandanteSecundario || "",
     secondaryCommanderImageUrl: deckItem.fotoComandanteSecundario || "",
     secondaryCommanderType: deckItem.tipoComandanteSecundario || "",
@@ -3941,6 +3947,7 @@ function createDeckFromCombo(combo: PlayerDeckComboStat): Deck {
     autor: null,
     origem: null,
     decklistTexto: "",
+    paiometroConceitos: [],
     secondaryCommander: combo.comandanteSecundario || "",
     secondaryCommanderImageUrl: combo.fotoComandanteSecundario || "",
     secondaryCommanderType: combo.tipoComandanteSecundario || "",
@@ -5321,7 +5328,7 @@ function ProfileModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <motion.div
-        className="profile-modal"
+        className={`profile-modal${isPlayer ? "" : " profile-modal-deck"}`}
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         onClick={(event) => event.stopPropagation()}
@@ -5388,7 +5395,7 @@ function ProfileModal({
     </button>
   ) : null}
 
-        <div className="profile-header">
+        <div className={`profile-header${isPlayer ? "" : " profile-header-deck"}`}>
           {isPlayer ? (
             <div className="profile-image player-profile-image">
               {image ? (
@@ -5433,7 +5440,7 @@ function ProfileModal({
 </div>
 
             {!isPlayer ? (
-              <>
+              <div className="deck-profile-tags">
                 <DynamicDeckTagBadges
                   categories={(item as Deck).categories}
                   compact
@@ -5445,52 +5452,53 @@ function ProfileModal({
                   compact
                   statusIconOnly
                 />
-              </>
+              </div>
             ) : null}
 
             {!isPlayer &&
               ((item as Deck).commander ||
                 (item as Deck).secondaryCommander ||
                 (item as Deck).colors) ? (
-                <p className="profile-subtitle deck-profile-subtitle">
-                  {(item as Deck).commander ? (
-                    <span>{(item as Deck).commander}</span>
+                <div className="profile-subtitle deck-profile-subtitle">
+                  {(item as Deck).commander || (item as Deck).secondaryCommander ? (
+                    <span className="deck-profile-commander-names">
+                      {(item as Deck).commander}
+                      {(item as Deck).commander && (item as Deck).secondaryCommander ? " + " : ""}
+                      {(item as Deck).secondaryCommander}
+                    </span>
                   ) : null}
-
-                  {(item as Deck).secondaryCommander ? (
-                    <>
-                      {(item as Deck).commander ? <span> + </span> : null}
-
-                      <span>
-                        {(item as Deck).secondaryCommander}
-                      </span>
-                    </>
-                  ) : null}
-
                   {(item as Deck).colors ? (
-                    <>
-                      {(item as Deck).commander || (item as Deck).secondaryCommander ? (
-                        <span> • </span>
-                      ) : null}
-
+                    <span className="deck-profile-mana" aria-label="Identidade de cor do deck">
                       <ManaPips colors={(item as Deck).colors} />
-                    </>
+                    </span>
                   ) : null}
-                </p>
+                </div>
               ) : null}
 
+            {!isPlayer && (item as Deck).planarOrigins.length ? (
+              <div className="deck-profile-planar-container">
+                <span className="deck-profile-planar-caption">Origens planares</span>
+                <PlanarOriginBadges
+                  origins={(item as Deck).planarOrigins}
+                  panel
+                  onOriginClick={onPlanarOriginClick}
+                />
+              </div>
+            ) : null}
+
             {!isPlayer ? (
-              <DeckPowerInfoCard deck={item as Deck} />
+              <div className="deck-score-widgets">
+                <DeckPowerInfoCard deck={item as Deck} />
+                <DeckPaiometro
+                  name={getDeckDisplayName(item as Deck)}
+                  decklistTexto={(item as Deck).decklistTexto}
+                  paiometroConceitos={(item as Deck).paiometroConceitos}
+                  commander={(item as Deck).commander}
+                  secondaryCommander={(item as Deck).secondaryCommander}
+                />
+              </div>
             ) : null}
           </div>
-
-          {!isPlayer && (item as Deck).planarOrigins.length ? (
-            <PlanarOriginBadges
-              origins={(item as Deck).planarOrigins}
-              panel
-              onOriginClick={onPlanarOriginClick}
-            />
-          ) : null}
         </div>
 
         <div className="profile-stats profile-stats-pills">

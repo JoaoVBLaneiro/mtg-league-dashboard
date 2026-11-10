@@ -1,0 +1,225 @@
+/* Deck profile layout: scoped so player profiles and other modals stay intact. */
+.profile-modal.profile-modal-deck {
+  width: min(920px, 100%);
+  max-height: 92dvh;
+}
+
+.profile-modal.profile-modal-deck .profile-header.profile-header-deck {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 22px;
+  padding-right: 0;
+}
+
+.profile-modal-deck .profile-header-main {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Keep the commander stack in its own column without squeezing the text. */
+.profile-modal-deck .profile-header-deck > .commander-stack-profile {
+  width: 210px;
+  height: 270px;
+  max-width: 100%;
+}
+
+.profile-modal-deck .profile-header-deck > .commander-stack-single.commander-stack-profile {
+  width: 180px;
+  height: auto;
+}
+
+.profile-modal-deck .profile-title-text h2,
+.profile-modal-deck .profile-title-row h2,
+.profile-modal-deck .profile-header h2 {
+  font-size: clamp(27px, 3.2vw, 40px);
+  line-height: 1.08 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+/* Two badge components now share the same flex line instead of forcing a break. */
+.profile-modal-deck .deck-profile-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 11px;
+}
+
+.profile-modal-deck .deck-profile-tags > .mtg-deck-labels {
+  display: contents;
+}
+
+.profile-modal-deck .deck-profile-tags .mtg-deck-label {
+  margin: 0;
+  padding: 5px 9px;
+  min-height: 31px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Commander line and its mana identity remain visually attached. */
+.profile-modal-deck .deck-profile-subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  margin-top: 13px;
+  line-height: 1.45;
+}
+
+.profile-modal-deck .deck-profile-commander-names {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-modal-deck .deck-profile-mana {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.profile-modal-deck .deck-profile-mana .mana-pips {
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.profile-modal-deck .deck-profile-mana .mana-pip {
+  width: 17px;
+  height: 17px;
+}
+
+/* Planar origins: compact, readable badges within the deck's text column. */
+.profile-modal-deck .deck-profile-planar-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 14px;
+}
+
+.profile-modal-deck .deck-profile-planar-caption {
+  color: #a1a1aa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.profile-modal-deck .deck-planar-origin-panel {
+  flex: 0 1 auto;
+  width: auto;
+  align-self: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badges {
+  max-width: none;
+  justify-content: flex-start;
+  gap: 7px;
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  height: auto;
+  min-height: 31px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  color: #f5e6b1;
+  background: rgba(250, 204, 21, 0.065);
+  box-shadow: none;
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badge.planar-origin-universe {
+  border-color: rgba(167, 139, 250, 0.33);
+  color: #e9ddff;
+  background: rgba(167, 139, 250, 0.09);
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badge > span {
+  display: inline;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badge i {
+  font-size: 18px;
+}
+
+.profile-modal-deck .deck-planar-origin-panel .planar-origin-badge.is-clickable:hover {
+  transform: translateY(-1px);
+  border-color: rgba(250, 204, 21, 0.6);
+  background: rgba(250, 204, 21, 0.14);
+}
+
+.profile-modal-deck .deck-power-info-card {
+  margin-top: 15px;
+}
+
+.profile-modal-deck .profile-stats-pills {
+  margin-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .profile-modal.profile-modal-deck .profile-header.profile-header-deck {
+    grid-template-columns: 155px minmax(0, 1fr);
+    column-gap: 16px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-profile {
+    width: 155px;
+    height: 213px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-profile .commander-card {
+    width: 137px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-single.commander-stack-profile {
+    width: 137px;
+    height: auto;
+  }
+
+  .profile-modal-deck .deck-profile-tags {
+    gap: 5px;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-modal.profile-modal-deck .profile-header.profile-header-deck {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 15px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-profile {
+    width: 190px;
+    height: 242px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-profile .commander-card {
+    width: 165px;
+  }
+
+  .profile-modal-deck .profile-header-deck > .commander-stack-single.commander-stack-profile {
+    width: 165px;
+    height: auto;
+  }
+
+  .profile-modal-deck .profile-title-text h2,
+  .profile-modal-deck .profile-title-row h2,
+  .profile-modal-deck .profile-header h2 {
+    font-size: clamp(26px, 7vw, 34px);
+  }
+}

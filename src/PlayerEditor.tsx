@@ -45,13 +45,15 @@ import AdminAchievementsPanel from "./AdminAchievementsPanel";
 import { PlanarOriginSelector } from "./PlanarOrigins";
 import DeckTagSelector from "./DeckTagSelector";
 import PowerCheckPanel from "./PowerCheckPanel";
+import PaiometroConceptEditor from "./PaiometroConceptEditor";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 
 import { DeckLabels, InactiveDeckIcon } from "./DeckLabels";
 import "./playerEditor.css";
 
 const API_BASE_URL = "https://api.corneliomove.com.br/mtg-api";
-const DASHBOARD_URL = `${API_BASE_URL}/api/dashboard`;
+const DIRECTORY_URL = `${API_BASE_URL}/api/editor/directory`;
+const DIRECTORY_CACHE_KEY = "mtg-editor-directory-v1";
 
 const SESSION_STORAGE_KEY = "mtg-player-editor-session";
 
@@ -146,30 +148,31 @@ type PublicPlayer = {
   label: string;
 };
 
-type PublicDashboardPlayer = {
-  jogador?: string;
-  player?: string;
-  nome?: string;
-  nomeExibicao?: string;
+type EditorDirectoryResponse = {
+  players: PublicPlayer[];
+  decks: string[];
 };
 
-type PublicDashboardDeck = {
-  deck?: string;
-  nome?: string;
-};
-
-type PublicDashboardResponse = {
-  catalog?: {
-    players?: PublicDashboardPlayer[];
-    decks?: PublicDashboardDeck[];
-  };
-  leaderboards?: {
-    geral?: {
-      players?: PublicDashboardPlayer[];
-      decks?: PublicDashboardDeck[];
+function readCachedEditorDirectory(): EditorDirectoryResponse | null {
+  try {
+    const raw = localStorage.getItem(DIRECTORY_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      savedAt?: number;
+      players?: PublicPlayer[];
+      decks?: string[];
     };
-  };
-};
+    if (
+      !parsed.savedAt ||
+      Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000 ||
+      !Array.isArray(parsed.players) ||
+      !Array.isArray(parsed.decks)
+    ) return null;
+    return { players: parsed.players, decks: parsed.decks };
+  } catch {
+    return null;
+  }
+}
 
 type AdminMatchPlayer = {
   player: string;
@@ -1211,6 +1214,11 @@ function AdminDecksPanel({
                   <TextField label="Link externo da decklist" type="url" value={stringValue(currentFields["Decklist URL"])} onChange={(value) => updateField("Decklist URL", value)} />
                   <TextAreaField label="Bio do deck" value={stringValue(currentFields.Bio)} onChange={(value) => updateField("Bio", value)} rows={5} />
                   <TextAreaField label="Decklist em texto" value={stringValue(currentFields["Decklist Texto"])} onChange={(value) => updateField("Decklist Texto", value)} rows={10} />
+                  <PaiometroConceptEditor
+                    value={currentFields["Paiometro Conceitos"]}
+                    onChange={(value) => updateField("Paiometro Conceitos", value)}
+                    disabled={saving || disabled}
+                  />
                 </div>
               </div>
 
@@ -1256,9 +1264,10 @@ export default function PlayerEditorApp() {
     () => readEditorIntent(),
     [],
   );
-  const [publicPlayers, setPublicPlayers] = useState<PublicPlayer[]>([]);
-  const [publicDecks, setPublicDecks] = useState<string[]>([]);
-  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const cachedDirectory = useMemo(readCachedEditorDirectory, []);
+  const [publicPlayers, setPublicPlayers] = useState<PublicPlayer[]>(() => cachedDirectory?.players ?? []);
+  const [publicDecks, setPublicDecks] = useState<string[]>(() => cachedDirectory?.decks ?? []);
+  const [directoryLoading, setDirectoryLoading] = useState(() => !cachedDirectory?.players.length);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
@@ -1329,51 +1338,53 @@ export default function PlayerEditorApp() {
   }
 
   useEffect(() => {
+    let active = true;
+
     async function loadDirectory() {
       try {
-        setDirectoryLoading(true);
-        const response = await fetch(`${DASHBOARD_URL}?t=${Date.now()}`);
+        // Se existe cache, o seletor já fica habilitado enquanto atualizamos.
+        const response = await fetch(DIRECTORY_URL);
+        if (!response.ok) throw new Error("Não foi possível carregar os jogadores.");
 
-        if (!response.ok) {
-          throw new Error("Não foi possível carregar os jogadores.");
+        const data = (await response.json()) as EditorDirectoryResponse;
+        if (!Array.isArray(data.players) || !Array.isArray(data.decks)) {
+          throw new Error("O diretório de jogadores retornou dados inválidos.");
         }
 
-        const data = (await response.json()) as PublicDashboardResponse;
-        const playerSource =
-          data.catalog?.players || data.leaderboards?.geral?.players || [];
-        const deckSource =
-          data.catalog?.decks || data.leaderboards?.geral?.decks || [];
-
-        const players = playerSource
-          .map((player) => {
-            const id = String(
-              player.jogador || player.player || player.nome || ""
-            ).trim();
-
-            return {
-              id,
-              label: String(player.nomeExibicao || id).trim(),
-            };
-          })
-          .filter((player) => player.id)
+        const players = data.players
+          .filter((player) => typeof player.id === "string" && player.id.trim())
+          .map((player) => ({
+            id: player.id.trim(),
+            label: (player.label || player.id).trim(),
+          }))
           .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
-        const decks = deckSource
-          .map((deck) => String(deck.deck || deck.nome || "").trim())
-          .filter(Boolean)
+        const decks = [...new Set(data.decks.filter((name) => typeof name === "string" && name.trim()))]
           .sort((a, b) => a.localeCompare(b, "pt-BR"));
 
+        if (!active) return;
         setPublicPlayers(players);
-        setPublicDecks(Array.from(new Set(decks)));
+        setPublicDecks(decks);
+        try {
+          localStorage.setItem(
+            DIRECTORY_CACHE_KEY,
+            JSON.stringify({ savedAt: Date.now(), players, decks }),
+          );
+        } catch {
+          // Armazenamento indisponível não impede o login.
+        }
       } catch (error) {
-        setLoginError(normalizeErrorMessage(error));
+        if (active && !cachedDirectory?.players.length) {
+          setLoginError(normalizeErrorMessage(error));
+        }
       } finally {
-        setDirectoryLoading(false);
+        if (active) setDirectoryLoading(false);
       }
     }
 
     void loadDirectory();
-  }, []);
+    return () => { active = false; };
+  }, [cachedDirectory]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem(SESSION_STORAGE_KEY) || "";
@@ -2393,6 +2404,11 @@ export default function PlayerEditorApp() {
                             onChange={(value) => updateDeckField(activeDeck.id, "Decklist Texto", value)}
                             placeholder="1 Sol Ring\n1 Command Tower\n..."
                             rows={10}
+                          />
+                          <PaiometroConceptEditor
+                            value={currentDeckFields["Paiometro Conceitos"]}
+                            onChange={(value) => updateDeckField(activeDeck.id, "Paiometro Conceitos", value)}
+                            disabled={Boolean(savingTarget)}
                           />
                         </div>
                       </div>
