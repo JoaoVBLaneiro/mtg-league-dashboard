@@ -1,0 +1,19 @@
+.paio-admin-panel{display:flex;flex-direction:column;gap:20px;color:#e2e8f0}
+.paio-admin-layout{display:grid;grid-template-columns:minmax(210px,1fr) minmax(0,1.4fr);gap:15px}
+.paio-admin-list,.paio-admin-settings,.paio-admin-rules{background:#151827;border:1px solid #35394c;border-radius:15px;padding:17px;min-width:0}
+.paio-admin-list>label,.paio-admin-settings label{display:flex;flex-direction:column;gap:7px;color:#cbd5e1;font-size:.82rem;font-weight:600}
+.paio-admin-list input,.paio-admin-settings input,.paio-admin-settings select,.paio-admin-add-rule input,.paio-admin-add-rule select{width:100%;padding:11px;border-radius:9px;border:1px solid #475167;background:#0e1120;color:#f8fafc;font:inherit;min-width:0}
+.paio-admin-list-scroll{display:flex;flex-direction:column;gap:4px;max-height:430px;overflow:auto;margin-top:10px}
+.paio-admin-list-scroll button{padding:9px;text-align:left;border:1px solid transparent;background:transparent;color:#e2e8f0;cursor:pointer;border-radius:8px;display:flex;justify-content:space-between;gap:8px}
+.paio-admin-list-scroll button.active{background:#383453;border-color:#8275a8}
+.paio-admin-list-scroll button small{color:#c4b5fd;font-size:.68rem}
+.paio-admin-settings{display:flex;flex-direction:column;align-items:stretch;gap:13px}
+.paio-admin-settings h3,.paio-admin-rules h3{margin:0}
+.paio-admin-hint,.paio-admin-rules>p{font-size:.82rem;color:#a5b4c6;line-height:1.5;margin:0}
+.paio-admin-add-rule{display:grid;grid-template-columns:1fr 1.5fr auto;gap:10px;margin-top:15px}
+.paio-admin-rules-list{display:flex;flex-direction:column;gap:8px;margin-top:15px;max-height:420px;overflow:auto}
+.paio-admin-rules-list>div{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #30364b;background:#0e1222;border-radius:10px;padding:10px}
+.paio-admin-rules-list>div span{display:flex;flex-direction:column;gap:4px}
+.paio-admin-rules-list small{color:#9ca3af}
+.paio-admin-rules-list button{background:transparent;color:#fca5a5;border:0;cursor:pointer;padding:8px}
+@media(max-width:760px){.paio-admin-layout,.paio-admin-add-rule{grid-template-columns:1fr}.paio-admin-list-scroll{max-height:190px}}

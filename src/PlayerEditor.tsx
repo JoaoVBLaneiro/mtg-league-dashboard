@@ -46,6 +46,8 @@ import { PlanarOriginSelector } from "./PlanarOrigins";
 import DeckTagSelector from "./DeckTagSelector";
 import PowerCheckPanel from "./PowerCheckPanel";
 import PaiometroConceptEditor from "./PaiometroConceptEditor";
+import AdminPaiometroPanel from "./AdminPaiometroPanel";
+import AdminLeaderboardVisibilityPanel from "./AdminLeaderboardVisibilityPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 
 import { DeckLabels, InactiveDeckIcon } from "./DeckLabels";
@@ -1307,7 +1309,7 @@ export default function PlayerEditorApp() {
   const [confirmNextPin, setConfirmNextPin] = useState("");
   const [adminMatches, setAdminMatches] = useState<AdminMatch[]>([]);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags" | "origins" | "achievements">("matches");
+  const [adminTab, setAdminTab] = useState<"matches" | "decks" | "tags" | "origins" | "achievements" | "paiometro" | "visibility">("matches");
 
   const activeDeck = useMemo(
     () => isCreatingDeck
@@ -2538,6 +2540,22 @@ export default function PlayerEditorApp() {
 
                 <button
                   type="button"
+                  className={adminTab === "paiometro" ? "active" : ""}
+                  onClick={() => setAdminTab("paiometro")}
+                >
+                  Paiômetro
+                </button>
+
+                <button
+                  type="button"
+                  className={adminTab === "visibility" ? "active" : ""}
+                  onClick={() => setAdminTab("visibility")}
+                >
+                  Visibilidade
+                </button>
+
+                <button
+                  type="button"
                   className={adminTab === "achievements" ? "active" : ""}
                   onClick={() => setAdminTab("achievements")}
                 >
@@ -2644,6 +2662,18 @@ export default function PlayerEditorApp() {
                   token={token}
                   playerId={sessionData.player.id}
                   usage={sessionData.keyruneUsage}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
+              ) : adminTab === "visibility" ? (
+                <AdminLeaderboardVisibilityPanel
+                  token={token}
+                  disabled={Boolean(savingTarget)}
+                  onNotice={(kind, message) => setNotice({ kind, text: message })}
+                />
+              ) : adminTab === "paiometro" ? (
+                <AdminPaiometroPanel
+                  token={token}
                   disabled={Boolean(savingTarget)}
                   onNotice={(kind, message) => setNotice({ kind, text: message })}
                 />

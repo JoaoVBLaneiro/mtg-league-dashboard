@@ -1,0 +1,11 @@
+.leaderboard-visibility-admin{display:flex;flex-direction:column;gap:18px}
+.leaderboard-visibility-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(275px,1fr));gap:16px}
+.leaderboard-rule-card{border:1px solid rgba(148,163,184,.2);padding:20px;border-radius:20px;background:rgba(15,23,42,.45);display:flex;flex-direction:column;gap:14px}
+.leaderboard-rule-card h3{margin:0;font-size:19px}
+.leaderboard-rule-card label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:#cbd5e1}
+.leaderboard-rule-card input,.leaderboard-rule-card select{width:100%;border:1px solid #475569;background:#0f172a;color:white;padding:12px;border-radius:10px;font:inherit;min-width:0}
+.leaderboard-rule-help{margin:0;color:#94a3b8;font-size:12px;line-height:1.6}
+.leaderboard-rule-help code,.leaderboard-visibility-reference code{color:#c4b5fd;overflow-wrap:anywhere}
+.leaderboard-rule-preview{margin:0;color:#86efac;font-size:12px}.leaderboard-rule-preview.invalid{color:#fca5a5}
+.leaderboard-visibility-reference{border:1px solid rgba(148,163,184,.15);border-radius:16px;padding:16px;color:#a5b4ce;font-size:13px;line-height:1.7}
+.leaderboard-visibility-reference p{margin:6px 0}

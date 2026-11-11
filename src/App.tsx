@@ -33,6 +33,7 @@ import "./deckProfileLayout.css";
 import LifeTrackerApp from "./LifeTracker";
 import DeckPaiometro from "./DeckPaiometro";
 import CardRatingsPanel from "./CardRatingsPanel";
+import { DEFAULT_VISIBILITY, fetchVisibilityConfig, passesVisibilityRule, type VisibilityConfig } from "./leaderboardVisibility";
 import PlayerEditorApp from "./PlayerEditor";
 import { DeckCategoryIcon, DeckLabels } from "./DeckLabels";
 import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBadges";
@@ -9360,6 +9361,7 @@ function DashboardApp() {
   const [showAllDecks, setShowAllDecks] = useState(false);
 
   const [showHiddenLeaderboardEntries, setShowHiddenLeaderboardEntries] = useState(false);
+  const [visibilityConfig, setVisibilityConfig] = useState<VisibilityConfig>(DEFAULT_VISIBILITY);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -9458,6 +9460,18 @@ function DashboardApp() {
     const interval = setInterval(loadData, 60000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const update = () => {
+      void fetchVisibilityConfig().then((config) => {
+        if (active) setVisibilityConfig(config);
+      }).catch(() => { /* Mantém as regras atuais se a API estiver indisponível. */ });
+    };
+    update();
+    const interval = window.setInterval(update, 60_000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   useEffect(() => {
@@ -9562,30 +9576,37 @@ const playerSectionSubtitle = isPlayerTrophyRanking
     [activeLeaderboard.decks, leaderboardSortMode]
   );
 
+  // Decks arquivados/excluídos permanecem disponíveis para o botão
+  // "Exibir ocultos"; não aparecem no ranking por padrão.
+  const deckCandidates = useMemo(
+    () => normalizeDecks(mergeDeckCatalogWithStats(data.catalog?.decks || [], activeLeaderboard.decks), leaderboardSortMode),
+    [data.catalog?.decks, activeLeaderboard.decks, leaderboardSortMode],
+  );
   const leaderboardPlayers = useMemo(
-    () =>
-      showHiddenLeaderboardEntries
-        ? players
-        : players.filter(
-            (player) => !/^jogador\s+[1-6]$/i.test(player.name.trim())
-          ),
-    [players, showHiddenLeaderboardEntries]
+    () => showHiddenLeaderboardEntries ? players : players.filter(
+      (player) => !/^jogador\s+[1-6]$/i.test(player.name.trim())
+        && passesVisibilityRule(
+          { partidas: player.games, vitorias: player.wins, derrotas: player.games - player.wins, winrate: player.winrate },
+          players.map((p) => ({ partidas: p.games, vitorias: p.wins, derrotas: p.games - p.wins, winrate: p.winrate })),
+          // Mantém a antiga exceção para Evento e Mês, até ser configurado no admin.
+          visibilityConfig.configured.includes("players") || activePeriod === "geral" || activePeriod === "semestre"
+            ? visibilityConfig.players : { mode: "fixed", minimumGames: 0, expression: "" },
+        ),
+    ),
+    [players, showHiddenLeaderboardEntries, visibilityConfig, activePeriod],
   );
-
   const leaderboardDecks = useMemo(
-    () =>
-      showHiddenLeaderboardEntries
-        ? decks
-        : decks.filter((deck) => !deck.inactive),
-    [decks, showHiddenLeaderboardEntries]
+    () => showHiddenLeaderboardEntries ? deckCandidates : deckCandidates.filter(
+      (deck) => deck.appearances > 0 && !deck.inactive && !deck.deleted && passesVisibilityRule(
+        { partidas: deck.appearances, vitorias: deck.wins, derrotas: deck.appearances - deck.wins, winrate: deck.winrate },
+        deckCandidates.filter((d) => d.appearances > 0).map((d) => ({
+          partidas: d.appearances, vitorias: d.wins, derrotas: d.appearances - d.wins, winrate: d.winrate,
+        })),
+        visibilityConfig.decks,
+      ),
+    ),
+    [deckCandidates, showHiddenLeaderboardEntries, visibilityConfig.decks],
   );
-
-  const hiddenLeaderboardCount =
-    players.length - leaderboardPlayers.length +
-    decks.length - leaderboardDecks.length;
-
-  const shouldFilterLowParticipationPlayers =
-  activePeriod === "geral" || activePeriod === "semestre";
 
   const sortedPlayers = useMemo(() => {
   if (!isPlayerTrophyRanking) {
@@ -9613,26 +9634,17 @@ const playerSectionSubtitle = isPlayerTrophyRanking
   });
 }, [leaderboardPlayers, isPlayerTrophyRanking]);
 
-const eligiblePlayers = sortedPlayers.filter((player) =>
-  hasEnoughParticipations(player.games)
-);
-
-const visiblePlayers =
-  shouldFilterLowParticipationPlayers && !showAllPlayers
-    ? eligiblePlayers
-    : sortedPlayers;
-
-const hasMorePlayers =
-  shouldFilterLowParticipationPlayers &&
-  sortedPlayers.length > visiblePlayers.length;
-  
+  const eligiblePlayers = leaderboardPlayers;
+  const visiblePlayers = sortedPlayers;
+  const hasMorePlayers = false;
   const initialDeckLimit = getBalancedDeckLimit(visiblePlayers.length);
-
-  const visibleDecks = showAllDecks
+  const visibleDecks = showHiddenLeaderboardEntries || showAllDecks
     ? leaderboardDecks
     : leaderboardDecks.slice(0, initialDeckLimit);
-
   const hasMoreDecks = leaderboardDecks.length > visibleDecks.length;
+  const hiddenLeaderboardCount = players.length - leaderboardPlayers.length
+    + deckCandidates.length - leaderboardDecks.length;
+  const shouldFilterLowParticipationPlayers = false;
 
   function showProfilePreview(
     type: "player" | "deck",
