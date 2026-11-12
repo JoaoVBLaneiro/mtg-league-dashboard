@@ -17,3 +17,16 @@
 .paio-admin-rules-list small{color:#9ca3af}
 .paio-admin-rules-list button{background:transparent;color:#fca5a5;border:0;cursor:pointer;padding:8px}
 @media(max-width:760px){.paio-admin-layout,.paio-admin-add-rule{grid-template-columns:1fr}.paio-admin-list-scroll{max-height:190px}}
+
+.paio-tags-panel{display:flex;flex-direction:column;gap:12px}
+.paio-tags-panel h4{margin:8px 0 0;color:#f8fafc}
+.paio-tags-panel label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;color:#cbd5e1}
+.paio-tags-panel input,.paio-tags-panel textarea,.paio-tags-panel select{width:100%;min-width:0;padding:10px;border:1px solid #475167;border-radius:9px;background:#0e1120;color:#f8fafc;font:inherit}
+.paio-tags-panel textarea{resize:vertical}
+.paio-tags-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.paio-tags-panel .paio-admin-rules-list{margin-top:0;max-height:300px}
+.paio-tags-panel .paio-admin-rules-list a{color:#ddd6fe;text-decoration:none;overflow-wrap:anywhere}
+.paio-tags-panel .paio-admin-rules-list .paio-tags-edit{color:#c4b5fd}
+.paio-tags-threshold-form{display:grid;grid-template-columns:1.5fr 1fr minmax(90px,.5fr) auto;gap:8px;align-items:end}
+.paio-tags-panel>small{color:#94a3b8}
+@media(max-width:760px){.paio-tags-row,.paio-tags-threshold-form{grid-template-columns:1fr}}

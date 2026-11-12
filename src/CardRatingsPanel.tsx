@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, MessageSquarePlus, RefreshCw, Search } from "lucide-react";
 import "./cardRatings.css";
-import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, type PaioConfig } from "./paioConfig";
+import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, paioThresholds, normalizePaioKey, type PaioConfig } from "./paioConfig";
 
 type CardRating = { name: string; average: number; votes?: number };
 type RankingResponse = {
@@ -226,16 +226,18 @@ function expandDisplayCards(cards: CardRating[], config: PaioConfig) {
       }));
     }
 
+    const threshold = paioThresholds(config).find((rule) => normalizePaioKey(rule.concept) === normalizePaioKey(card.name));
+    const thresholdArt = threshold?.tagKey === "counterspell" ? "Counterspell" : threshold?.tagKey === "boardwipe" ? "Wrath of God" : undefined;
     const concept = CONCEPT_OVERRIDES[card.name];
     const override = catalogEntry(config, card.name);
     return [{
       ...card,
       key: card.name,
       name: card.name,
-      lookupName: override?.artCard || (override?.kind === "card" ? card.name : concept?.representativeName ?? card.name),
-      destinationUrl: override?.linkUrl || (override?.kind === "card" ? fallbackScryfallUrl(card.name) : concept?.destinationUrl ?? fallbackScryfallUrl(override?.artCard || card.name)),
+      lookupName: override?.artCard || thresholdArt || (override?.kind === "card" ? card.name : concept?.representativeName ?? card.name),
+      destinationUrl: override?.linkUrl || (thresholdArt ? fallbackScryfallUrl(thresholdArt) : undefined) || (override?.kind === "card" ? fallbackScryfallUrl(card.name) : concept?.destinationUrl ?? fallbackScryfallUrl(override?.artCard || card.name)),
       roundedScore: Math.max(0, Math.min(10, roundPiaoScore(card.average))),
-      isConcept: override?.kind === "concept" || (override?.kind !== "card" && Boolean(concept)),
+      isConcept: Boolean(threshold) || override?.kind === "concept" || (override?.kind !== "card" && Boolean(concept)),
     }];
   });
 }

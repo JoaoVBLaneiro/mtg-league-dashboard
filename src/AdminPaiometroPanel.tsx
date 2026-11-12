@@ -3,12 +3,13 @@ import { LoaderCircle, Save, Plus, Trash2 } from "lucide-react";
 import { fetchPaioRatings, PAIO_AUTO_CONCEPTS, PAIO_CONCEPTS } from "./paiometroDeck";
 import {
   fetchPaioConfig, invalidatePaioConfig, catalogEntry,
-  normalizePaioKey, type PaioConfig, type PaioCatalogItem,
+  normalizePaioKey, paioThresholds, BUILTIN_THRESHOLDS, type PaioConfig, type PaioCatalogItem,
 } from "./paioConfig";
 import "./adminPaiometro.css";
+import AdminPaioTags from "./AdminPaioTags";
 
 const BASE = "https://api.corneliomove.com.br/mtg-api";
-const defaultConcepts = new Set<string>([...PAIO_AUTO_CONCEPTS, ...PAIO_CONCEPTS].map(normalizePaioKey));
+const defaultConcepts = new Set<string>([...PAIO_AUTO_CONCEPTS, ...PAIO_CONCEPTS, ...BUILTIN_THRESHOLDS.map((rule) => rule.concept)].map(normalizePaioKey));
 
 type Draft = PaioCatalogItem;
 
@@ -54,22 +55,23 @@ export default function AdminPaiometroPanel({
     const original = catalogEntry(current, name);
     setSelectedName(name);
     setDraft(original ? { ...original } : {
-      name, kind: defaultConcepts.has(normalizePaioKey(name)) ? "concept" : "card",
+      name, kind: (defaultConcepts.has(normalizePaioKey(name)) || paioThresholds(current).some((rule) => normalizePaioKey(rule.concept) === normalizePaioKey(name))) ? "concept" : "card",
       artCard: "", linkUrl: "",
     });
   }
 
   const filteredNames = useMemo(() => names.filter((name) => name.toLowerCase().includes(filter.toLowerCase())), [names, filter]);
-  const conceptNames = useMemo(() => names.filter((name) =>
+  const thresholdNames = new Set(paioThresholds(config).map((rule) => normalizePaioKey(rule.concept)));
+  const conceptNames = names.filter((name) => !thresholdNames.has(normalizePaioKey(name)) && (
     catalogEntry(config, name)?.kind === "concept" ||
-    (!catalogEntry(config, name) && defaultConcepts.has(normalizePaioKey(name))),
-  ), [config, names]);
+    (!catalogEntry(config, name) && defaultConcepts.has(normalizePaioKey(name)))
+  ));
 
   async function save() {
     if (!draft || busy || disabled) return;
     setBusy(true);
     try {
-      await adminRequest(token, "/api/admin/paio/item", "PUT", draft);
+      await adminRequest(token, "/api/admin/paio/item", "PUT", { ...draft, kind: thresholdNames.has(normalizePaioKey(draft.name)) ? "concept" : draft.kind });
       invalidatePaioConfig();
       const next = await fetchPaioConfig();
       setConfig(next);
@@ -81,7 +83,7 @@ export default function AdminPaiometroPanel({
   }
 
   async function addRule() {
-    if (!ruleConcept || !ruleExpression.trim() || busy || disabled) return;
+    if (!ruleConcept || thresholdNames.has(normalizePaioKey(ruleConcept)) || !ruleExpression.trim() || busy || disabled) return;
     setBusy(true);
     try {
       await adminRequest(token, "/api/admin/paio/rule", "POST", { concept: ruleConcept, expression: ruleExpression });
@@ -123,7 +125,7 @@ export default function AdminPaiometroPanel({
           <div className="paio-admin-list-scroll">
             {filteredNames.map((name) => (
               <button type="button" key={name} className={selectedName === name ? "active" : ""} onClick={() => select(name)}>
-                {name} <small>{catalogEntry(config, name)?.kind === "concept" || (!catalogEntry(config, name) && defaultConcepts.has(normalizePaioKey(name))) ? "Conceito" : "Carta"}</small>
+                {name} <small>{thresholdNames.has(normalizePaioKey(name)) || catalogEntry(config, name)?.kind === "concept" || (!catalogEntry(config, name) && defaultConcepts.has(normalizePaioKey(name))) ? "Conceito" : "Carta"}</small>
               </button>
             ))}
           </div>
@@ -133,7 +135,7 @@ export default function AdminPaiometroPanel({
             <>
               <h3>{draft.name}</h3>
               <label>Tipo do item
-                <select value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as Draft["kind"] })} disabled={disabled || busy}>
+                <select value={thresholdNames.has(normalizePaioKey(draft.name)) ? "concept" : draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value as Draft["kind"] })} disabled={disabled || busy || thresholdNames.has(normalizePaioKey(draft.name))}>
                   <option value="card">Carta específica</option>
                   <option value="concept">Conceito / Família</option>
                 </select>
@@ -152,6 +154,12 @@ export default function AdminPaiometroPanel({
           ) : <p>Selecione um item do formulário à esquerda.</p>}
         </div>
       </div>
+      <AdminPaioTags config={config} names={names} disabled={disabled || busy} onNotice={onNotice}
+        mutate={async (path, method, body) => {
+          await adminRequest(token, path, method, body);
+          invalidatePaioConfig();
+          setConfig(await fetchPaioConfig());
+        }} />
       <div className="paio-admin-rules">
         <h3>Associações globais de cartas e conceitos</h3>
         <p>Quando um autor marca uma carta como parte de um conceito e salva o deck, a associação é aprendida automaticamente. Você também pode adicioná-la ou removê-la aqui.</p>

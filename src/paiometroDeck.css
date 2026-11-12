@@ -149,3 +149,11 @@
 .paio-family-individual .paio-dialog-card-art-link img{height:100%;width:100%;object-fit:cover}
 .paio-family-individual>strong{display:block;padding:9px 2px 3px;font-size:.78rem;line-height:1.3}
 @media(max-width:650px){.paio-family-dialog{padding:15px;max-height:94dvh}.paio-family-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}}
+
+/* Combos: capa clicável e pares individuais lado a lado no detalhe. */
+.paio-combo-family-cover{display:flex;align-items:stretch}
+.paio-combo-family-cover>span:not(.paio-dialog-cycle-badge){flex:1;min-width:0;overflow:hidden}
+.paio-combo-family-cover>span:not(.paio-dialog-cycle-badge)+span:not(.paio-dialog-cycle-badge){border-left:2px solid #080d20}
+.paio-family-combo-pair{display:flex;aspect-ratio:63/88;overflow:hidden;border-radius:10px;background:#0e1222}
+.paio-family-combo-pair .paio-dialog-card-art-link{flex:1;min-width:0;aspect-ratio:auto;border-radius:0}
+.paio-family-combo-pair .paio-dialog-card-art-link+.paio-dialog-card-art-link{border-left:2px solid #080d20}

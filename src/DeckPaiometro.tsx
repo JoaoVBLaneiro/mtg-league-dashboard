@@ -81,8 +81,8 @@ function DeckPaioCard({
   onOpenFamily: (item: PaioItem) => void;
   config: PaioConfig;
 }) {
-  const isCombo = Boolean(item.comboInstance);
-  const isFamily = item.origin !== "decklist" && !isCombo;
+  const isCombo = Boolean(item.comboPairs?.length);
+  const isFamily = item.origin !== "decklist";
   const names = item.matchedCards?.length
     ? item.matchedCards
     : item.origin === "manual" ? paioVisualNames(item.detail ?? "") : [item.name];
@@ -92,24 +92,20 @@ function DeckPaioCard({
   const representative = candidates.find((cardName) => visuals[normalizePaioName(cardName)]?.imageUrl)
     ?? candidates[0] ?? item.name;
   const cardVisual = visuals[normalizePaioName(representative)];
-  const familyLabel = item.comboInstance
-    ? `${item.detail}: +${item.points} pontos por combo`
+  const familyLabel = isCombo
+    ? `${item.comboPairs?.length} combos completos; +${item.points} uma única vez`
     : `${item.name}: ${names.length} ${names.length === 1 ? "carta" : "cartas"} (${item.instances ?? names.length} instâncias); +${item.points} uma única vez`;
 
   return (
     <article className="paio-dialog-art-card" title={isFamily ? familyLabel : `${item.name}: +${item.points}`}>
       {isCombo ? (
-        <div className="paio-dialog-card-art paio-dialog-card-art-combo">
-          {names.slice(0, 2).map((cardName) => (
-            <DeckPaioArtwork
-              key={normalizePaioName(cardName)}
-              cardName={cardName}
-              visual={visuals[normalizePaioName(cardName)]}
-              isGameChanger={gameChangers.has(normalizePaioName(cardName))}
-              loading={loading}
-            />
-          ))}
-        </div>
+        <button type="button" className="paio-family-card-open paio-combo-family-cover" onClick={() => onOpenFamily(item)} aria-label="Abrir todos os combos">
+          {item.comboPairs?.[0].map((cardName) => {
+            const image = visuals[normalizePaioName(cardName)]?.imageUrl;
+            return <span key={cardName}>{image ? <img src={image} alt={cardName} loading="lazy" /> : <span className="paio-dialog-card-art-placeholder">{cardName}</span>}</span>;
+          })}
+          <span className="paio-dialog-cycle-badge">{item.comboPairs?.length} {item.comboPairs?.length === 1 ? "combo" : "combos"}</span>
+        </button>
       ) : isFamily ? (
         <button
           type="button"
@@ -120,7 +116,7 @@ function DeckPaioCard({
           {cardVisual?.imageUrl ? <img src={cardVisual.imageUrl} alt="" loading="lazy" /> : (
             <span className="paio-dialog-card-art-placeholder"><strong>{item.name}</strong><small>{loading ? "Carregando arte..." : "Ver cartas da família"}</small></span>
           )}
-          <span className="paio-dialog-cycle-badge">{names.length} {names.length === 1 ? "carta" : "cartas"}</span>
+          <span className="paio-dialog-cycle-badge">{item.threshold ? `${item.instances ?? names.length}/${item.threshold} cartas` : `${names.length} ${names.length === 1 ? "carta" : "cartas"}`}</span>
         </button>
       ) : (
         <div className="paio-dialog-card-art">
@@ -135,7 +131,7 @@ function DeckPaioCard({
       <div className="paio-dialog-art-gradient" aria-hidden="true" />
       <div className="paio-dialog-art-caption">
         <strong>{item.name}</strong>
-        {isCombo ? <small>Combo individual · clique em cada arte para abrir no Scryfall</small>
+        {isCombo ? <small>Família de combos · clique para ver todos os pares</small>
           : isFamily ? <small>Família · pontua uma única vez · clique para ver as cartas</small> : null}
         <div className="paio-dialog-art-bottom">
           <span className="paio-dialog-art-points">+{item.points} pts</span>
@@ -161,16 +157,23 @@ function PaioFamilyModal({
       <div className="paio-family-dialog" role="dialog" aria-modal="true" aria-label={`Cartas de ${item.name}`}>
         <div className="paio-dialog-heading">
           <div>
-            <span className="paio-dialog-kicker">{item.comboInstance ? "COMBO INDIVIDUAL" : "FAMÍLIA"} · +{item.points} PONTOS</span>
-            <h2>{item.comboInstance ? item.detail : item.name}</h2>
-            <p>{item.comboInstance
-              ? "Esta combinação conta uma vez; outras duplas diferentes pontuam separadamente."
-              : `${names.length} ${names.length === 1 ? "carta identificada" : "cartas identificadas"} · ${item.instances ?? names.length} instâncias na decklist`}</p>
+            <span className="paio-dialog-kicker">FAMÍLIA · +{item.points} PONTOS</span>
+            <h2>{item.name}</h2>
+            <p>{item.comboPairs?.length
+              ? `${item.comboPairs.length} ${item.comboPairs.length === 1 ? "combo completo" : "combos completos"} · a família pontua uma única vez`
+              : `${names.length} ${names.length === 1 ? "carta identificada" : "cartas identificadas"} · ${item.instances ?? names.length} ${item.instances === 1 ? "instância" : "instâncias"} na decklist${item.threshold ? ` · mínimo ${item.threshold}` : ""}`}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar família"><X size={20} /></button>
         </div>
         <div className="paio-dialog-art-grid paio-family-grid">
-          {names.map((name) => (
+          {item.comboPairs?.length ? item.comboPairs.map((pair) => (
+            <div className="paio-family-individual paio-family-combo" key={pair.map(normalizePaioName).sort().join("::")}>
+              <div className="paio-family-combo-pair">
+                {pair.map((name) => <DeckPaioArtwork key={name} cardName={name} visual={visuals[normalizePaioName(name)]} isGameChanger={gameChangers.has(normalizePaioName(name))} loading={loading} />)}
+              </div>
+              <strong>{pair.join(" + ")}</strong>
+            </div>
+          )) : names.map((name) => (
             <div className="paio-family-individual" key={name}>
               <DeckPaioArtwork
                 cardName={name}
@@ -306,7 +309,7 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
                   loading={loadingArts}
                   onClose={() => setActiveFamily(null)}
                 /> : null}
-                <small className="paio-dialog-footnote">Clique nas artes para abrir as cartas no Scryfall. Cada carta individual conta uma vez. Famílias contam uma única pontuação, mas cada combo de duas cartas diferente soma seus próprios pontos. Clique numa família para conferir as artes. Médias arredondadas com .50 para baixo e acima de .50 para cima.</small>
+                <small className="paio-dialog-footnote">Clique nas artes para abrir as cartas no Scryfall. Cada carta individual conta uma vez. Famílias, inclusive combos de duas cartas, pontuam uma única vez. Categorias por tags exigem o mínimo de cartas indicado. Clique numa família para conferir as artes. Médias arredondadas com .50 para baixo e acima de .50 para cima.</small>
               </>
             )}
           </div>

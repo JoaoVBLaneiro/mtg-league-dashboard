@@ -1,4 +1,4 @@
-import { EMPTY_PAIO_CONFIG, type PaioConfig } from "./paioConfig";
+import { EMPTY_PAIO_CONFIG, paioThresholds, type PaioConfig } from "./paioConfig";
 export type PaioRating = { name: string; average: number };
 export type PaioAssignment = { concept: string; detail: string };
 export type PaioItem = {
@@ -11,8 +11,9 @@ export type PaioItem = {
   /** Total de cópias presentes na decklist (informativo, sem multiplicar pontos). */
   instances?: number;
   detail?: string;
-  /** Cada dupla efetiva é cobrada separadamente; famílias continuam únicas. */
-  comboInstance?: boolean;
+  /** Pares completos diferentes, cobrados juntos como uma família. */
+  comboPairs?: string[][];
+  threshold?: number;
 };
 export type PaioSummary = {
   total: number;
@@ -171,8 +172,11 @@ export function calculatePaio(
     }
   }
   const items: PaioItem[] = [];
+  const thresholds = paioThresholds(config);
+  const thresholdNames = new Set(thresholds.map((rule) => normalizePaioName(rule.concept)));
   const conceptNames = new Set<string>([
     ...PAIO_CONCEPTS.map(normalizePaioName),
+    ...thresholdNames,
     ...PAIO_AUTO_CONCEPTS.map(normalizePaioName),
     ...config.items.filter((item) => item.kind === "concept").map((item) => normalizePaioName(item.name)),
   ]);
@@ -185,27 +189,20 @@ export function calculatePaio(
     instanceCount: number;
   };
   const families = new Map<string, Family>();
-  const comboInstances = new Map<string, PaioItem>();
+  const comboInstances = new Map<string, string[]>();
+  let comboHasManual = false;
   const comboConceptName = normalizePaioName("Combos de Duas Cartas");
   const comboRating = byName.get(comboConceptName);
   function registerCombo(expression: string, origin: "manual" | "automatic") {
     const names = expression.split(/\s+\+\s+/).map((part) => part.trim()).filter(Boolean);
     // Uma instância = uma combinação com duas cartas específicas.
-    if (names.length !== 2 || normalizePaioName(names[0]) === normalizePaioName(names[1])) return;
-    if (!names.every((name) => foundNames.has(normalizePaioName(name)))) return;
+    if (names.length !== 2 || normalizePaioName(names[0].split(/\s+\/\/\s+/)[0]) === normalizePaioName(names[1].split(/\s+\/\/\s+/)[0])) return;
+    if (!names.every((name) => foundNames.has(normalizePaioName(name.split(/\s+\/\/\s+/)[0])))) return;
     if (!comboRating) return;
-    const key = names.map(normalizePaioName).sort().join("::");
+    const key = names.map((name) => normalizePaioName(name.split(/\s+\/\/\s+/)[0])).sort().join("::");
     if (comboInstances.has(key)) return;
-    comboInstances.set(key, {
-      name: `Combos de Duas Cartas — ${names.join(" + ")}`,
-      average: comboRating.average,
-      points: roundPaio(comboRating.average),
-      origin,
-      matchedCards: names,
-      instances: 1,
-      detail: names.join(" + "),
-      comboInstance: true,
-    });
+    comboInstances.set(key, names);
+    if (origin === "manual") comboHasManual = true;
   }
   function getFamily(name: string) {
     const key = normalizePaioName(name);
@@ -231,12 +228,13 @@ export function calculatePaio(
 
   // Aprendizados globais: uma regra de combo exige TODAS as cartas.
   for (const rule of config.rules) {
-    const required = rule.expression.split(/\s+\+\s+/).map((part) => part.trim()).filter(Boolean);
-    if (!required.length || !required.every((name) => foundNames.has(normalizePaioName(name)))) continue;
+    if (thresholdNames.has(normalizePaioName(rule.concept))) continue;
     if (normalizePaioName(rule.concept) === comboConceptName) {
       registerCombo(rule.expression, "automatic");
       continue;
     }
+    const required = rule.expression.split(/\s+\+\s+/).map((part) => part.trim()).filter(Boolean);
+    if (!required.length || !required.every((name) => foundNames.has(normalizePaioName(name)))) continue;
     const family = getFamily(rule.concept);
     for (const name of required) {
       const key = normalizePaioName(name);
@@ -249,7 +247,7 @@ export function calculatePaio(
   // Lançamentos individuais antigos continuam válidos, mas passam a ser
   // agregados por conceito (cada conceito soma apenas uma vez no deck).
   for (const assignment of parsePaioAssignments(assignments)) {
-    if (autoConceptNames.has(normalizePaioName(assignment.concept))) continue;
+    if (autoConceptNames.has(normalizePaioName(assignment.concept)) || thresholdNames.has(normalizePaioName(assignment.concept))) continue;
     if (normalizePaioName(assignment.concept) === comboConceptName) {
       registerCombo(assignment.detail, "manual");
       continue;
@@ -284,11 +282,30 @@ export function calculatePaio(
     });
   }
 
-  // Cada combinação distinta pontua independentemente, mesmo pertencendo
-  // ao mesmo conceito. Evita contar novamente uma regra global + manual igual.
-  for (const combo of comboInstances.values()) {
-    items.push(combo);
-    for (const name of combo.matchedCards ?? []) coveredByConcept.add(normalizePaioName(name));
+  // Todas as duplas completas formam uma única família; pares invertidos são iguais.
+  if (comboRating && comboInstances.size) {
+    const pairs = [...comboInstances.values()];
+    const names = [...new Map(pairs.flat().map((name) => [normalizePaioName(name), name])).values()];
+    items.push({ name: comboRating.name, average: comboRating.average, points: roundPaio(comboRating.average),
+      origin: comboHasManual ? "manual" : "automatic", matchedCards: names, instances: pairs.length, comboPairs: pairs });
+    for (const name of names) coveredByConcept.add(normalizePaioName(name.split(/\s+\/\/\s+/)[0]));
+  }
+
+  // Tags são independentes de pontuação individual: a categoria mede a densidade do deck.
+  // Só entram cartas presentes (incluindo comandantes, sem duplicar se já estão na lista).
+  for (const rule of thresholds) {
+    const rating = byName.get(normalizePaioName(rule.concept));
+    if (!rating) continue;
+    const matched = new Map<string, string>();
+    for (const member of config.tagMembers ?? []) {
+      if (member.tagKey !== rule.tagKey) continue;
+      const key = normalizePaioName(member.cardName.split(/\s+\/\/\s+/)[0]);
+      if (foundNames.has(key)) matched.set(key, member.cardName);
+    }
+    const count = [...matched.keys()].reduce((total, key) => total + (decklistCounts.get(key) ?? 1), 0);
+    if (count < rule.minimum) continue;
+    items.push({ name: rating.name, points: roundPaio(rating.average), average: rating.average,
+      origin: "automatic", matchedCards: [...matched.values()], instances: count, threshold: rule.minimum });
   }
 
   for (const name of foundNames) {
