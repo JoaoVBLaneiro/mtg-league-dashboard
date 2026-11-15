@@ -157,3 +157,5 @@
 .paio-family-combo-pair{display:flex;aspect-ratio:63/88;overflow:hidden;border-radius:10px;background:#0e1222}
 .paio-family-combo-pair .paio-dialog-card-art-link{flex:1;min-width:0;aspect-ratio:auto;border-radius:0}
 .paio-family-combo-pair .paio-dialog-card-art-link+.paio-dialog-card-art-link{border-left:2px solid #080d20}
+
+.paio-dialog-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}.paio-dialog-opinion{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 13px;border-radius:11px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#261707;text-decoration:none;font-size:13px;font-weight:800}.paio-dialog-opinion:hover{background:#fcd34d}.paio-dialog-opinion:focus-visible{outline:2px solid white;outline-offset:3px}@media(max-width:600px){.paio-dialog-heading-actions{gap:6px}.paio-dialog-opinion{font-size:11px;padding:8px}}

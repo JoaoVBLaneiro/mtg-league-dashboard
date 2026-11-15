@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, MessageSquarePlus, X } from "lucide-react";
 import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, type PaioConfig } from "./paioConfig";
 import {
   calculatePaio,
@@ -226,9 +226,9 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
 
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { if (activeFamily) setActiveFamily(null); else setIsOpen(false); } };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); if (activeFamily) setActiveFamily(null); else setIsOpen(false); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [isOpen, activeFamily]);
 
   const summary = useMemo(
@@ -277,7 +277,10 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
           <div className="paio-dialog paio-dialog-grid-modal" role="dialog" aria-modal="true" aria-labelledby="paio-dialog-title" style={paioTone(summary.total)}>
             <div className="paio-dialog-heading">
               <div><span className="paio-dialog-kicker">PAIÔMETRO</span><h2 id="paio-dialog-title">{name}</h2></div>
-              <button type="button" aria-label="Fechar Paiômetro" onClick={() => setIsOpen(false)}><X size={22} /></button>
+              <div className="paio-dialog-heading-actions">
+                <a className="paio-dialog-opinion" href="https://forms.gle/sLXPYiA46CgXTVhk6" target="_blank" rel="noopener noreferrer"><MessageSquarePlus size={16}/> Expresse sua opinião</a>
+                <button type="button" aria-label="Fechar Paiômetro" onClick={() => setIsOpen(false)}><X size={22} /></button>
+              </div>
             </div>
             {error ? <p className="paio-dialog-error">{error}</p> : null}
             {ratings === null ? <p>Carregando pontuação...</p> : (

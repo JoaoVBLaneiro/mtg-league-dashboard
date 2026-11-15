@@ -1,5 +1,6 @@
 import { EMPTY_PAIO_CONFIG, paioThresholds, type PaioConfig } from "./paioConfig";
 export type PaioRating = { name: string; average: number };
+export type PaioRankingResponse = { cards: PaioRating[]; totalCards: number; updatedAt: string; stale?: boolean };
 export type PaioAssignment = { concept: string; detail: string };
 export type PaioItem = {
   name: string;
@@ -64,22 +65,26 @@ const autoConceptNames = new Set<string>(PAIO_AUTO_CONCEPTS.map(normalizePaioNam
 
 const API_URL = "https://api.corneliomove.com.br/mtg-api/api/cards/ranking";
 const TTL = 5 * 60 * 1000;
-let cached: { timestamp: number; ratings: PaioRating[] } | null = null;
-let pending: Promise<PaioRating[]> | null = null;
+let cached: { timestamp: number; ranking: PaioRankingResponse } | null = null;
+let pending: Promise<PaioRankingResponse> | null = null;
 
-export function fetchPaioRatings(): Promise<PaioRating[]> {
-  if (cached && Date.now() - cached.timestamp < TTL) return Promise.resolve(cached.ratings);
+export function fetchPaioRanking(force = false): Promise<PaioRankingResponse> {
   if (pending) return pending;
+  if (!force && cached && Date.now() - cached.timestamp < TTL) return Promise.resolve(cached.ranking);
   pending = fetch(API_URL, { cache: "no-store" })
     .then(async (response) => {
       if (!response.ok) throw new Error("Não foi possível consultar o Paiômetro.");
-      const data: { cards?: PaioRating[] } = await response.json();
+      const data: PaioRankingResponse = await response.json();
       if (!Array.isArray(data.cards)) throw new Error("Resposta inválida do Paiômetro.");
-      cached = { timestamp: Date.now(), ratings: data.cards };
-      return data.cards;
+      cached = { timestamp: Date.now(), ranking: data };
+      return data;
     })
     .finally(() => { pending = null; });
   return pending;
+}
+
+export function fetchPaioRatings(): Promise<PaioRating[]> {
+  return fetchPaioRanking().then(ranking => ranking.cards);
 }
 
 export function normalizePaioName(name: string) {
@@ -128,7 +133,7 @@ function expandRatedNames(name: string) {
 }
 
 /** Conta cada carta diferente uma única vez, independentemente da quantidade. */
-function decklistNames(decklist: string) {
+export function decklistNames(decklist: string) {
   const counts = new Map<string, number>();
   let inMainDeck = true;
   for (const raw of decklist.split(/\r?\n/)) {
@@ -151,6 +156,17 @@ function decklistNames(decklist: string) {
     }
   }
   return counts;
+}
+
+/** Mesma contagem para pontuação e navegação por categorias de tags. */
+export function countPaioTagCards(counts: ReadonlyMap<string, number>, tagKey: string, config: PaioConfig) {
+  const matched = new Map<string, string>();
+  for (const member of config.tagMembers ?? []) {
+    if (member.tagKey !== tagKey) continue;
+    const key = normalizePaioName(member.cardName.split(/\s+\/\/\s+/)[0]);
+    if (counts.has(key)) matched.set(key, member.cardName);
+  }
+  return { cards: [...matched.values()], count: [...matched.keys()].reduce((sum, key) => sum + (counts.get(key) ?? 0), 0) };
 }
 
 export function calculatePaio(
@@ -296,16 +312,12 @@ export function calculatePaio(
   for (const rule of thresholds) {
     const rating = byName.get(normalizePaioName(rule.concept));
     if (!rating) continue;
-    const matched = new Map<string, string>();
-    for (const member of config.tagMembers ?? []) {
-      if (member.tagKey !== rule.tagKey) continue;
-      const key = normalizePaioName(member.cardName.split(/\s+\/\/\s+/)[0]);
-      if (foundNames.has(key)) matched.set(key, member.cardName);
-    }
-    const count = [...matched.keys()].reduce((total, key) => total + (decklistCounts.get(key) ?? 1), 0);
+    const counts = new Map(decklistCounts);
+    for (const name of foundNames) if (!counts.has(name)) counts.set(name, 1);
+    const { cards, count } = countPaioTagCards(counts, rule.tagKey, config);
     if (count < rule.minimum) continue;
     items.push({ name: rating.name, points: roundPaio(rating.average), average: rating.average,
-      origin: "automatic", matchedCards: [...matched.values()], instances: count, threshold: rule.minimum });
+      origin: "automatic", matchedCards: cards, instances: count, threshold: rule.minimum });
   }
 
   for (const name of foundNames) {

@@ -5156,11 +5156,9 @@ function ProfileComboStatsModal({
           itemName={itemName}
           playerDeckStats={playerDeckStats}
           onSelectDeck={(deckName) => {
-            onClose();
             onSelectDeck(deckName);
           }}
           onSelectPlayer={(playerName) => {
-            onClose();
             onSelectPlayer(playerName);
           }}
           onComboPreview={showComboPreview}
@@ -5199,7 +5197,9 @@ function ProfileModal({
   onSetPreview,
   onClose,
   forceShowWinrate = false,
+  isTopProfile = true,
 }: {
+  isTopProfile?: boolean;
   selected: { type: "player"; item: Player } | { type: "deck"; item: Deck } | null;
   achievementDirectory?: AchievementDirectory;
   onManualCatalogOpen: (playerId: string) => void;
@@ -5238,11 +5238,33 @@ function ProfileModal({
 }) {
   const [isComboStatsModalOpen, setIsComboStatsModalOpen] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<PlayerAchievement | null>(null);
+  const profileDialogRef = useRef<HTMLDivElement>(null);
+  const profileLastFocus = useRef<HTMLElement | null>(null);
+  const profileLastScroll = useRef(0);
+  useEffect(() => {
+    const dialog = profileDialogRef.current;
+    if (!isTopProfile || !dialog) return;
+    dialog.scrollTop = profileLastScroll.current;
+    if (document.querySelector("dialog[open]")) return;
+    (profileLastFocus.current && dialog.contains(profileLastFocus.current)
+      ? profileLastFocus.current : dialog.querySelector<HTMLElement>(".modal-close"))?.focus({ preventScroll: true });
+  }, [isTopProfile]);
+
 
   useEffect(() => {
   setIsComboStatsModalOpen(false);
   setSelectedAchievement(null);
   }, [selected?.type, selected?.item.name]);
+
+  useEffect(() => {
+    if (!isTopProfile || !isComboStatsModalOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || document.querySelector("dialog[open]")) return;
+      event.preventDefault(); event.stopImmediatePropagation(); setIsComboStatsModalOpen(false);
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [isTopProfile, isComboStatsModalOpen]);
 
   if (!selected) return null;
 
@@ -5328,7 +5350,11 @@ function ProfileModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <motion.div
+        ref={profileDialogRef}
         className={`profile-modal${isPlayer ? "" : " profile-modal-deck"}`}
+        role="dialog" aria-modal={isTopProfile} aria-label={visibleName}
+        onScroll={(event) => { if (isTopProfile && event.target === event.currentTarget) profileLastScroll.current = event.currentTarget.scrollTop; }}
+        onFocusCapture={(event) => { profileLastFocus.current = event.target as HTMLElement; }}
         initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         onClick={(event) => event.stopPropagation()}
@@ -5743,7 +5769,7 @@ function ProfileModal({
         ) : null}
 
 
-        {isComboStatsModalOpen ? (
+        {isTopProfile && isComboStatsModalOpen ? (
           <ProfileComboStatsModal
             isPlayer={isPlayer}
             itemName={item.name}
@@ -5757,7 +5783,7 @@ function ProfileModal({
           />
         ) : null}
 
-        {selectedAchievement ? (
+        {isTopProfile && selectedAchievement ? (
           <AchievementDetailsModal
             key={selectedAchievement.id}
             achievement={selectedAchievement}
@@ -5765,11 +5791,9 @@ function ProfileModal({
             allAchievements={isPlayer ? (item as Player).achievements : []}
             onAchievementClick={setSelectedAchievement}
             onDeckClick={(deckName) => {
-              setSelectedAchievement(null);
               openDeckByName(deckName);
             }}
             onPlayerClick={(playerName) => {
-              setSelectedAchievement(null);
               openPlayerByName(playerName);
             }}
             onClose={() => setSelectedAchievement(null)}
@@ -9362,9 +9386,27 @@ function DashboardApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [selectedProfile, setSelectedProfile] = useState<
-  { type: "player"; item: Player } | { type: "deck"; item: Deck } | null
-  >(null);
+  type ProfileSelection = { type: "player"; item: Player } | { type: "deck"; item: Deck };
+  const [profileStack, setProfileStack] = useState<{ selection: ProfileSelection; restore?: () => void }[]>([]);
+  const selectedProfile = profileStack.at(-1)?.selection ?? null;
+  function setSelectedProfile(selection: ProfileSelection, restore?: () => void) {
+    setProfileStack(previous => {
+      const current = previous.at(-1)?.selection;
+      if (!restore && current?.type === selection.type && current.item.name === selection.item.name) return previous;
+      return [...previous, { selection, restore }];
+    });
+    setCardPreview(null);
+    setSetPreview(null);
+    setProfilePreview(null);
+  }
+  function closeSelectedProfile() {
+    const previous = profileStack.at(-1);
+    setProfileStack(stack => stack.slice(0, -1));
+    previous?.restore?.();
+    setCardPreview(null);
+    setSetPreview(null);
+    setProfilePreview(null);
+  }
 
   const [isLargeScreen, setIsLargeScreen] = useState(
     window.matchMedia("(min-width: 900px)").matches
@@ -9474,7 +9516,9 @@ function DashboardApp() {
 
   useEffect(() => {
     function handleEscapeKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      // Native dialogs manage their own cancel event; do not close the profile behind them.
+      if (document.querySelector("dialog[open]")) return;
 
       if (selectedCategory) { event.preventDefault(); setSelectedCategory(null); return; }
       if (selectedPlanarOrigin) { event.preventDefault(); setSelectedPlanarOrigin(null); return; }
@@ -9508,7 +9552,7 @@ function DashboardApp() {
       }
 
       if (selectedProfile) {
-        setSelectedProfile(null);
+        closeSelectedProfile();
         return;
       }
     }
@@ -9526,7 +9570,7 @@ function DashboardApp() {
     selectedCategory,
     selectedPlanarOrigin,
     selectedAuthor,
-    selectedProfile,
+    profileStack,
   ]);
 
     const activeLeaderboard =
@@ -9755,7 +9799,8 @@ const playerSectionSubtitle = isPlayerTrophyRanking
         ) : null}
 
         {activeView === "cards" ? (
-          <CardRatingsPanel />
+          <CardRatingsPanel decks={allDecks} dashboardLoading={loading} dashboardFailed={Boolean(error)}
+            profileOpen={selectedProfile !== null} onOpenDeck={deck => setSelectedProfile({ type: "deck", item: deck })} />
         ) : loading && !players.length && !decks.length ? (
           <div className="loading-box">Carregando dados da liga...</div>
         ) : activeView === "activity" ? (
@@ -9911,8 +9956,11 @@ const playerSectionSubtitle = isPlayerTrophyRanking
         </footer>
       </div>
 
+      {profileStack.map(({ selection }, index) => (
+      <div key={index} style={{ display: index === profileStack.length - 1 ? undefined : "none" }} inert={index !== profileStack.length - 1} aria-hidden={index !== profileStack.length - 1}>
       <ProfileModal
-        selected={selectedProfile}
+        selected={selection}
+        isTopProfile={index === profileStack.length - 1}
         achievementDirectory={data.achievementDirectory}
         onManualCatalogOpen={setManualCatalogPlayer}
         players={players}
@@ -9936,12 +9984,10 @@ const playerSectionSubtitle = isPlayerTrophyRanking
         onCardPreview={setCardPreview}
         onSetPreview={setSetPreview}
         forceShowWinrate={activePeriod === "evento"}
-        onClose={() => {
-          setSelectedProfile(null);
-          setCardPreview(null);
-          setSetPreview(null);
-        }}
+        onClose={closeSelectedProfile}
       />
+      </div>
+      ))}
 
       {manualCatalogPlayer !== null ? <ManualAchievementCatalog
           directory={data.achievementDirectory}
@@ -9960,7 +10006,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
 
       {selectedCategory ? <CategoryDecksModal category={selectedCategory} decks={allDecks}
         onClose={() => setSelectedCategory(null)} onSelectDeck={(deck) => {
-          setSelectedCategory(null); setSelectedProfile({ type: "deck", item: deck });
+          setSelectedCategory(null); setSelectedProfile({ type: "deck", item: deck }, () => setSelectedCategory(selectedCategory));
         }} /> : null}
 
       {selectedPlanarOrigin ? (
@@ -9970,7 +10016,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           onClose={() => setSelectedPlanarOrigin(null)}
           onSelectDeck={(deck) => {
             setSelectedPlanarOrigin(null);
-            setSelectedProfile({ type: "deck", item: deck });
+            setSelectedProfile({ type: "deck", item: deck }, () => setSelectedPlanarOrigin(selectedPlanarOrigin));
           }}
         />
       ) : null}
@@ -9981,7 +10027,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           decks={allDecks}
           onSelectDeck={(deck) => {
             setSelectedOrigin(null);
-            setSelectedProfile({ type: "deck", item: deck });
+            setSelectedProfile({ type: "deck", item: deck }, () => setSelectedOrigin(selectedOrigin));
           }}
           onClose={() => setSelectedOrigin(null)}
         />
@@ -9993,7 +10039,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           decks={allDecks}
           onSelectDeck={(deck) => {
             setSelectedAuthor(null);
-            setSelectedProfile({ type: "deck", item: deck });
+            setSelectedProfile({ type: "deck", item: deck }, () => setSelectedAuthor(selectedAuthor));
           }}
           onClose={() => setSelectedAuthor(null)}
         />
@@ -10011,7 +10057,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           decks={allDecks.filter(isAvailableDeck)}
           onSelectDeck={(deck) => {
             setShowRegisteredDecksModal(false);
-            setSelectedProfile({ type: "deck", item: deck });
+            setSelectedProfile({ type: "deck", item: deck }, () => setShowRegisteredDecksModal(true));
           }}
           onClose={() => setShowRegisteredDecksModal(false)}
         />

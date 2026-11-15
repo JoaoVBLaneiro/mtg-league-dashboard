@@ -1,18 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, MessageSquarePlus, RefreshCw, Search } from "lucide-react";
+import { ChevronRight, MessageSquarePlus, RefreshCw, Search } from "lucide-react";
 import "./cardRatings.css";
+import PaioUsageBrowser, { type PaioBrowseItem } from "./PaioUsageBrowser";
+import type { PaioUsageDeck } from "./paioDeckUsage";
+import PaioDeckRanking from "./PaioDeckRanking";
 import { fetchDeckPaioVisuals, fetchDeckPaioGameChangers, readCachedPaioVisuals, type PaioCardVisual } from "./deckPaioScryfall";
-import { normalizePaioName } from "./paiometroDeck";
+import { normalizePaioName, fetchPaioRanking, type PaioRankingResponse } from "./paiometroDeck";
 import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, paioThresholds, normalizePaioKey, type PaioConfig } from "./paioConfig";
 
 type CardRating = { name: string; average: number; votes?: number };
-type RankingResponse = {
-  cards: CardRating[];
-  totalCards: number;
-  updatedAt: string;
-  stale?: boolean;
-};
-
 type CardVisual = PaioCardVisual;
 
 type ConceptOverride = {
@@ -28,7 +24,6 @@ type DisplayCard = CardRating & {
   isConcept: boolean;
 };
 
-const API_URL = "https://api.corneliomove.com.br/mtg-api/api/cards/ranking";
 const FORM_URL = "https://forms.gle/sLXPYiA46CgXTVhk6";
 const EDHREC_COMBOS_URL = "https://edhrec.com/combos";
 
@@ -127,31 +122,34 @@ function expandDisplayCards(cards: CardRating[], config: PaioConfig) {
       lookupName: override?.artCard || thresholdArt || (override?.kind === "card" ? card.name : concept?.representativeName ?? card.name),
       destinationUrl: override?.linkUrl || (thresholdArt ? fallbackScryfallUrl(thresholdArt) : undefined) || (override?.kind === "card" ? fallbackScryfallUrl(card.name) : concept?.destinationUrl ?? fallbackScryfallUrl(override?.artCard || card.name)),
       roundedScore: Math.max(0, Math.min(10, roundPiaoScore(card.average))),
-      isConcept: Boolean(threshold) || override?.kind === "concept" || (override?.kind !== "card" && Boolean(concept)),
+      isConcept: Boolean(threshold) || override?.kind === "concept" || (override?.kind !== "card" && (Boolean(concept) || config.rules.some(rule => normalizePaioKey(rule.concept) === normalizePaioKey(card.name)))),
     }];
   });
 }
 
-export default function CardRatingsPanel() {
-  const [data, setData] = useState<RankingResponse | null>(null);
+export default function CardRatingsPanel<T extends PaioUsageDeck>({ decks, dashboardLoading, dashboardFailed, profileOpen, onOpenDeck }: {
+  decks: T[]; dashboardLoading: boolean; dashboardFailed: boolean; profileOpen: boolean; onOpenDeck: (deck: T) => void;
+}) {
+  const [data, setData] = useState<PaioRankingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"cards" | "decks">("cards");
   const [visualsByLookupName, setVisualsByLookupName] = useState<Record<string, CardVisual>>({});
   const [gameChangers, setGameChangers] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<PaioConfig>(EMPTY_PAIO_CONFIG);
+  const [configReady, setConfigReady] = useState(false);
+  const [configError, setConfigError] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<PaioBrowseItem | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    async function load(initial: boolean) {
+    async function load(initial: boolean, force = false) {
       if (!initial && active) setRefreshing(true);
       try {
-        const response = await fetch(`${API_URL}?t=${Date.now()}`, { cache: "no-store" });
-        if (!response.ok) throw new Error("As médias ainda não estão disponíveis no servidor.");
-        const payload: RankingResponse = await response.json();
-        if (!Array.isArray(payload.cards)) throw new Error("Resposta inválida da API de cartas.");
+        const payload = await fetchPaioRanking(force);
         if (active) {
           setData(payload);
           setError("");
@@ -168,7 +166,7 @@ export default function CardRatingsPanel() {
 
     void load(true);
     const interval = window.setInterval(() => void load(false), 5 * 60 * 1000);
-    const refresh = () => void load(false);
+    const refresh = () => void load(false, true);
     window.addEventListener("mtg-refresh-card-ratings", refresh);
     return () => {
       active = false;
@@ -179,7 +177,7 @@ export default function CardRatingsPanel() {
 
   useEffect(() => {
     let active = true;
-    const loadConfig = () => { void fetchPaioConfig().then((value) => { if (active) setConfig(value); }).catch(() => {}); };
+    const loadConfig = () => { void fetchPaioConfig().then((value) => { if (active) { setConfig(value); setConfigReady(true); setConfigError(false); } }).catch(() => { if (active) setConfigError(true); }); };
     loadConfig();
     const interval = window.setInterval(loadConfig, 60_000);
     return () => { active = false; window.clearInterval(interval); };
@@ -188,7 +186,7 @@ export default function CardRatingsPanel() {
   const displayCards = useMemo(() => expandDisplayCards(data?.cards ?? [], config), [data, config]);
 
   useEffect(() => {
-    if (!displayCards.length) return;
+    if (view !== "cards" || !displayCards.length) return;
     let active = true;
 
     const names = displayCards.map((card) => card.lookupName);
@@ -204,7 +202,7 @@ export default function CardRatingsPanel() {
     return () => {
       active = false;
     };
-  }, [displayCards]);
+  }, [displayCards, view]);
 
   const filteredCards = useMemo(() => {
     const query = search.toLocaleLowerCase("pt-BR").trim();
@@ -257,6 +255,10 @@ export default function CardRatingsPanel() {
         </div>
       </div>
 
+      <div className="card-ratings-subtabs" role="group" aria-label="Visualização do Paiômetro">
+        <button type="button" aria-pressed={view === "cards"} onClick={() => setView("cards")}>Cartas e conceitos</button>
+        <button type="button" aria-pressed={view === "decks"} onClick={() => setView("decks")}>Ranking de decks</button>
+      </div>
       {data?.stale ? (
         <p className="card-ratings-warning">Exibindo a última consulta disponível. Não foi possível obter uma atualização recente.</p>
       ) : null}
@@ -264,7 +266,9 @@ export default function CardRatingsPanel() {
       {error ? <p className="card-ratings-warning" role="alert">{error}</p> : null}
       {loading && !data ? <p className="card-ratings-message">Carregando notas das cartas...</p> : null}
 
-      {data ? (
+      {data && !configReady ? <p className="card-ratings-message">{configError ? "Configuração das famílias indisponível. Aguardando nova tentativa..." : "Carregando classificação das cartas..."}</p> : null}
+      {data && view === "decks" ? (configReady ? <PaioDeckRanking decks={decks} ratings={data.cards} config={config} loading={dashboardLoading} failed={dashboardFailed} onOpenDeck={onOpenDeck} /> : null) : null}
+      {data && view === "cards" ? (
         <>
           <div className="card-ratings-toolbar">
             <label className="card-ratings-search">
@@ -293,16 +297,15 @@ export default function CardRatingsPanel() {
                     {cards.map((card) => {
                       const visual = visualsByLookupName[normalizeNameKey(card.lookupName)];
                       const isGameChanger = !card.isConcept && gameChangers.has(normalizeNameKey(card.name));
-                      const destination = card.destinationUrl || visual?.scryfallUrl || fallbackScryfallUrl(card.name);
 
                       return (
-                        <a
+                        <button
+                          type="button"
                           key={card.key}
                           className={`card-ratings-scryfall-card${visual?.imageUrl ? " has-image" : " no-image"}`}
-                          href={destination}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={card.name}
+                          disabled={!configReady}
+                          onClick={() => setSelectedItem(card)}
+                          title={`Explorar ${card.name}`}
                         >
                           {visual?.imageUrl ? (
                             <img src={visual.imageUrl} alt={card.name} loading="lazy" decoding="async" />
@@ -318,13 +321,13 @@ export default function CardRatingsPanel() {
                           <div className="card-ratings-card-meta">
                             <div className="card-ratings-card-name">
                               <strong>{card.name}</strong>
-                              <ExternalLink size={13} aria-hidden="true" />
+                              <ChevronRight size={15} aria-hidden="true" />
                             </div>
                             <div className="card-ratings-card-scores">
                               <span className="card-ratings-card-rounded">{card.roundedScore} pts</span>
                             </div>
                           </div>
-                        </a>
+                        </button>
                       );
                     })}
                   </div>
@@ -340,6 +343,9 @@ export default function CardRatingsPanel() {
           </p>
         </>
       ) : null}
+      {selectedItem ? <PaioUsageBrowser item={selectedItem} config={config} decks={decks}
+        loading={dashboardLoading} failed={dashboardFailed} suspended={profileOpen} gameChangers={gameChangers}
+        onClose={() => setSelectedItem(null)} onOpenDeck={onOpenDeck} /> : null}
     </section>
   );
 }
