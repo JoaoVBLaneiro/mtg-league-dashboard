@@ -1,126 +1,133 @@
-/** Arte e links do Scryfall para o detalhamento do Paiômetro dos decks.
- * A cache em memória evita novas consultas ao alternar entre os modais. */
+/** Cache compartilhado de metadados públicos, sem gravar falhas temporárias. */
 import { normalizePaioName } from "./paiometroDeck";
+import { scryfallFetch } from "./scryfallRequest";
+import { scryfallCardImage, type ScryfallImages } from "./scryfallImages";
 
-export type PaioCardVisual = {
-  imageUrl?: string;
-  scryfallUrl: string;
-};
-
+export type PaioCardVisual = { imageUrl?: string; scryfallUrl: string };
 type ScryfallCard = {
-  name: string;
-  scryfall_uri?: string;
-  image_uris?: { normal?: string; large?: string };
-  card_faces?: Array<{
-    name?: string;
-    image_uris?: { normal?: string; large?: string };
-  }>;
+  name: string; scryfall_uri?: string;
+  image_uris?: ScryfallImages;
+  card_faces?: Array<{ name?: string; image_uris?: ScryfallImages }>;
 };
-
-const SCRYFALL_API = "https://api.scryfall.com";
-const GC_URL = `${SCRYFALL_API}/cards/search?q=is%3Agame-changer&unique=cards`;
-const visualsCache = new Map<string, PaioCardVisual>();
+type Entry = { at: number; visual: PaioCardVisual; imageVersion?: number };
+const API = "https://api.scryfall.com";
+const DAY = 86400000;
+const TTL = 7 * DAY;
+const STORAGE = "pina-scryfall-visuals-v1";
+const GC_STORAGE = "pina-scryfall-gc-v1";
+const cache = new Map<string, Entry>();
+const misses = new Map<string, number>();
+let initialized = false;
+let visualQueue: Promise<void> = Promise.resolve();
 let gcCache: { at: number; names: Set<string> } | null = null;
 let gcPending: Promise<Set<string>> | null = null;
 
+function hydrate() {
+  if (initialized) return;
+  initialized = true;
+  try {
+    const entries = JSON.parse(localStorage.getItem(STORAGE) ?? "[]") as Array<[string, Entry]>;
+    for (const [key, entry] of entries) if (entry?.visual?.imageUrl && Date.now() - entry.at < 30 * DAY) cache.set(key, entry);
+  } catch { /* Storage indisponível ou corrompido: cache em memória. */ }
+  try {
+    const gc = JSON.parse(localStorage.getItem(GC_STORAGE) ?? "null") as { at: number; names: string[] } | null;
+    if (gc && Array.isArray(gc.names)) gcCache = { at: gc.at, names: new Set(gc.names) };
+  } catch { /* Sem cache anterior. */ }
+}
+function persist() {
+  // Limite de armazenamento; mantém as entradas mais recentes.
+  const entries = [...cache.entries()].sort((a,b) => b[1].at - a[1].at).slice(0, 2000);
+  if (cache.size > 2000) { cache.clear(); for (const [key, entry] of entries) cache.set(key, entry); }
+  try { localStorage.setItem(STORAGE, JSON.stringify(entries)); } catch { /* Quota ou modo privado. */ }
+}
 export function paioScryfallSearchUrl(name: string) {
   return `https://scryfall.com/search?q=${encodeURIComponent(`!"${name}"`)}`;
 }
-
-/** A entrada manual de combo aceita "Carta A + Carta B", sem dobrar sua pontuação. */
 export function paioVisualNames(detail: string): string[] {
-  const names = detail.split(/\s+\+\s+/).map((name) => name.trim()).filter(Boolean);
-  return names.slice(0, 4);
+  return detail.split(/\s+\+\s+/).map((name) => name.trim()).filter(Boolean).slice(0, 4);
 }
-
-function parseVisual(card: ScryfallCard): PaioCardVisual {
-  return {
-    // Para cartas transformáveis, Scryfall envia a frente em card_faces[0].
-    imageUrl: card.image_uris?.normal ?? card.image_uris?.large
-      ?? card.card_faces?.[0]?.image_uris?.normal
-      ?? card.card_faces?.[0]?.image_uris?.large,
-    scryfallUrl: card.scryfall_uri ?? paioScryfallSearchUrl(card.name),
-  };
+function aliases(card: ScryfallCard) {
+  return [card.name, card.name.split(/\s+\/\/\s+/)[0] ?? "", card.card_faces?.[0]?.name ?? ""].filter(Boolean).map(normalizePaioName);
 }
-
-function aliases(card: ScryfallCard): string[] {
-  return [
-    card.name,
-    card.name.split(/\s+\/\/\s+/)[0],
-    card.card_faces?.[0]?.name ?? "",
-  ].filter(Boolean).map(normalizePaioName);
+function remember(card: ScryfallCard, requested?: string) {
+  const imageUrl = scryfallCardImage(card);
+  if (!imageUrl) return;
+  const entry = { at: Date.now(), imageVersion: 2, visual: { imageUrl, scryfallUrl: card.scryfall_uri ?? paioScryfallSearchUrl(card.name) } };
+  for (const key of [...aliases(card), ...(requested ? [requested] : [])]) { cache.set(key, entry); misses.delete(key); }
 }
+function current(key: string) { const entry = cache.get(key); return Boolean(entry && entry.imageVersion === 2 && Date.now() - entry.at < TTL); }
 
-async function namedLookup(name: string): Promise<PaioCardVisual> {
+async function loadVisuals(names: string[]): Promise<Record<string, PaioCardVisual>> {
+  hydrate();
+  const unique = [...new Map(names.map((name) => [normalizePaioName(name), name.trim()])).entries()].filter(([key]) => Boolean(key));
+  const unresolved = unique.filter(([key]) => !current(key) && (misses.get(key) ?? 0) < Date.now());
   try {
-    const response = await fetch(`${SCRYFALL_API}/cards/named?exact=${encodeURIComponent(name)}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (response.ok) return parseVisual((await response.json()) as ScryfallCard);
-  } catch { /* Fallback de link e texto no modal. */ }
-  return { scryfallUrl: paioScryfallSearchUrl(name) };
-}
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-export async function fetchDeckPaioVisuals(names: string[]): Promise<Record<string, PaioCardVisual>> {
-  const unique = [...new Map(names.map((name) => [normalizePaioName(name), name.trim()])).entries()]
-    .filter(([key]) => key.length > 0);
-  const unresolved = unique.filter(([key]) => !visualsCache.has(key));
-
-  // 75 identificadores é o limite da API de coleção do Scryfall.
-  for (let offset = 0; offset < unresolved.length; offset += 75) {
-    const slice = unresolved.slice(offset, offset + 75);
-    try {
-      const response = await fetch(`${SCRYFALL_API}/cards/collection`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ identifiers: slice.map(([, name]) => ({ name })) }),
+    for (let offset = 0; offset < unresolved.length; offset += 75) {
+      const chunk = unresolved.slice(offset, offset + 75);
+      const response = await scryfallFetch(`${API}/cards/collection`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifiers: chunk.map(([, name]) => ({ name })) }),
       });
-      if (response.ok) {
-        const payload: { data?: ScryfallCard[] } = await response.json();
-        for (const card of payload.data ?? []) {
-          const visual = parseVisual(card);
-          for (const alias of aliases(card)) visualsCache.set(alias, visual);
-        }
+      // Não transforma rate limit, erro de rede ou 5xx em dezenas de buscas individuais.
+      if (!response.ok) break;
+      const payload = await response.json() as { data?: ScryfallCard[] };
+      if (!Array.isArray(payload.data)) break;
+      for (const card of payload.data) remember(card);
+      for (const [key, name] of chunk) {
+        if (current(key)) continue;
+        const exact = await scryfallFetch(`${API}/cards/named?exact=${encodeURIComponent(name)}`);
+        if (exact.status === 404) { misses.set(key, Date.now() + 60 * 60 * 1000); continue; }
+        if (!exact.ok) break;
+        remember(await exact.json() as ScryfallCard, key);
       }
-    } catch { /* Um erro no Scryfall não pode bloquear o Paiômetro. */ }
-
-    if (offset + 75 < unresolved.length) await wait(120);
-  }
-
-  // Cartas multiface e variantes não identificadas pela coleção recebem lookup exato.
-  for (const [key, name] of unresolved) {
-    const visual = visualsCache.get(key);
-    if (visual?.imageUrl) continue;
-    await wait(120);
-    visualsCache.set(key, await namedLookup(name));
-  }
-
-  return Object.fromEntries(unique.map(([key, name]) => [
-    key,
-    visualsCache.get(key) ?? { scryfallUrl: paioScryfallSearchUrl(name) },
-  ]));
+      persist();
+    }
+  } catch { /* Retorna as imagens já conhecidas; a próxima visita tenta de novo. */ }
+  persist();
+  return Object.fromEntries(unique.map(([key, name]) => [key, cache.get(key)?.visual ?? { scryfallUrl: paioScryfallSearchUrl(name) }]));
 }
-
-export function fetchDeckPaioGameChangers(): Promise<Set<string>> {
-  // Lista oficial se mantém em cache por 12 horas nesta sessão de navegação.
-  if (gcCache && Date.now() - gcCache.at < 12 * 60 * 60 * 1000) {
-    return Promise.resolve(gcCache.names);
+/** Exibe os hits imediatamente, sem esperar a fila de consultas ou os selos GC. */
+export function readCachedPaioVisuals(names: string[]): Record<string, PaioCardVisual> {
+  hydrate();
+  const result: Record<string, PaioCardVisual> = {};
+  for (const name of names) {
+    const key = normalizePaioName(name);
+    const entry = cache.get(key);
+    if (entry?.visual.imageUrl && Date.now() - entry.at < 30 * DAY) result[key] = entry.visual;
   }
+  return result;
+}
+export function fetchDeckPaioVisuals(names: string[]): Promise<Record<string, PaioCardVisual>> {
+  hydrate();
+  // Não espera a fila de outros modais se todas as imagens já estão no cache.
+  if (names.every((name) => !normalizePaioName(name) || current(normalizePaioName(name)))) {
+    return Promise.resolve(readCachedPaioVisuals(names));
+  }
+  // Consultas simultâneas são serializadas; a seguinte reaproveita o resultado da anterior.
+  const result = visualQueue.then(() => loadVisuals(names));
+  visualQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+export function fetchDeckPaioGameChangers(): Promise<Set<string>> {
+  hydrate();
+  if (gcCache && Date.now() - gcCache.at < DAY) return Promise.resolve(gcCache.names);
   if (gcPending) return gcPending;
   gcPending = (async () => {
     const names = new Set<string>();
-    let nextUrl: string | null = GC_URL;
-    while (nextUrl) {
-      const response = await fetch(nextUrl, { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error("Falha ao consultar Game Changers.");
-      const payload: { data?: ScryfallCard[]; has_more?: boolean; next_page?: string } = await response.json();
-      for (const card of payload.data ?? []) for (const alias of aliases(card)) names.add(alias);
-      nextUrl = payload.has_more ? payload.next_page ?? null : null;
-    }
-    gcCache = { at: Date.now(), names };
-    return names;
+    let url: string | null = `${API}/cards/search?q=is%3Agame-changer&unique=cards`;
+    try {
+      while (url) {
+        const response = await scryfallFetch(url);
+        if (!response.ok) throw new Error("Game Changers indisponíveis.");
+        const payload = await response.json() as { data?: ScryfallCard[]; has_more?: boolean; next_page?: string };
+        if (!Array.isArray(payload.data)) throw new Error("Resposta inválida.");
+        for (const card of payload.data) for (const key of aliases(card)) names.add(key);
+        url = payload.has_more ? payload.next_page ?? null : null;
+      }
+      gcCache = { at: Date.now(), names };
+      try { localStorage.setItem(GC_STORAGE, JSON.stringify({ at: gcCache.at, names: [...names] })); } catch { /* cache em memória */ }
+      return names;
+    } catch { return gcCache?.names ?? new Set<string>(); }
   })().finally(() => { gcPending = null; });
   return gcPending;
 }

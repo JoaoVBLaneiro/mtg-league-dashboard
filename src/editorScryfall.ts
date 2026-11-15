@@ -1,3 +1,5 @@
+import { scryfallFetch } from "./scryfallRequest";
+import { scryfallCardImage, type ScryfallImages } from "./scryfallImages";
 type ScryfallCard = {
   id?: string;
   oracle_id?: string;
@@ -8,8 +10,8 @@ type ScryfallCard = {
   lang?: string;
   artist?: string;
   scryfall_uri?: string;
-  image_uris?: { normal?: string; large?: string };
-  card_faces?: Array<{ image_uris?: { normal?: string; large?: string } }>;
+  image_uris?: ScryfallImages;
+  card_faces?: Array<{ image_uris?: ScryfallImages }>;
   details?: string;
 };
 
@@ -60,7 +62,9 @@ async function readScryfall(url: string, fetchCard: typeof fetch): Promise<Scryf
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       lastRequestAt = Date.now();
-      const response = await fetchCard(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+      const response = fetchCard === fetch
+        ? await scryfallFetch(url)
+        : await fetchCard(url, { signal: controller.signal, headers: { Accept: "application/json" } });
       if (response.status === 429) throw new Error("O Scryfall recebeu muitas consultas. Aguarde um pouco e tente novamente.");
       const body = (await response.json()) as ScryfallResponse;
       if (!response.ok) throw new Error(body.details || "Carta não encontrada no Scryfall.");
@@ -88,17 +92,12 @@ async function resolveScryfallName(cardName: string, fetchCard: typeof fetch) {
   return readScryfall(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cleanName)}`, fetchCard);
 }
 
-function cardImages(card: ScryfallCard) {
-  return card.image_uris?.large || card.image_uris?.normal ? card.image_uris : card.card_faces?.[0]?.image_uris;
-}
-
 // Compartilhada pelos comandantes, cartas-chave e cartas favoritas.
 export async function findCardOnScryfall(cardName: string, fetchCard: typeof fetch = fetch) {
   const card = await resolveScryfallName(cardName, fetchCard);
-  const images = cardImages(card);
   return {
     name: card.name || cardName.trim(),
-    imageUrl: images?.large || images?.normal || "",
+    imageUrl: scryfallCardImage(card, "display"),
     scryfallUrl: card.scryfall_uri || "",
   };
 }
@@ -132,12 +131,11 @@ export async function findCardPrintings(
   const result = await readScryfall(url, fetchCard);
   if (!Array.isArray(result.data)) throw new Error("Não foi possível ler as edições da carta. Tente novamente.");
   const printings = result.data.flatMap((card): CardPrinting[] => {
-    const images = cardImages(card);
-    const imageUrl = images?.large || images?.normal;
+    const imageUrl = scryfallCardImage(card, "display");
     if (!imageUrl || !card.id) return [];
     return [{
       id: card.id, name: card.name || canonicalName, imageUrl,
-      thumbnailUrl: images?.normal || imageUrl,
+      thumbnailUrl: scryfallCardImage(card) || imageUrl,
       scryfallUrl: card.scryfall_uri || "", setName: card.set_name || "Edição",
       setCode: card.set || "", collectorNumber: card.collector_number || "",
       language: card.lang || "", artist: card.artist || "",

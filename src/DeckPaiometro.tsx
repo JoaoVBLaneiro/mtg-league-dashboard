@@ -13,6 +13,7 @@ import {
 import {
   fetchDeckPaioGameChangers,
   fetchDeckPaioVisuals,
+  readCachedPaioVisuals,
   paioScryfallSearchUrl,
   paioVisualNames,
   type PaioCardVisual,
@@ -59,7 +60,7 @@ function DeckPaioArtwork({
       aria-label={`Abrir ${cardName} no Scryfall (nova aba)`}
     >
       {visual?.imageUrl ? (
-        <img src={visual.imageUrl} alt={cardName} loading="lazy" />
+        <img src={visual.imageUrl} alt={cardName} loading="lazy" decoding="async" />
       ) : (
         <span className="paio-dialog-card-art-placeholder">
           <strong>{cardName}</strong>
@@ -102,7 +103,7 @@ function DeckPaioCard({
         <button type="button" className="paio-family-card-open paio-combo-family-cover" onClick={() => onOpenFamily(item)} aria-label="Abrir todos os combos">
           {item.comboPairs?.[0].map((cardName) => {
             const image = visuals[normalizePaioName(cardName)]?.imageUrl;
-            return <span key={cardName}>{image ? <img src={image} alt={cardName} loading="lazy" /> : <span className="paio-dialog-card-art-placeholder">{cardName}</span>}</span>;
+            return <span key={cardName}>{image ? <img src={image} alt={cardName} loading="lazy" decoding="async" /> : <span className="paio-dialog-card-art-placeholder">{cardName}</span>}</span>;
           })}
           <span className="paio-dialog-cycle-badge">{item.comboPairs?.length} {item.comboPairs?.length === 1 ? "combo" : "combos"}</span>
         </button>
@@ -113,7 +114,7 @@ function DeckPaioCard({
           onClick={() => onOpenFamily(item)}
           aria-label={`Abrir cartas de ${item.name}`}
         >
-          {cardVisual?.imageUrl ? <img src={cardVisual.imageUrl} alt="" loading="lazy" /> : (
+          {cardVisual?.imageUrl ? <img src={cardVisual.imageUrl} alt="" loading="lazy" decoding="async" /> : (
             <span className="paio-dialog-card-art-placeholder"><strong>{item.name}</strong><small>{loading ? "Carregando arte..." : "Ver cartas da família"}</small></span>
           )}
           <span className="paio-dialog-cycle-badge">{item.threshold ? `${item.instances ?? names.length}/${item.threshold} cartas` : `${names.length} ${names.length === 1 ? "carta" : "cartas"}`}</span>
@@ -244,6 +245,7 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
   useEffect(() => {
     if (!isOpen || !visualNames.length) return;
     let active = true;
+    setVisuals(readCachedPaioVisuals(visualNames));
     setLoadingArts(true);
     void fetchDeckPaioVisuals(visualNames)
       .then((fetched) => { if (active) setVisuals(fetched); })

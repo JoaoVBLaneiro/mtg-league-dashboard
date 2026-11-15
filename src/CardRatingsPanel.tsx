@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, MessageSquarePlus, RefreshCw, Search } from "lucide-react";
 import "./cardRatings.css";
+import { fetchDeckPaioVisuals, fetchDeckPaioGameChangers, readCachedPaioVisuals, type PaioCardVisual } from "./deckPaioScryfall";
+import { normalizePaioName } from "./paiometroDeck";
 import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, paioThresholds, normalizePaioKey, type PaioConfig } from "./paioConfig";
 
 type CardRating = { name: string; average: number; votes?: number };
@@ -11,17 +13,7 @@ type RankingResponse = {
   stale?: boolean;
 };
 
-type ScryfallCard = {
-  name: string;
-  scryfall_uri?: string;
-  image_uris?: { normal?: string; large?: string };
-  card_faces?: { image_uris?: { normal?: string; large?: string } }[];
-};
-
-type CardVisual = {
-  imageUrl?: string;
-  scryfallUrl?: string;
-};
+type CardVisual = PaioCardVisual;
 
 type ConceptOverride = {
   destinationUrl: string;
@@ -38,8 +30,6 @@ type DisplayCard = CardRating & {
 
 const API_URL = "https://api.corneliomove.com.br/mtg-api/api/cards/ranking";
 const FORM_URL = "https://forms.gle/sLXPYiA46CgXTVhk6";
-const SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection";
-const SCRYFALL_GAME_CHANGERS_URL = "https://api.scryfall.com/cards/search?q=is%3Agame-changer&unique=cards";
 const EDHREC_COMBOS_URL = "https://edhrec.com/combos";
 
 const CONCEPT_OVERRIDES: Record<string, ConceptOverride> = {
@@ -98,7 +88,7 @@ function scryfallSearchUrl(query: string) {
 }
 
 function normalizeNameKey(value: string) {
-  return value.trim().toLocaleLowerCase("pt-BR");
+  return normalizePaioName(value);
 }
 
 function roundPiaoScore(value: number) {
@@ -110,106 +100,6 @@ function roundPiaoScore(value: number) {
 
 function fallbackScryfallUrl(name: string) {
   return `https://scryfall.com/search?q=${encodeURIComponent(`!\"${name}\"`)}`;
-}
-
-function extractCardVisual(card: ScryfallCard | null) {
-  if (!card) return {};
-  const imageUrl = card.image_uris?.normal
-    ?? card.image_uris?.large
-    ?? card.card_faces?.[0]?.image_uris?.normal
-    ?? card.card_faces?.[0]?.image_uris?.large;
-
-  return {
-    imageUrl,
-    scryfallUrl: card.scryfall_uri ?? fallbackScryfallUrl(card.name),
-  } satisfies CardVisual;
-}
-
-async function fetchNamedCard(name: string) {
-  const urls = [
-    `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`,
-    `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`,
-  ];
-
-  for (const url of urls) {
-    const response = await fetch(url);
-    if (!response.ok) continue;
-    return (await response.json()) as ScryfallCard;
-  }
-
-  return null;
-}
-
-async function fetchScryfallCollection(names: string[]) {
-  const uniqueNames = [...new Set(names)];
-  const chunks: string[][] = [];
-  for (let index = 0; index < uniqueNames.length; index += 75) {
-    chunks.push(uniqueNames.slice(index, index + 75));
-  }
-
-  const visualMap: Record<string, CardVisual> = {};
-
-  await Promise.all(
-    chunks.map(async (chunk) => {
-      const response = await fetch(SCRYFALL_COLLECTION_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identifiers: chunk.map((name) => ({ name })),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Não foi possível consultar as imagens das cartas no Scryfall.");
-      }
-
-      const payload: { data?: ScryfallCard[] } = await response.json();
-      for (const card of payload.data ?? []) {
-        visualMap[normalizeNameKey(card.name)] = extractCardVisual(card);
-      }
-    }),
-  );
-
-  const unresolvedNames = uniqueNames.filter((name) => {
-    const visual = visualMap[normalizeNameKey(name)];
-    return !visual?.imageUrl;
-  });
-
-  await Promise.all(
-    unresolvedNames.map(async (name) => {
-      const card = await fetchNamedCard(name);
-      if (!card) return;
-      visualMap[normalizeNameKey(name)] = extractCardVisual(card);
-    }),
-  );
-
-  return visualMap;
-}
-
-async function fetchGameChangerSet() {
-  const names = new Set<string>();
-  let nextUrl: string | null = SCRYFALL_GAME_CHANGERS_URL;
-
-  while (nextUrl) {
-    const response = await fetch(nextUrl);
-    if (!response.ok) {
-      throw new Error("Não foi possível consultar a lista de Game Changers no Scryfall.");
-    }
-
-    const payload: {
-      data?: { name?: string }[];
-      has_more?: boolean;
-      next_page?: string;
-    } = await response.json();
-
-    for (const card of payload.data ?? []) {
-      if (card.name) names.add(normalizeNameKey(card.name));
-    }
-
-    nextUrl = payload.has_more ? payload.next_page ?? null : null;
-  }
-
-  return names;
 }
 
 function expandDisplayCards(cards: CardRating[], config: PaioConfig) {
@@ -301,19 +191,15 @@ export default function CardRatingsPanel() {
     if (!displayCards.length) return;
     let active = true;
 
-    void Promise.all([
-      fetchScryfallCollection(displayCards.map((card) => card.lookupName)),
-      fetchGameChangerSet(),
-    ])
-      .then(([visualMap, gcSet]) => {
-        if (!active) return;
-        setVisualsByLookupName(visualMap);
-        setGameChangers(gcSet);
-      })
-      .catch(() => {
-        if (!active) return;
-        // Mantém o painel funcional mesmo se o Scryfall falhar.
-      });
+    const names = displayCards.map((card) => card.lookupName);
+    setVisualsByLookupName(readCachedPaioVisuals(names));
+    void fetchDeckPaioVisuals(names)
+      .then((visualMap) => { if (active) setVisualsByLookupName(visualMap); })
+      .catch(() => { /* As artes conhecidas continuam disponíveis. */ });
+    // A consulta de GC não bloqueia a exibição das imagens.
+    void fetchDeckPaioGameChangers()
+      .then((gcSet) => { if (active) setGameChangers(gcSet); })
+      .catch(() => {});
 
     return () => {
       active = false;
@@ -419,7 +305,7 @@ export default function CardRatingsPanel() {
                           title={card.name}
                         >
                           {visual?.imageUrl ? (
-                            <img src={visual.imageUrl} alt={card.name} loading="lazy" />
+                            <img src={visual.imageUrl} alt={card.name} loading="lazy" decoding="async" />
                           ) : (
                             <div className="card-ratings-fallback-art">
                               <strong>{card.name}</strong>

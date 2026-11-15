@@ -22,12 +22,17 @@ export const DEFAULT_VISIBILITY: VisibilityConfig = {
   configured: [],
 };
 
-export async function fetchVisibilityConfig(): Promise<VisibilityConfig> {
-  const response = await fetch(`${API}/api/leaderboard/visibility`, { cache: "no-store" });
-  if (!response.ok) throw new Error("Falha ao consultar os critérios do ranking.");
-  const data = await response.json() as VisibilityConfig;
-  if (!data.players || !data.decks) throw new Error("Critérios inválidos.");
-  return data;
+let pendingVisibility: Promise<VisibilityConfig> | undefined;
+export function fetchVisibilityConfig(): Promise<VisibilityConfig> {
+  if (pendingVisibility) return pendingVisibility;
+  pendingVisibility = (async () => {
+    const response = await fetch(`${API}/api/leaderboard/visibility`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Falha ao consultar os critérios do ranking.");
+    const data = await response.json() as VisibilityConfig;
+    if (!data.players || !data.decks) throw new Error("Critérios inválidos.");
+    return data;
+  })().finally(() => { pendingVisibility = undefined; });
+  return pendingVisibility;
 }
 
 export async function saveVisibilityConfig(token: string, config: VisibilityConfig) {

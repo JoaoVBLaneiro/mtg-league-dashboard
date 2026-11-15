@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import "./index.css";
+import { scryfallFetch } from "./scryfallRequest";
+import { scryfallCardImage } from "./scryfallImages";
 import "./deckProfileLayout.css";
 import LifeTrackerApp from "./LifeTracker";
 import DeckPaiometro from "./DeckPaiometro";
@@ -42,7 +44,7 @@ import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } f
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
 import type { AchievementDirectory } from "./achievementDirectory";
 
-const API_URL = "https://api.corneliomove.com.br/mtg-api/api/dashboard";
+import { fetchLeagueDashboard, readDashboardCache } from "./dashboardLoader";
 const MANUAL_ACHIEVEMENT_API_URL = "https://api.corneliomove.com.br/mtg-api/api/achievements/manual";
 
 type RivalInfo = {
@@ -2538,7 +2540,7 @@ function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
       <div className="mini-commander-stack mini-commander-stack-single">
         <div className="mini-commander-card mini-commander-card-main">
           {getDeckDisplayImage(deck) ? (
-            <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
+            <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} loading="lazy" decoding="async" />
           ) : (
             <div className="avatar-placeholder">
               <Wand2 size={18} />
@@ -2555,7 +2557,7 @@ function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
         className="mini-commander-card mini-commander-card-secondary"
         title={`${secondaryCommanderType || "Carta secundária"}: ${secondaryCommander}`}
       >
-        <img src={secondaryCommanderImageUrl} alt={secondaryCommander} />
+        <img src={secondaryCommanderImageUrl} alt={secondaryCommander} loading="lazy" decoding="async" />
       </div>
 
       <div
@@ -2563,7 +2565,7 @@ function MiniCommanderStack({ deck }: { deck: NonNullable<DeckMiniInfo> }) {
         title={`Comandante: ${deck.comandante || deck.nome}`}
       >
         {getDeckDisplayImage(deck) ? (
-          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
+          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} loading="lazy" decoding="async" />
         ) : (
           <div className="avatar-placeholder">
             <Wand2 size={18} />
@@ -2718,7 +2720,7 @@ function AchievementDefeatedCommanderCard({
     >
       <div className="achievement-defeated-commander-image">
         {getDeckDisplayImage(deck) ? (
-          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} />
+          <img src={getDeckDisplayImage(deck)} alt={deck.comandante || deck.nome} loading="lazy" decoding="async" />
         ) : (
           <Wand2 size={18} />
         )}
@@ -3596,7 +3598,7 @@ async function resolveCardFromScryfall(
     }
   }
 
-  const response = await fetch(
+  const response = await scryfallFetch(
     `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(card.name)}`
   );
 
@@ -3616,10 +3618,7 @@ async function resolveCardFromScryfall(
 }
   const data = await response.json();
 
-  const imageUrl =
-    data.image_uris?.normal ||
-    data.card_faces?.[0]?.image_uris?.normal ||
-    "";
+  const imageUrl = scryfallCardImage(data);
 
   const scryfallUrl =
     data.scryfall_uri ||
@@ -8862,10 +8861,7 @@ function mapScryfallCardDataToCandidate(
   },
   data: any
 ) {
-  const imageUrl =
-    data.image_uris?.normal ||
-    data.card_faces?.[0]?.image_uris?.normal ||
-    "";
+  const imageUrl = scryfallCardImage(data);
 
   const scryfallUrl =
     data.scryfall_uri ||
@@ -8946,7 +8942,7 @@ async function resolvePlayerTopCardCandidates(
     return cacheHits;
   }
 
-  const response = await fetch("https://api.scryfall.com/cards/collection", {
+  const response = await scryfallFetch("https://api.scryfall.com/cards/collection", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -9430,36 +9426,33 @@ function DashboardApp() {
     window.scrollTo(0, 0);
   }, [activeView, activePeriod]);
 
-  async function loadData() {
+  const receivedDashboard = useRef(false);
+
+  async function loadData(force = true) {
     try {
       setError("");
       setLoading(true);
-
-      const response = await fetch(`${API_URL}?t=${Date.now()}`);
-
-      if (!response.ok) {
-        throw new Error("Não foi possível carregar os dados da liga.");
-      }
-
-      const json = await response.json();
+      const json = await fetchLeagueDashboard<DashboardData>(force);
+      receivedDashboard.current = true;
       setData(json);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Erro ao carregar os dados.");
-      }
+      setError(err instanceof Error ? err.message : "Erro ao carregar os dados.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
-
-    const interval = setInterval(loadData, 60000);
-
-    return () => clearInterval(interval);
+    let active = true;
+    void readDashboardCache<DashboardData>().then((cached) => {
+      if (active && cached && !receivedDashboard.current) {
+        setData(cached);
+        setLoading(false);
+      }
+    });
+    void loadData(false);
+    const interval = setInterval(() => void loadData(false), 60000);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   useEffect(() => {
@@ -9715,7 +9708,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
               Área do jogador
             </a>
 
-            <button onClick={loadData} disabled={loading} className="refresh-button">
+            <button onClick={() => void loadData()} disabled={loading} className="refresh-button">
               <RefreshCw size={16} className={loading ? "spin" : ""} />
               Atualizar
             </button>
