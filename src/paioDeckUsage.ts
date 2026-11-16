@@ -5,7 +5,7 @@ export type PaioUsageDeck = {
   name: string; displayName: string; commander: string; secondaryCommander: string;
   imageUrl: string; decklistTexto: string; paiometroConceitos?: unknown; inactive?: boolean; deleted?: boolean;
 };
-export type PaioUsageMatch<T extends PaioUsageDeck> = { deck: T; cards: string[]; count: number };
+export type PaioUsageMatch<T extends PaioUsageDeck> = { deck: T; cards: string[]; count: number; manualCards?: string[] };
 const cardKey = (name: string) => normalizePaioName(name.split(/\s+\/\/\s+/)[0]);
 export function usageDeckCounts(deck: PaioUsageDeck) {
   const counts = decklistNames(deck.decklistTexto);
@@ -16,11 +16,29 @@ export function usageDeckCounts(deck: PaioUsageDeck) {
   return counts;
 }
 export function buildPaioUsageIndex<T extends PaioUsageDeck>(decks: T[]) {
-  return decks.filter((deck) => !deck.deleted).map((deck) => ({ deck, counts: usageDeckCounts(deck) }));
+  return decks.filter((deck) => !deck.deleted).map((deck) => {
+    const counts = usageDeckCounts(deck);
+    const assignments = parsePaioAssignments(deck.paiometroConceitos);
+    const manual = new Map<string, string>();
+    for (const assignment of assignments) {
+      for (const name of assignment.detail.split(/\s+\+\s+/).map(part => part.trim()).filter(Boolean)) {
+        const key = cardKey(name);
+        if (key) manual.set(key, name);
+      }
+    }
+    // Atribuições não são prova da decklist: não entram em counts,
+    // nem na contagem de tags ou na validação de combos completos.
+    return { deck, counts, manual, assignments };
+  });
 }
 export function cardUsage<T extends PaioUsageDeck>(index: ReturnType<typeof buildPaioUsageIndex<T>>, name: string): PaioUsageMatch<T>[] {
   const key = cardKey(name);
-  return index.flatMap(({ deck, counts }) => counts.has(key) ? [{ deck, cards: [name], count: counts.get(key) ?? 0 }] : []);
+  if (!key) return [];
+  return index.flatMap(({ deck, counts, manual }): PaioUsageMatch<T>[] => {
+    if (counts.has(key)) return [{ deck, cards: [name], count: counts.get(key) ?? 0 }];
+    if (manual.has(key)) return [{ deck, cards: [name], count: 0, manualCards: [name] }];
+    return [];
+  }).sort((a, b) => Number(Boolean(a.manualCards?.length)) - Number(Boolean(b.manualCards?.length)) || a.deck.displayName.localeCompare(b.deck.displayName, "pt-BR"));
 }
 export function thresholdUsage<T extends PaioUsageDeck>(index: ReturnType<typeof buildPaioUsageIndex<T>>, rule: PaioThreshold, config: PaioConfig): PaioUsageMatch<T>[] {
   return index.flatMap(({ deck, counts }) => {
@@ -64,14 +82,26 @@ export function comboUsage<T extends PaioUsageDeck>(index: ReturnType<typeof bui
 export function familyUsage<T extends PaioUsageDeck>(index: ReturnType<typeof buildPaioUsageIndex<T>>, concept: string, config: PaioConfig): PaioUsageMatch<T>[] {
   const members = familyMembers(concept, config);
   const isCombo = normalizePaioKey(concept) === normalizePaioKey("Combos de Duas Cartas");
-  return index.flatMap(({ deck, counts }) => {
+  return index.flatMap(({ deck, counts, assignments }): PaioUsageMatch<T>[] => {
     if (isCombo) {
       const pairs = members.pairs.filter(pair => pair.every(name => counts.has(cardKey(name))));
       if (!pairs.length) return [];
       return [{ deck, cards: [...new Map(pairs.flat().map(name => [cardKey(name), name])).values()], count: pairs.length }];
     }
-    const cards = members.cards.filter(name => counts.has(cardKey(name)));
-    return cards.length ? [{ deck, cards, count: cards.length }] : [];
+    const cards = new Map(members.cards.filter(name => counts.has(cardKey(name))).map(name => [cardKey(name), name]));
+    const manualCards: string[] = [];
+    // Inclui também lançamentos específicos deste deck nesta família, sem
+    // promover a atribuição a presença confirmada na lista de cartas.
+    for (const assignment of assignments) {
+      if (normalizePaioKey(assignment.concept) !== normalizePaioKey(concept)) continue;
+      for (const name of assignment.detail.split(/\s+\+\s+/).map(part => part.trim()).filter(Boolean)) {
+        const key = cardKey(name);
+        if (!key || cards.has(key)) continue;
+        cards.set(key, name);
+        if (!counts.has(key)) manualCards.push(name);
+      }
+    }
+    return cards.size ? [{ deck, cards: [...cards.values()], count: cards.size, ...(manualCards.length ? { manualCards } : {}) }] : [];
   }).sort((a,b) => b.count - a.count || a.deck.displayName.localeCompare(b.deck.displayName, "pt-BR"));
 }
 

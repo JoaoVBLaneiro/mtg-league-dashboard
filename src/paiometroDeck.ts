@@ -147,9 +147,12 @@ export function decklistNames(decklist: string) {
       continue;
     }
     if (!inMainDeck || !line || /^(\/\/|#|\[)/.test(line)) continue;
-    const match = line.match(/^(\d+)\s*x?\s*(.+?)(?:\s+\([^)]*\)\s*[A-Za-z0-9★-]*)?$/i);
+    // Moxfield inclui a edição, o número de coleção e marcadores como *F*.
+    // Remova os marcadores antes de interpretar a edição, não depois.
+    const cleanLine = line.replace(/(?:\s+\*[^*]+\*)+\s*$/g, "").trim();
+    const match = cleanLine.match(/^(\d+)\s*x?\s*(.+?)(?:\s+\([^)]*\)\s*[A-Za-z0-9★-]*)?$/i);
     if (!match || Number(match[1]) <= 0) continue;
-    const name = match[2].trim().replace(/\s+\*[^*]+\*$/g, "");
+    const name = match[2].trim();
     if (name) {
       const key = normalizePaioName(name.split(/\s+\/\/\s+/)[0]);
       counts.set(key, (counts.get(key) ?? 0) + Number(match[1]));
