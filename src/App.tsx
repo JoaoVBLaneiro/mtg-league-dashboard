@@ -31,6 +31,7 @@ import { motion } from "framer-motion";
 import "./index.css";
 import { scryfallFetch } from "./scryfallRequest";
 import { scryfallCardImage } from "./scryfallImages";
+import { fetchDecklistMetadata } from "./decklistMetadataBatch";
 import "./deckProfileLayout.css";
 import LifeTrackerApp from "./LifeTracker";
 import DeckPaiometro from "./DeckPaiometro";
@@ -9189,59 +9190,115 @@ function DecklistModal({
     if (!deck) return;
 
     const currentDeck = deck;
+    const commanderName = getDeckCommanderCompareName(currentDeck);
     let cancelled = false;
 
     async function loadDecklist() {
       const parsedCards = parseDecklistText(currentDeck.decklistTexto);
-
-      setCards([]);
-
       if (!currentDeck.decklistTexto.trim() || parsedCards.length === 0) {
+        setCards([]);
         setLoadingCards(false);
         return;
       }
 
-      const cachedDecklist = getCachedResolvedDecklist(currentDeck);
+      // Renderiza a lista completa imediatamente, aproveitando cartas já resolvidas.
+      const fullCache = getCachedResolvedDecklist(currentDeck);
+      const initialCards: ResolvedDeckCard[] = parsedCards.map((card, index) => {
+        const fromDeck = fullCache?.[index];
+        let fromCard: Partial<ResolvedDeckCard> | null = null;
 
-      if (cachedDecklist && cachedDecklist.length === parsedCards.length) {
-        setCards(cachedDecklist);
+        if (fromDeck?.name === card.name && fromDeck.typeLine && fromDeck.imageUrl) {
+          fromCard = fromDeck;
+        } else {
+          try {
+            const value = localStorage.getItem(getDecklistCacheKey(card.name));
+            if (value) {
+              const parsed = JSON.parse(value) as Partial<ResolvedDeckCard>;
+              if (parsed.typeLine && parsed.imageUrl) fromCard = parsed;
+            }
+          } catch {
+            // Cache antigo ou indisponível: consulta normalmente.
+          }
+        }
+
+        const typeLine = fromCard?.typeLine || "";
+        return {
+          ...card,
+          imageUrl: fromCard?.imageUrl || "",
+          scryfallUrl: fromCard?.scryfallUrl || `https://scryfall.com/search?q=${encodeURIComponent(card.name)}`,
+          typeLine,
+          edhrecRank: Number(fromCard?.edhrecRank ?? 999999),
+          category: getDecklistCategory({ cardName: card.name, commanderName, typeLine }),
+        };
+      });
+
+      setCards(initialCards);
+      const missingNames = [...new Set(initialCards.filter((item) => !item.typeLine).map((item) => item.name))];
+      if (!missingNames.length) {
         setLoadingCards(false);
         return;
       }
 
       setLoadingCards(true);
-
-      const resolvedCards: ResolvedDeckCard[] = [];
-
-      for (const card of parsedCards) {
+      try {
+        // 100 cartas normalmente exigem apenas duas chamadas à API, não 100.
+        const metadata = await fetchDecklistMetadata(missingNames);
         if (cancelled) return;
 
-        const resolved = await resolveCardFromScryfall(
-          card,
-          currentDeck.commander
-        );
+        const resolved = initialCards.map((card) => {
+          const found = metadata.get(normalizeCardNameForCompare(card.name));
+          if (!found) return card;
+          const typeLine = found.typeLine;
+          const result: ResolvedDeckCard = {
+            ...card,
+            ...found,
+            category: getDecklistCategory({ cardName: card.name, commanderName, typeLine }),
+          };
+          try {
+            localStorage.setItem(getDecklistCacheKey(card.name), JSON.stringify(found));
+          } catch {
+            // Cotas de armazenamento não devem bloquear a decklist.
+          }
+          return result;
+        });
 
-        resolvedCards.push(resolved);
-
-        if (!cancelled) {
-          setCards([...resolvedCards]);
+        // Fallback limitado para nomes incomuns que a consulta em lote não reconheça.
+        const stillMissing = resolved.filter((card) => !card.typeLine);
+        if (metadata.size > 0 && stillMissing.length > 0 && stillMissing.length <= 3) {
+          for (const missing of stillMissing) {
+            if (cancelled) return;
+            try {
+              const fallback = await resolveCardFromScryfall(missing, commanderName);
+              if (fallback.typeLine) {
+                const index = resolved.findIndex((card) => card.name === missing.name);
+                if (index >= 0) resolved[index] = fallback;
+              }
+            } catch {
+              // Falhas transitórias continuam elegíveis para nova tentativa.
+            }
+          }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 80));
-      }
-
-      if (!cancelled) {
-        saveResolvedDecklistToCache(currentDeck, resolvedCards);
-        setCards(resolvedCards);
-        setLoadingCards(false);
+        if (!cancelled) {
+          setCards(resolved);
+          // Nunca persiste uma lista incompleta como se estivesse 100% resolvida.
+          if (resolved.every((card) => card.typeLine)) {
+            try {
+              saveResolvedDecklistToCache(currentDeck, resolved);
+            } catch {
+              // Ignora falta de espaço no localStorage.
+            }
+          }
+        }
+      } catch {
+        // Mesmo sem Scryfall, nomes e quantidades permanecem visíveis.
+      } finally {
+        if (!cancelled) setLoadingCards(false);
       }
     }
 
-    loadDecklist();
-
-    return () => {
-      cancelled = true;
-    };
+    void loadDecklist();
+    return () => { cancelled = true; };
   }, [deck]);
 
   if (!deck) return null;
@@ -9313,7 +9370,7 @@ function DecklistModal({
                     >
                       <div className="decklist-card-image">
                         {card.imageUrl ? (
-                          <img src={card.imageUrl} alt={card.name} />
+                          <img src={card.imageUrl} alt={card.name} loading="lazy" decoding="async" />
                         ) : (
                           <div className="avatar-placeholder">
                             <Wand2 size={22} />

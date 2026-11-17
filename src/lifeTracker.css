@@ -2810,3 +2810,881 @@ button {
     gap: 3px;
   }
 }
+/* =========================================================
+   LIFE TRACKER MOBILE STABILITY + STATUS STRIP (v2)
+   Resumo fora da area numerica; sem sobreposicao da vida.
+========================================================= */
+.life-page:has(.life-board) {
+  height: var(--life-safe-height, 100dvh);
+  min-height: 0;
+  max-height: var(--life-safe-height, 100dvh);
+  overflow: hidden;
+}
+
+.life-player-rotator {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.life-player-card-companion,
+.life-player-rotator,
+.life-companion-grid,
+.life-center-zone,
+.life-total-zone {
+  min-width: 0;
+  min-height: 0;
+}
+
+.life-companion-grid {
+  height: 100% !important;
+  grid-template-columns: 34px 40px minmax(0, 1fr) 40px 34px;
+  gap: 4px;
+}
+
+.life-center-zone {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.life-total-zone > strong {
+  font-size: clamp(32px, 34cqh, 86px) !important;
+  line-height: 0.94;
+}
+
+.life-status-strip {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 2px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Sobrescreve os antigos deslocamentos de badges na area central. */
+.life-status-strip .commander-summary,
+.life-status-strip .marker-summary {
+  position: static;
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0;
+  min-height: 24px !important;
+  height: 24px;
+  padding: 3px 8px !important;
+  margin: 0 !important;
+  transform: none !important;
+  white-space: nowrap;
+  border-radius: 8px !important;
+  background: rgba(9, 15, 30, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.life-status-label {
+  color: #cbd5e1;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.life-status-zero {
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.life-status-strip .commander-summary-item,
+.life-status-strip .marker-summary-item {
+  flex-shrink: 0;
+}
+
+.life-status-strip .commander-summary-item strong,
+.life-status-strip .marker-summary-item strong {
+  font-size: 10px !important;
+}
+
+/* Card estreito: preserva uma area minima para o numero. */
+@container (max-width: 330px) {
+  .life-companion-grid {
+    grid-template-columns: 27px 30px minmax(0, 1fr) 30px 27px;
+    gap: 2px;
+  }
+
+  .life-hold-button {
+    width: 30px !important;
+    height: 44px !important;
+    font-size: 25px !important;
+  }
+
+  .life-small-action {
+    width: 27px;
+    height: 32px;
+  }
+
+  .life-total-zone > strong {
+    font-size: clamp(30px, 32cqh, 66px) !important;
+  }
+}
+
+@container (max-height: 190px) {
+  .life-status-strip {
+    min-height: 23px;
+    padding-block: 1px;
+  }
+
+  .life-status-strip .commander-summary,
+  .life-status-strip .marker-summary {
+    height: 21px;
+    min-height: 21px !important;
+  }
+
+  .life-total-zone > strong {
+    font-size: clamp(27px, 32cqh, 58px) !important;
+  }
+}
+
+/* Portrait nao tenta encaixar 4-6 jogadores em quadrantes estreitos.
+   Cada jogador fica numa linha; o tabuleiro rola verticalmente. */
+@media (orientation: portrait) {
+  .life-board-table {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: none !important;
+    grid-auto-rows: 190px !important;
+    grid-template-areas: none !important;
+    align-content: start !important;
+    gap: 8px !important;
+    padding: 8px 8px 68px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .life-board-table.life-board-table > .life-player-card-companion.life-player-card-companion {
+    grid-area: auto !important;
+    width: 100% !important;
+    height: 190px !important;
+    min-height: 190px !important;
+  }
+
+  .life-board-table .life-player-rotator,
+  .life-board-table.life-board-4 .life-player-rotator {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+  }
+
+  .life-player-header {
+    margin-bottom: 2px;
+  }
+
+  .life-total-zone > strong {
+    font-size: clamp(44px, 20vw, 76px) !important;
+  }
+
+  .finish-match-button {
+    left: auto;
+    top: auto;
+    right: calc(12px + env(safe-area-inset-right));
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    transform: none;
+    width: 46px;
+    height: 46px;
+  }
+
+  .finish-match-button:active {
+    transform: scale(0.95);
+  }
+}
+
+/* Mesas com muitas pessoas: protege a vida contra altura curta. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .life-board {
+    min-height: 0;
+  }
+
+  .life-player-card-companion {
+    padding: 3px;
+  }
+
+  .life-player-header {
+    margin-bottom: 2px;
+  }
+
+  .life-companion-grid {
+    height: 100% !important;
+  }
+
+  .life-status-strip {
+    min-height: 23px;
+    padding: 1px 3px;
+  }
+
+  .life-total-zone > strong {
+    font-size: clamp(27px, 31cqh, 65px) !important;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 420px) {
+  .life-status-strip .commander-summary,
+  .life-status-strip .marker-summary {
+    min-height: 26px !important;
+    height: 26px;
+  }
+}
+
+/* =========================================================
+   LIFE TRACKER - LEGIBILIDADE E AREAS DE TOQUE (v3)
+   O card inteiro aceita toque em espacos livres; controles
+   continuam com prioridade pelo filtro no LifeTracker.tsx.
+========================================================= */
+
+/* CMD sempre inicia a esquerda e marcadores ficam a direita.
+   Cada metade preserva sua propria rolagem em telas compactas. */
+.life-status-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+}
+
+.life-status-strip .commander-summary,
+.life-status-strip .marker-summary {
+  min-width: 0;
+  max-width: 100% !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.life-status-strip .commander-summary {
+  justify-self: start;
+  justify-content: flex-start;
+}
+
+.life-status-strip .marker-summary {
+  justify-self: end;
+  justify-content: flex-start;
+}
+
+.life-status-strip .commander-summary::-webkit-scrollbar,
+.life-status-strip .marker-summary::-webkit-scrollbar {
+  display: none;
+}
+
+/* Escala por largura E altura reais do card, evitando que um placar
+   com 3 digitos invada os botoes em mesas com 5 ou 6 jogadores. */
+.life-total-zone > strong {
+  font-size: clamp(42px, min(54cqh, 29cqw), 150px) !important;
+  line-height: 0.92;
+}
+
+@container (max-width: 210px) {
+  .life-total-zone > strong {
+    font-size: clamp(31px, min(52cqh, 27cqw), 85px) !important;
+  }
+}
+
+/* LIFE TRACKER - toque prolongado no quadro e retorno a tela cheia (v4) */
+/* Evita menu de copiar/selecionar ao manter o dedo sobre a vida. */
+.life-board-table .life-player-rotator,
+.life-board-table .life-player-rotator * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Em retrato, gestos verticais continuam rolando a lista dos jogadores. */
+.life-board-table .life-player-rotator {
+  touch-action: pan-y;
+}
+
+.match-result-fullscreen {
+  border: 1px solid rgba(147, 197, 253, 0.5);
+  background: rgba(59, 130, 246, 0.18);
+  color: #dbeafe;
+}
+
+.match-result-fullscreen-error {
+  color: #fca5a5;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Acao de transferir no modal central: mesmo acabamento Mítico da badge MB1. */
+.match-result-actions .match-result-transfer {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-height: 54px;
+  padding: 9px 15px;
+  border: 1px solid rgba(251, 191, 36, 0.52);
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(251, 191, 36, 0.16), transparent 54%),
+    linear-gradient(115deg, #372015, #241c28 62%, #352310);
+  color: #fde6ab;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 161, 0.18),
+    0 6px 17px rgba(0, 0, 0, 0.25);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.25;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.match-result-transfer .ss {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.11);
+  color: #f7c56b;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.match-result-actions .match-result-transfer:hover,
+.match-result-actions .match-result-transfer:focus-visible {
+  border-color: rgba(253, 211, 101, 0.86);
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.match-result-actions .match-result-transfer:focus-visible {
+  outline: 2px solid rgba(253, 230, 138, 0.8);
+  outline-offset: 3px;
+}
+
+.match-result-actions .match-result-transfer:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+@media (max-width: 520px) {
+  .match-result-actions .match-result-transfer {
+    grid-column: auto;
+    min-height: 49px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-result-actions .match-result-transfer { transition: none; }
+}
+
+
+/* =========================================================
+   LIFE TRACKER - estados vazios Keyrune + 2 a 8 jogadores (v5)
+========================================================= */
+
+/* Sete opcoes, de 2 a 8, sempre visiveis na configuracao. */
+.life-option-grid-count {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+@media (max-width: 420px) {
+  .life-option-grid-count .life-option {
+    font-size: 19px;
+    min-height: 52px;
+  }
+}
+
+/* Keyrune Common e preto: fundo claro discreto para contraste no modo escuro. */
+.life-status-strip .life-status-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(226, 232, 240, 0.88);
+  line-height: 1;
+}
+
+.life-status-strip .life-status-empty-icon .ss {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* 7: tres adversarios de frente e quatro deste lado, sem espacos vazios.
+   8: quatro de cada lado. Ambos mantem a orientacao da mesa. */
+@media (orientation: landscape) {
+  .life-board-table.life-board-7,
+  .life-board-table.life-board-8 {
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .life-board-table.life-board-7 {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "p1 p1 p1 p1 p2 p2 p2 p2 p3 p3 p3 p3"
+      "p4 p4 p4 p5 p5 p5 p6 p6 p6 p7 p7 p7" !important;
+  }
+
+  .life-board-table.life-board-7 .life-player-position-1 { grid-area: p1 !important; }
+  .life-board-table.life-board-7 .life-player-position-2 { grid-area: p2 !important; }
+  .life-board-table.life-board-7 .life-player-position-3 { grid-area: p3 !important; }
+  .life-board-table.life-board-7 .life-player-position-4 { grid-area: p4 !important; }
+  .life-board-table.life-board-7 .life-player-position-5 { grid-area: p5 !important; }
+  .life-board-table.life-board-7 .life-player-position-6 { grid-area: p6 !important; }
+  .life-board-table.life-board-7 .life-player-position-7 { grid-area: p7 !important; }
+
+  .life-board-table.life-board-8 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-areas: none !important;
+  }
+
+  .life-board-table.life-board-7 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-7 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-7 .life-player-position-3 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-1 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-2 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-3 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-4 .life-player-rotator {
+    transform: rotate(180deg) !important;
+  }
+
+  .life-board-table.life-board-7 .life-player-position-4 .life-player-rotator,
+  .life-board-table.life-board-7 .life-player-position-5 .life-player-rotator,
+  .life-board-table.life-board-7 .life-player-position-6 .life-player-rotator,
+  .life-board-table.life-board-7 .life-player-position-7 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-5 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-6 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-7 .life-player-rotator,
+  .life-board-table.life-board-8 .life-player-position-8 .life-player-rotator {
+    transform: none !important;
+  }
+}
+
+/* Em cards estreitos, preserva a area central da vida e evita
+   que nomes e controles transbordem para outros jogadores. */
+@container (max-width: 215px) {
+  .life-board-7 .life-player-header,
+  .life-board-8 .life-player-header {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 3px;
+    margin-bottom: 2px;
+  }
+
+  .life-board-7 .life-slot-button,
+  .life-board-8 .life-slot-button {
+    width: 100%;
+    min-height: 26px;
+    padding: 2px 3px;
+  }
+
+  .life-board-7 .life-slot-button strong,
+  .life-board-8 .life-slot-button strong {
+    font-size: 6px;
+  }
+
+  .life-board-7 .life-companion-grid,
+  .life-board-8 .life-companion-grid {
+    grid-template-columns: 21px 24px minmax(0, 1fr) 24px 21px;
+    gap: 2px;
+  }
+
+  .life-board-7 .life-small-action,
+  .life-board-8 .life-small-action {
+    width: 21px;
+    height: 26px;
+    border-radius: 7px;
+  }
+
+  .life-board-7 .life-hold-button,
+  .life-board-8 .life-hold-button {
+    width: 24px !important;
+    height: 40px !important;
+    font-size: 23px;
+  }
+}
+
+
+/* =========================================================
+   LIFE TRACKER - marca d'agua da causa da eliminacao (v6)
+   Prioridade: comandante (21 de uma fonte) > veneno (10) > normal
+   A marca fica ATRAS da vida, dos botoes e dos indicadores.
+========================================================= */
+.life-player-eliminated .life-elimination-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.24;
+  color: #f87171;
+}
+
+.life-elimination-watermark .ss {
+  display: block;
+  flex: 0 0 auto;
+  font-size: clamp(64px, min(88cqw, 85cqh), 420px);
+  line-height: 1;
+  color: inherit !important;
+  filter: drop-shadow(0 0 30px currentColor);
+  transform: translateY(-2%);
+}
+
+/* Eliminacao convencional: vermelho. */
+.life-player-eliminated.life-eliminated-normal {
+  border-color: rgba(248, 113, 113, 0.40);
+  background-color: rgba(69, 10, 10, 0.94);
+}
+.life-player-eliminated.life-eliminated-normal .life-elimination-watermark {
+  color: #fb7185;
+  opacity: 0.24;
+}
+
+/* Veneno: clima verde, inclusive o filtro sobre a arte do deck. */
+.life-player-eliminated.life-eliminated-poison {
+  border-color: rgba(74, 222, 128, 0.52);
+  background-color: rgba(6, 49, 33, 0.95);
+}
+.life-player-eliminated.life-eliminated-poison .life-player-card-bg::after {
+  background:
+    radial-gradient(circle at center, rgba(20, 83, 45, 0.36), rgba(1, 19, 12, 0.70)),
+    linear-gradient(145deg, rgba(6, 78, 59, 0.44), rgba(2, 44, 34, 0.52));
+}
+.life-player-eliminated.life-eliminated-poison .life-elimination-watermark {
+  color: #4ade80;
+  opacity: 0.29;
+}
+.life-player-eliminated.life-eliminated-poison .life-total-zone > strong {
+  color: #dcfce7;
+}
+.life-player-eliminated.life-eliminated-poison .life-eliminated-badge {
+  border-color: rgba(74, 222, 128, 0.48);
+  background: rgba(5, 46, 22, 0.88);
+  color: #dcfce7;
+}
+.life-player-eliminated.life-eliminated-poison .life-eliminated-text strong,
+.life-player-eliminated.life-eliminated-poison .life-eliminated-text span {
+  color: #dcfce7;
+}
+
+/* Dano de comandante: simbolo dourado, quadro ainda vermelho. */
+.life-player-eliminated.life-eliminated-commander {
+  border-color: rgba(251, 191, 36, 0.46);
+  background-color: rgba(69, 10, 10, 0.94);
+}
+.life-player-eliminated.life-eliminated-commander .life-player-card-bg::after {
+  background:
+    radial-gradient(circle at center, rgba(127, 29, 29, 0.35), rgba(35, 7, 8, 0.64)),
+    linear-gradient(145deg, rgba(90, 20, 24, 0.30), rgba(30, 8, 16, 0.48));
+}
+.life-player-eliminated.life-eliminated-commander .life-elimination-watermark {
+  color: #fbbf24;
+  opacity: 0.29;
+}
+
+/* Não interfere no toque amplo dos quadrantes nem nos controles da vida. */
+.life-player-eliminated .life-player-header,
+.life-player-eliminated .life-companion-grid,
+.life-player-eliminated .life-status-strip {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* =========================================================
+   Partidas salvas: botao MB1 Mítico e modal do Life Tracker
+   Atualizacao visual; toda a logica de transferencia e preservada.
+========================================================= */
+.life-transfer-list-button {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  position: absolute;
+  z-index: 3;
+  top: 13px;
+  right: 15px;
+  margin: 0;
+  flex: 0 0 auto;
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 22%, rgba(251, 191, 36, 0.23), transparent 55%),
+    linear-gradient(155deg, #35200f, #151017 78%);
+  box-shadow:
+    0 0 0 4px rgba(245, 158, 11, 0.07),
+    0 11px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(253, 230, 138, 0.3);
+  color: #f8c66e;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.life-transfer-list-button .ss {
+  font-size: 25px;
+  line-height: 1;
+  color: #f8c66e;
+  filter: drop-shadow(0 1px 4px rgba(251, 191, 36, 0.22));
+}
+
+.life-transfer-list-button:hover,
+.life-transfer-list-button:focus-visible {
+  transform: translateY(-2px) scale(1.035);
+  box-shadow:
+    0 0 0 4px rgba(245, 158, 11, 0.1),
+    0 0 22px rgba(245, 158, 11, 0.2),
+    0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.life-transfer-list-button:active { transform: scale(0.95); }
+
+.life-transfer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+  background: rgba(2, 3, 11, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.life-transfer-modal {
+  width: min(560px, 100%);
+  max-height: min(760px, 92dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(16px, 4vw, 24px);
+  border-radius: 26px;
+  border: 1px solid rgba(248, 191, 80, 0.25);
+  background:
+    radial-gradient(circle at 14% -8%, rgba(234, 179, 8, 0.16), transparent 48%),
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15), transparent 45%),
+    #12111e;
+  box-shadow: 0 28px 85px rgba(0, 0, 0, 0.65);
+  color: #fafafa;
+}
+
+.life-transfer-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.life-transfer-heading-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  border: 1px solid rgba(251, 191, 36, 0.46);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(137, 85, 22, 0.4), rgba(25, 18, 22, 0.9));
+  color: #fbd18b;
+  box-shadow: inset 0 1px 0 rgba(253, 230, 138, 0.14);
+}
+
+.life-transfer-heading-icon .ss { font-size: 26px; color: inherit; }
+
+.life-transfer-heading-text { flex: 1; min-width: 0; }
+.life-transfer-heading-text > span {
+  display: block;
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.life-transfer-heading-text h2 {
+  margin: 5px 0 7px;
+  font-size: clamp(23px, 5vw, 30px);
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  color: #fff;
+}
+.life-transfer-heading-text p {
+  margin: 0;
+  color: #b0aebb;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.life-transfer-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #302f40;
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.life-transfer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+.life-transfer-toolbar > span {
+  color: #e4e4e7;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.life-transfer-refresh {
+  padding: 8px 12px;
+  border: 1px solid rgba(167, 139, 250, 0.29);
+  border-radius: 12px;
+  background: rgba(167, 139, 250, 0.12);
+  color: #ddd6fe;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.life-transfer-refresh:disabled { opacity: 0.5; cursor: wait; }
+.life-transfer-refresh span { font-size: 17px; vertical-align: -1px; }
+
+.life-transfer-items { display: grid; gap: 12px; }
+.life-transfer-item {
+  padding: 16px;
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(130deg, rgba(48, 43, 75, 0.75), rgba(24, 23, 39, 0.94));
+}
+.life-transfer-item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 12px;
+}
+.life-transfer-item-meta strong { color: #fff; font-size: 15px; }
+.life-transfer-item-meta time { color: #a1a1aa; font-size: 11px; }
+.life-transfer-item-players {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+.life-transfer-player {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 10px;
+  background: rgba(15, 15, 28, 0.6);
+  color: #ede9fe;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.life-transfer-player small { color: #aaa5be; font-size: 10px; }
+.life-transfer-player-out { opacity: 0.55; }
+.life-transfer-item-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.life-transfer-item-actions button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 13px;
+}
+.life-transfer-item-actions button:disabled { opacity: 0.6; cursor: wait; }
+.life-transfer-continue {
+  flex: 1;
+  border: 0;
+  background: linear-gradient(130deg, #d97706, #f59e0b);
+  color: #16100a;
+  box-shadow: 0 7px 20px rgba(217, 119, 6, 0.16);
+}
+.life-transfer-delete {
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(127, 29, 29, 0.16);
+  color: #fca5a5;
+}
+.life-transfer-error {
+  padding: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 12px;
+  background: rgba(127, 29, 29, 0.23);
+  color: #fecaca;
+  font-size: 13px;
+}
+.life-transfer-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  margin: 10px 0 0;
+  padding: 32px 14px;
+  border: 1px dashed rgba(167, 139, 250, 0.3);
+  border-radius: 16px;
+  color: #aaa5bd;
+  text-align: center;
+  font-size: 13px;
+}
+.life-transfer-empty .ss { color: #e9b966; font-size: 27px; }
+.life-transfer-empty strong { color: #e4e4e7; font-size: 15px; }
+.life-transfer-empty span { max-width: 310px; line-height: 1.5; }
+
+@media (max-width: 440px) {
+  .life-transfer-modal { padding: 16px; border-radius: 20px; }
+  .life-transfer-heading-icon { width: 45px; height: 45px; flex-basis: 45px; border-radius: 14px; }
+  .life-transfer-heading-icon .ss { font-size: 23px; }
+  .life-transfer-heading { gap: 10px; }
+  .life-transfer-item { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .life-transfer-list-button { transition: none; }
+}
+
+/* Badge de partidas salvas no canto superior direito do card. */
+.life-setup-panel { position: relative; }
+@media (max-width: 440px) {
+  .life-transfer-list-button {
+    width: 43px;
+    height: 43px;
+    top: 11px;
+    right: 11px;
+  }
+  .life-transfer-list-button .ss { font-size: 23px; }
+}

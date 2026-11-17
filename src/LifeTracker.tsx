@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { getDeckBackgroundImage, isAvailableDeck, readDeckCategories } from "./deckMetadata";
 import { DeckLabels } from "./DeckLabels";
 import "./lifeTracker.css";
@@ -35,7 +35,8 @@ type LifePlayerSlot = {
   playerName: string;
   playerCanonicalName: string;
   playerIcon: string;
-  deckName: string;
+  deckName: string; // Identificador estável usado para registrar partidas.
+  deckDisplayName: string; // Nome amigável exibido no app.
   deckImageUrl: string;
   deckCommanderName: string;
   deckSecondaryCommanderName: string;
@@ -48,13 +49,80 @@ type LifePlayerSlot = {
 };
 
 const LIFE_TOTAL_OPTIONS = [20, 25, 30, 40, 50, 60];
-const PLAYER_COUNT_OPTIONS = [1, 2, 3, 4, 5, 6];
+const PLAYER_COUNT_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
+
+// A causa visual depende de um único comandante com 21+ de dano.
+// Não somar danos de comandantes diferentes.
+type LifeEliminationCause = "commander" | "poison" | "normal";
+
+const LIFE_ELIMINATION_ICONS: Record<LifeEliminationCause, string> = {
+  commander: "ss-e01", // Archenemy: Nicol Bolas (zero, não a letra O).
+  poison: "ss-nph",    // New Phyrexia.
+  normal: "ss-bok",    // Betrayers of Kamigawa.
+};
+
+function getLifeEliminationCause(player: LifePlayerSlot): LifeEliminationCause {
+  // Ambos os registros são por comandante, não por jogador.
+  const defeatedByCommander =
+    Object.values(player.commanderDamage).some((damage) => damage >= 21) ||
+    Object.values(player.selfCommanderDamage).some((damage) => damage >= 21);
+
+  if (defeatedByCommander) return "commander";
+  if ((player.markers.poison ?? 0) >= 10) return "poison";
+  return "normal";
+}
 
 const DASHBOARD_API_URL =
   "https://api.corneliomove.com.br/mtg-api/api/dashboard";
 
 const MATCH_API_URL =
   "https://api.corneliomove.com.br/mtg-api/api/matches";
+const LIFE_TRANSFER_API_URL =
+  "https://api.corneliomove.com.br/mtg-api/api/life-transfers";
+
+type LifeTransferSnapshot = {
+  version: 1;
+  requestId: string;
+  startedAt: string;
+  startingLife: number;
+  playerCount: number;
+  players: LifePlayerSlot[];
+};
+
+type LifeTransferSummary = {
+  id: string;
+  revision: number;
+  updatedAt: string;
+  startedAt: string;
+  playerCount: number;
+  players: Array<{ name: string; deck: string; eliminated: boolean }>;
+};
+
+type ActiveLifeTransfer = { id: string; revision: number };
+
+function transferSnapshot(
+  players: LifePlayerSlot[], startingLife: number, playerCount: number,
+  requestId: string, startedAt: string
+): LifeTransferSnapshot {
+  return {
+    version: 1,
+    requestId,
+    startedAt,
+    startingLife,
+    playerCount,
+    players: players.map(player => ({ ...player, pendingDelta: 0, deltaVisible: false })),
+  };
+}
+
+async function transferApi<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { ...init, cache: "no-store" });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.ok) {
+    throw new Error(body?.error || `Servidor indisponível (${response.status}).`);
+  }
+  return body as T;
+}
+
 
 function createMatchRequestId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -76,13 +144,15 @@ type LeaguePlayerOption = {
 type LeagueDeckOption = {
   categories: string[];
   inactive: boolean;
-  name: string;
+  name: string; // Identificador interno do deck.
+  displayName: string;
   commander: string;
   imageUrl: string;
   secondaryCommander: string;
   secondaryCommanderImageUrl: string;
   secondaryCommanderType: string;
-  authorName: string;
+  authorName: string; // Identificador interno do autor.
+  authorDisplayName: string;
 };
 
 type DashboardApiPlayer = {
@@ -130,6 +200,7 @@ type DashboardApiDeck = {
   author?: unknown;
   autorNome?: string;
   authorName?: string;
+  owner?: string;
 };
 
 type DashboardApiResponse = {
@@ -294,16 +365,33 @@ function getApiMiniName(value: unknown) {
     const record = value as Record<string, unknown>;
 
     return String(
-      record.nome ||
-        record.name ||
+      record.deck ||
         record.jogador ||
         record.player ||
-        record.deck ||
+        record.legacy_name ||
+        record.nome ||
+        record.name ||
         ""
     ).trim();
   }
 
   return "";
+}
+
+function getApiDisplayName(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value !== "object") return "";
+
+  const record = value as Record<string, unknown>;
+  return String(
+    record.nomeExibicao ||
+    record.nome ||
+    record.name ||
+    record.jogador ||
+    record.deck ||
+    ""
+  ).trim();
 }
 
 function normalizeNumber(value: number | string | undefined) {
@@ -370,9 +458,201 @@ export default function LifeTrackerApp() {
   const holdIntervalRef = useRef<number | null>(null);
   const deltaTimeoutsRef = useRef<Record<string, number>>({});
   const holdStartTimeRef = useRef(0);
+  // O toque na area livre so vira mudanca de vida quando nao for rolagem.
+  const boardHoldTimeoutRef = useRef<number | null>(null);
+  const boardGestureRef = useRef<{
+    pointerId: number;
+    playerId: string;
+    direction: 1 | -1;
+    startX: number;
+    startY: number;
+    holding: boolean;
+  } | null>(null);
+  const [fullscreenError, setFullscreenError] = useState("");
 
   const matchRequestIdRef = useRef("");
   const matchStartedAtRef = useRef("");
+  const activeTransferRef = useRef<ActiveLifeTransfer | null>(null);
+  const transferSavedRef = useRef("");
+  const transferInFlightRef = useRef<Promise<void> | null>(null);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState("");
+  const [transferListOpen, setTransferListOpen] = useState(false);
+  const [transferListLoading, setTransferListLoading] = useState(false);
+  const [transferSessions, setTransferSessions] = useState<LifeTransferSummary[]>([]);
+  const [transferListError, setTransferListError] = useState("");
+
+  function currentTransferSnapshot(): LifeTransferSnapshot {
+    return transferSnapshot(
+      players, startingLife, players.length,
+      matchRequestIdRef.current, matchStartedAtRef.current
+    );
+  }
+
+  // Evita substituir uma partida atualizada em outro celular.
+  // Uma gravacao precisa terminar antes da proxima iniciar.
+  async function persistActiveTransfer(snapshot: LifeTransferSnapshot, keepalive = false): Promise<void> {
+    while (transferInFlightRef.current) {
+      await transferInFlightRef.current.catch(() => undefined);
+    }
+    const active = activeTransferRef.current;
+    if (!active) return;
+    const serialized = JSON.stringify(snapshot);
+    if (serialized === transferSavedRef.current) return;
+    const work = (async () => {
+      const result = await transferApi<{ ok: true; revision: number }>(
+        `${LIFE_TRANSFER_API_URL}/${encodeURIComponent(active.id)}`,
+        { method: "PUT", headers: { "Content-Type": "application/json" }, keepalive,
+          body: JSON.stringify({ expectedRevision: active.revision, snapshot }) }
+      );
+      // Nao alterar a referencia se o usuario abriu outra partida enquanto enviava.
+      if (activeTransferRef.current === active) {
+        active.revision = result.revision;
+        transferSavedRef.current = serialized;
+        setTransferError("");
+      }
+    })();
+    transferInFlightRef.current = work;
+    try { await work; }
+    finally {
+      if (transferInFlightRef.current === work) transferInFlightRef.current = null;
+    }
+  }
+
+  // Ao retomar, qualquer alteracao na mesa volta para o servidor.
+  useEffect(() => {
+    if (!matchStarted || !activeTransferRef.current || !players.length) return;
+    const snapshot = currentTransferSnapshot();
+    if (JSON.stringify(snapshot) === transferSavedRef.current) return;
+    const timeout = window.setTimeout(() => {
+      void persistActiveTransfer(snapshot).catch((error) => {
+        setTransferError(error instanceof Error ? error.message : "Não foi possível sincronizar a partida.");
+      });
+    }, 650);
+    return () => window.clearTimeout(timeout);
+  }, [matchStarted, players, startingLife, playerCount]);
+
+  // Tenta enviar a ultima mudanca tambem quando o navegador vai para segundo plano.
+  useEffect(() => {
+    if (!matchStarted || !activeTransferRef.current) return;
+    const flushWhenHidden = () => {
+      if (!document.hidden || !activeTransferRef.current) return;
+      void persistActiveTransfer(currentTransferSnapshot(), true).catch((error) => {
+        setTransferError(error instanceof Error ? error.message : "Falha ao salvar alterações.");
+      });
+    };
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => document.removeEventListener("visibilitychange", flushWhenHidden);
+  }, [matchStarted, players, startingLife, playerCount]);
+
+  async function handoffMatch() {
+    if (transferBusy) return;
+    setTransferBusy(true);
+    setTransferError("");
+    try {
+      const snapshot = currentTransferSnapshot();
+      if (activeTransferRef.current) {
+        await persistActiveTransfer(snapshot);
+      } else {
+        const result = await transferApi<{ ok: true; id: string; revision: number }>(
+          LIFE_TRANSFER_API_URL,
+          { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ snapshot }) }
+        );
+        activeTransferRef.current = { id: result.id, revision: result.revision };
+        transferSavedRef.current = JSON.stringify(snapshot);
+      }
+      await resetMatch();
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : "Falha ao salvar a partida.");
+    } finally { setTransferBusy(false); }
+  }
+
+  async function loadTransferList() {
+    setTransferListOpen(true);
+    setTransferListLoading(true);
+    setTransferListError("");
+    try {
+      const result = await transferApi<{ ok: true; sessions: LifeTransferSummary[] }>(LIFE_TRANSFER_API_URL);
+      setTransferSessions(result.sessions);
+    } catch (error) {
+      setTransferListError(error instanceof Error ? error.message : "Não foi possível consultar as partidas.");
+    } finally { setTransferListLoading(false); }
+  }
+
+  async function continueTransfer(id: string) {
+    if (transferBusy) return;
+    setTransferBusy(true);
+    setTransferListError("");
+    void requestLandscapeMode();
+    try {
+      const result = await transferApi<{
+        ok: true; id: string; revision: number; snapshot: LifeTransferSnapshot
+      }>(`${LIFE_TRANSFER_API_URL}/${encodeURIComponent(id)}`);
+      const snapshot = result.snapshot;
+      if (!Array.isArray(snapshot.players) || snapshot.players.length !== snapshot.playerCount) {
+        throw new Error("Os dados desta partida estão incompletos.");
+      }
+      matchRequestIdRef.current = snapshot.requestId;
+      matchStartedAtRef.current = snapshot.startedAt;
+      activeTransferRef.current = { id: result.id, revision: result.revision };
+      transferSavedRef.current = JSON.stringify(snapshot);
+      setStartingLife(snapshot.startingLife);
+      setPlayerCount(snapshot.playerCount);
+      setPlayers(snapshot.players);
+      setTransferError("");
+      setFinishConfirmOpen(false);
+      setWinnerModalOpen(false);
+      setTransferListOpen(false);
+      setMatchStarted(true);
+    } catch (error) {
+      setTransferListError(error instanceof Error ? error.message : "Falha ao recuperar a partida.");
+    } finally { setTransferBusy(false); }
+  }
+
+  async function removeTransfer(id: string) {
+    if (!window.confirm("Excluir definitivamente este gancho de partida?")) return;
+    setTransferListError("");
+    try {
+      await transferApi<{ ok: true }>(`${LIFE_TRANSFER_API_URL}/${encodeURIComponent(id)}`, { method: "DELETE" });
+      setTransferSessions(current => current.filter(session => session.id !== id));
+    } catch (error) {
+      setTransferListError(error instanceof Error ? error.message : "Erro ao excluir gancho.");
+    }
+  }
+
+
+  // Recalcula a altura visível após rotação, mudanças nas barras do navegador
+  // e retorno do app do segundo plano, sem reiniciar o estado da partida.
+  useEffect(() => {
+    const syncViewport = () => {
+      const height = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--life-safe-height", `${height}px`);
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        cancelBoardGesture();
+        clearHoldTimers();
+      }
+      else {
+        syncViewport();
+        window.requestAnimationFrame(syncViewport);
+      }
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    window.addEventListener("orientationchange", syncViewport);
+    window.visualViewport?.addEventListener("resize", syncViewport);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("resize", syncViewport);
+      window.removeEventListener("orientationchange", syncViewport);
+      window.visualViewport?.removeEventListener("resize", syncViewport);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.documentElement.style.removeProperty("--life-safe-height");
+    };
+  }, []);
 
   useEffect(() => {
     async function loadLeagueData() {
@@ -457,6 +737,7 @@ export default function LifeTrackerApp() {
             categories: readDeckCategories(deck.categorias),
             inactive: deck.inativo === true,
             name: deck.deck || deck.nome || "Deck sem nome",
+            displayName: deck.nome || deck.deck || "Deck sem nome",
             commander: deck.comandante || deck.commander || "",
             secondaryCommander:
               deck.comandanteSecundario ||
@@ -474,14 +755,21 @@ export default function LifeTrackerApp() {
               "",
             imageUrl: getDeckBackgroundImage(deck),
             authorName:
+              deck.owner ||
               getApiMiniName(deck.autor) ||
               getApiMiniName(deck.author) ||
               deck.autorNome ||
               deck.authorName ||
               "",
+            authorDisplayName:
+              getApiDisplayName(deck.autor) ||
+              getApiDisplayName(deck.author) ||
+              deck.autorNome ||
+              deck.authorName ||
+              "",
           }))
           .filter((deck) => deck.name.trim())
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .sort((a, b) => a.displayName.localeCompare(b.displayName, "pt-BR"));
 
         setLeaguePlayers(normalizedPlayers);
         setLeagueDecks(normalizedDecks);
@@ -519,6 +807,7 @@ export default function LifeTrackerApp() {
         playerCanonicalName: "",
         playerIcon: "",
         deckName: "",
+        deckDisplayName: "",
         deckImageUrl: "",
         deckCommanderName: "",
         deckSecondaryCommanderName: "",
@@ -535,6 +824,8 @@ export default function LifeTrackerApp() {
       })
     );
 
+    activeTransferRef.current = null;
+    transferSavedRef.current = "";
     matchRequestIdRef.current = createMatchRequestId();
     matchStartedAtRef.current = new Date().toISOString();
 
@@ -558,6 +849,7 @@ export default function LifeTrackerApp() {
       console.warn("Não foi possível sair do fullscreen/orientação:", error);
     }
 
+    cancelBoardGesture();
     clearHoldTimers();
 
     setFinishConfirmOpen(false);
@@ -571,6 +863,9 @@ export default function LifeTrackerApp() {
 
     matchRequestIdRef.current = "";
     matchStartedAtRef.current = "";
+    activeTransferRef.current = null;
+    transferSavedRef.current = "";
+    setTransferError("");
 
     setMatchStarted(false);
     setPlayers([]);
@@ -644,7 +939,35 @@ function closeMarkerModal() {
 
 function openFinishConfirm() {
   setMatchSubmitError("");
+  setFullscreenError("");
   setFinishConfirmOpen(true);
+}
+
+// Um gesto direto no botao permite solicitar novamente fullscreen no celular.
+// A orientacao e opcional: falhar o lock nao impede a tela cheia.
+async function reopenGameFullscreen() {
+  setFullscreenError("");
+  try {
+    const root = document.documentElement;
+    if (!document.fullscreenElement) {
+      if (!root.requestFullscreen) {
+        setFullscreenError("Este navegador nao oferece tela cheia nesta pagina.");
+        return;
+      }
+      await root.requestFullscreen();
+    }
+    try {
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (mode: string) => Promise<void>;
+      };
+      await orientation.lock?.("landscape");
+    } catch {
+      // Alguns browsers nao permitem travar orientacao; fullscreen permanece ativo.
+    }
+    setFinishConfirmOpen(false);
+  } catch {
+    setFullscreenError("Nao foi possivel entrar em tela cheia. Tente pelo navegador ou use o modo paisagem.");
+  }
 }
 
 function closeFinishConfirm() {
@@ -799,6 +1122,20 @@ async function submitMatchResult() {
       `Partida ${result.matchId} registrada com sucesso.`
     );
 
+    // O resultado foi registrado: remover o gancho so depois do sucesso.
+    // A API tambem limpa por requestId, para tolerar perda de conexao neste DELETE.
+    const completedTransfer = activeTransferRef.current;
+    if (completedTransfer) {
+      try {
+        await transferApi(`${LIFE_TRANSFER_API_URL}/${encodeURIComponent(completedTransfer.id)}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.warn("O resultado foi enviado, mas a limpeza do gancho nao confirmou:", error);
+      }
+    }
+    activeTransferRef.current = null;
+    transferSavedRef.current = "";
     await requestPortraitMode();
 
     matchRequestIdRef.current = "";
@@ -931,6 +1268,84 @@ function getVisibleMarkers(player: LifePlayerSlot) {
     clearHoldTimers();
   }
 
+  function cancelBoardGesture() {
+    if (boardHoldTimeoutRef.current !== null) {
+      window.clearTimeout(boardHoldTimeoutRef.current);
+      boardHoldTimeoutRef.current = null;
+    }
+    if (boardGestureRef.current?.holding) {
+      stopHoldingLife();
+    }
+    boardGestureRef.current = null;
+  }
+
+  // Segurar uma metade livre repete +/-; arrastar a tela cancela o gesto.
+  // O lado e determinado pela posicao REAL dos botoes, mesmo nos cards girados.
+  function handleBoardPointerDown(event: PointerEvent<HTMLDivElement>, playerId: string) {
+    if (!event.isPrimary || event.button !== 0) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest('button, a, input, select, textarea, [role="button"], [role="link"]')) {
+      return;
+    }
+
+    const minus = event.currentTarget.querySelector<HTMLButtonElement>(".life-minus-button");
+    const plus = event.currentTarget.querySelector<HTMLButtonElement>(".life-plus-button");
+    if (!minus || !plus) return;
+
+    const minusRect = minus.getBoundingClientRect();
+    const plusRect = plus.getBoundingClientRect();
+    const minusX = minusRect.left + minusRect.width / 2;
+    const plusX = plusRect.left + plusRect.width / 2;
+    const midpoint = (minusX + plusX) / 2;
+    const clickedPlus = plusX >= minusX
+      ? event.clientX >= midpoint
+      : event.clientX <= midpoint;
+
+    cancelBoardGesture();
+    const gesture = {
+      pointerId: event.pointerId,
+      playerId,
+      direction: (clickedPlus ? 1 : -1) as 1 | -1,
+      startX: event.clientX,
+      startY: event.clientY,
+      holding: false,
+    };
+    boardGestureRef.current = gesture;
+
+    // Um toque curto aplica uma vez na soltura. Assim, scroll nao muda a vida.
+    // Pressionar por mais tempo aciona a mesma repeticao rapida dos botoes.
+    boardHoldTimeoutRef.current = window.setTimeout(() => {
+      if (boardGestureRef.current !== gesture) return;
+      boardHoldTimeoutRef.current = null;
+      gesture.holding = true;
+      startHoldingLife(playerId, gesture.direction);
+    }, 330);
+  }
+
+  function handleBoardPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const gesture = boardGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 12) {
+      cancelBoardGesture();
+    }
+  }
+
+  function handleBoardPointerUp(event: PointerEvent<HTMLDivElement>) {
+    const gesture = boardGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (!gesture.holding) {
+      adjustLife(gesture.playerId, gesture.direction);
+    }
+    cancelBoardGesture();
+  }
+
+  function handleBoardPointerCancel(event: PointerEvent<HTMLDivElement>) {
+    if (boardGestureRef.current?.pointerId === event.pointerId) {
+      cancelBoardGesture();
+    }
+  }
+
   function openSelectionModal(playerSlotId: string, type: "player" | "deck") {
     setSelectionModal({ playerSlotId, type });
     setSearchTerm("");
@@ -965,6 +1380,7 @@ function getVisibleMarkers(player: LifePlayerSlot) {
           ? {
               ...player,
               deckName: selectedDeck.name,
+              deckDisplayName: selectedDeck.displayName,
               deckImageUrl: selectedDeck.imageUrl,
               deckCommanderName: selectedDeck.commander,
               deckSecondaryCommanderName: selectedDeck.secondaryCommander,
@@ -1064,6 +1480,7 @@ function getVisibleMarkers(player: LifePlayerSlot) {
   function getPrimaryCommanderName(player: LifePlayerSlot) {
     return (
       player.deckCommanderName ||
+      player.deckDisplayName ||
       player.deckName ||
       player.playerName ||
       player.label
@@ -1180,11 +1597,21 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
     const bestDeckName = normalizeComparableText(selectedPlayer.bestDeckName);
     const authorName = normalizeComparableText(deck.authorName);
 
-    if (favoriteDeckName && deckName === favoriteDeckName) {
+    const deckDisplayName = normalizeComparableText(deck.displayName);
+
+    // Favoritos e melhores decks usam a chave canônica; reconhece também
+    // referências legadas que guardaram somente o nome de exibição.
+    if (
+      favoriteDeckName &&
+      (deckName === favoriteDeckName || deckDisplayName === favoriteDeckName)
+    ) {
       return 0;
     }
 
-    if (bestDeckName && deckName === bestDeckName) {
+    if (
+      bestDeckName &&
+      (deckName === bestDeckName || deckDisplayName === bestDeckName)
+    ) {
       return 1;
     }
 
@@ -1240,7 +1667,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
       : null;
 
   const filteredLeagueDecks = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+    const search = normalizeComparableText(searchTerm);
     const currentSlotId =
       selectionModal?.type === "deck" ? selectionModal.playerSlotId : undefined;
 
@@ -1254,22 +1681,30 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
         isSameText(selectedDeckName, deck.name)
       );
 
-      if (isAlreadySelected) {
-        return false;
-      }
+      if (isAlreadySelected) return false;
 
-      if (!search) {
-        return true;
-      }
+      // Decks inativos não aparecem na lista geral: só podem ser encontrados
+      // se o usuário pesquisar pelo nome (interno ou de exibição).
+      if (!search) return !deck.inactive;
+
+      const matchesName =
+        normalizeComparableText(deck.displayName).includes(search) ||
+        normalizeComparableText(deck.name).includes(search);
+
+      if (deck.inactive) return matchesName;
 
       return (
-        deck.name.toLowerCase().includes(search) ||
-        deck.commander.toLowerCase().includes(search) ||
-        deck.authorName.toLowerCase().includes(search)
+        matchesName ||
+        normalizeComparableText(deck.commander).includes(search) ||
+        normalizeComparableText(deck.authorDisplayName).includes(search) ||
+        normalizeComparableText(deck.authorName).includes(search)
       );
     });
 
     return filteredDecks.slice().sort((a, b) => {
+      // Mesmo se um deck inativo for favorito, ele aparece após os ativos.
+      if (a.inactive !== b.inactive) return a.inactive ? 1 : -1;
+
       const priorityA = getDeckSelectionPriority(
         a,
         selectedLeaguePlayerForDeckModal
@@ -1283,7 +1718,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
         return priorityA - priorityB;
       }
 
-      return a.name.localeCompare(b.name);
+      return a.displayName.localeCompare(b.displayName, "pt-BR");
     });
   }, [
     leagueDecks,
@@ -1324,7 +1759,9 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
               className={`life-player-card life-player-card-companion life-player-position-${
                 index + 1
               } ${player.deckImageUrl ? "life-player-card-has-deck-bg" : ""} ${
-                player.isEliminated ? "life-player-eliminated" : ""
+                player.isEliminated
+                  ? `life-player-eliminated life-eliminated-${getLifeEliminationCause(player)}`
+                  : ""
               }`}
               key={player.id}
               style={
@@ -1336,8 +1773,28 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
               }
             >
 
-              <div className="life-player-rotator">
+              <div
+                className="life-player-rotator"
+                onPointerDown={(event) => handleBoardPointerDown(event, player.id)}
+                onPointerMove={handleBoardPointerMove}
+                onPointerUp={handleBoardPointerUp}
+                onPointerCancel={handleBoardPointerCancel}
+                onPointerLeave={handleBoardPointerCancel}
+                onContextMenu={(event) => {
+                  const target = event.target;
+                  if (target instanceof Element && !target.closest('button, a, input, select, textarea')) {
+                    event.preventDefault();
+                  }
+                }}
+              >
                 <div className="life-player-card-bg" />
+                {player.isEliminated ? (
+                  <span className="life-elimination-watermark" aria-hidden="true">
+                    <i
+                      className={`ss ${LIFE_ELIMINATION_ICONS[getLifeEliminationCause(player)]} ss-common`}
+                    />
+                  </span>
+                ) : null}
                 <div className="life-player-header">
                   <button
                     className="life-slot-button life-player-slot"
@@ -1366,21 +1823,12 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                       aria-hidden="true"
                     />
                     <span>Deck</span>
-                    <strong>{player.deckName || "Selecionar deck"}</strong>
+                    <strong>{player.deckDisplayName || player.deckName || "Selecionar deck"}</strong>
                   </button>
                 </div>
 
                 <div className="life-companion-grid">
                   <div className="life-utility-column life-utility-column-left">
-                    <button
-                      className="life-small-action"
-                      type="button"
-                      onClick={() => openCommanderDamageModal(player.id)}
-                      title="Dano de comandante"
-                    >
-                      <span>Dano</span>
-                    </button>
-
                     <button
                       className={
                         player.isEliminated
@@ -1449,13 +1897,48 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                       ) : null}
                     </div>
 
+                  </div>
+
+                  <button
+                    className="life-hold-button life-plus-button"
+                    type="button"
+                    onPointerDown={() => startHoldingLife(player.id, 1)}
+                    onPointerUp={stopHoldingLife}
+                    onPointerCancel={stopHoldingLife}
+                    onPointerLeave={stopHoldingLife}
+                  >
+                    +
+                  </button>
+
+                  <div className="life-utility-column life-utility-column-right">
+                    <button
+                      className={
+                        getVisibleMarkers(player).length > 0
+                          ? "life-small-action life-small-action-marker-active"
+                          : "life-small-action"
+                      }
+                      type="button"
+                      onClick={() => openMarkerModal(player.id)}
+                      title="Marcadores"
+                    >
+                      <span>Marc.</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="life-status-strip" role="group" aria-label={`Danos e marcadores de ${player.playerName || player.label}`}>
                     <button
                       className="commander-summary"
                       type="button"
                       onClick={() => openCommanderDamageModal(player.id)}
                       title="Ver dano de comandante"
+                      aria-label={`Dano de comandante de ${player.playerName || player.label}`}
                     >
-                      {getCommanderDamageEntries(player).map((entry) => (
+                      {!getCommanderDamageEntries(player).some((entry) => entry.damage > 0) ? (
+                        <span className="life-status-empty-icon" title="Sem dano de comandante">
+                          <i className="ss ss-cmd ss-common" aria-hidden="true" />
+                        </span>
+                      ) : null}
+                      {getCommanderDamageEntries(player).filter((entry) => entry.damage > 0).map((entry) => (
                         <span
                           className={
                             entry.damage > 0
@@ -1475,13 +1958,18 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                       ))}
                     </button>
 
-                    {hasVisibleMarkerInfo(player) ? (
-                      <button
+                    <button
                         className="marker-summary"
                         type="button"
                         onClick={() => openMarkerModal(player.id)}
                         title="Ver marcadores"
+                        aria-label={`Marcadores de ${player.playerName || player.label}`}
                       >
+                        {!hasVisibleMarkerInfo(player) ? (
+                          <span className="life-status-empty-icon" title="Sem marcadores">
+                            <i className="ss ss-nph ss-common" aria-hidden="true" />
+                          </span>
+                        ) : null}
                         {getVisibleMarkers(player).map((marker) => (
                           <span
                             className={`marker-summary-item marker-summary-${marker.type}`}
@@ -1512,40 +2000,20 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                           </span>
                         ))}
                       </button>
-                    ) : null}
-                  </div>
-
-                  <button
-                    className="life-hold-button life-plus-button"
-                    type="button"
-                    onPointerDown={() => startHoldingLife(player.id, 1)}
-                    onPointerUp={stopHoldingLife}
-                    onPointerCancel={stopHoldingLife}
-                    onPointerLeave={stopHoldingLife}
-                  >
-                    +
-                  </button>
-
-                  <div className="life-utility-column life-utility-column-right">
-                    <button
-                      className={
-                        getVisibleMarkers(player).length > 0
-                          ? "life-small-action life-small-action-marker-active"
-                          : "life-small-action"
-                      }
-                      type="button"
-                      onClick={() => openMarkerModal(player.id)}
-                      title="Marcadores"
-                    >
-                      <span>Marc.</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
           ))}
         </section>
 
+        {transferError && activeTransferRef.current ? (
+          <div className="life-transfer-sync-warning" role="alert">
+            <span>{transferError}</span>
+            <button type="button" onClick={() => { void persistActiveTransfer(currentTransferSnapshot()).catch(
+              error => setTransferError(error instanceof Error ? error.message : "Erro ao sincronizar.")
+            ); }}>Tentar novamente</button>
+          </div>
+        ) : null}
         <button
           className="finish-match-button"
           type="button"
@@ -1571,6 +2039,13 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                 <p>Confirme para selecionar o vencedor e enviar o resultado.</p>
               </div>
 
+              {transferError ? (
+                <p className="match-result-fullscreen-error" role="alert">{transferError}</p>
+              ) : null}
+              {fullscreenError ? (
+                <p className="match-result-fullscreen-error" role="alert">{fullscreenError}</p>
+              ) : null}
+
               <div className="match-result-actions">
                 <button
                   className="match-result-secondary"
@@ -1578,6 +2053,24 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                   onClick={closeFinishConfirm}
                 >
                   Ainda não
+                </button>
+
+                <button
+                  className="match-result-fullscreen"
+                  type="button"
+                  onClick={() => { void reopenGameFullscreen(); }}
+                >
+                  Tela Cheia
+                </button>
+
+                <button
+                  className="match-result-transfer"
+                  type="button"
+                  disabled={transferBusy}
+                  onClick={() => { void handoffMatch(); }}
+                >
+                  <i className="ss ss-mb1 ss-mythic" aria-hidden="true" />
+                  <span>{transferBusy ? "Salvando partida..." : "Trocar de Celular"}</span>
                 </button>
 
                 <button
@@ -1634,7 +2127,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                     <div>
                       <strong>{player.playerName || player.label}</strong>
 
-                      {player.deckName ? <span>{player.deckName}</span> : null}
+                      {player.deckName ? <span>{player.deckDisplayName || player.deckName}</span> : null}
                     </div>
                   </button>
                 ))}
@@ -1747,7 +2240,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                           selectDeck(selectionModal.playerSlotId, deck)
                         }
                       >
-                        <strong>{deck.name}</strong>
+                        <strong>{deck.displayName}</strong>
                         <DeckLabels inactive={deck.inactive} compact />
                         {deck.commander ? <span>{deck.commander}</span> : null}
                       </button>
@@ -1789,7 +2282,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                   </strong>
 
                   {commanderDamageModalPlayer.deckName ? (
-                    <small>{commanderDamageModalPlayer.deckName}</small>
+                    <small>{commanderDamageModalPlayer.deckDisplayName || commanderDamageModalPlayer.deckName}</small>
                   ) : null}
                 </div>
 
@@ -1873,7 +2366,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
                   <strong>{markerModalPlayer.playerName || markerModalPlayer.label}</strong>
 
                   {markerModalPlayer.deckName ? (
-                    <small>{markerModalPlayer.deckName}</small>
+                    <small>{markerModalPlayer.deckDisplayName || markerModalPlayer.deckName}</small>
                   ) : null}
                 </div>
 
@@ -2031,7 +2524,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
 
                     <span>
                       <strong>{getPlayerDisplayName(killer)}</strong>
-                      <small>{killer.deckName || "Sem deck selecionado"}</small>
+                      <small>{killer.deckDisplayName || killer.deckName || "Sem deck selecionado"}</small>
                     </span>
                   </button>
                 ))}
@@ -2083,7 +2576,7 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
 
         <div className="life-config-group">
           <h2>Contagem de jogadores</h2>
-          <div className="life-option-grid life-option-grid-six">
+          <div className="life-option-grid life-option-grid-count">
             {PLAYER_COUNT_OPTIONS.map((value) => (
               <button
                 key={value}
@@ -2103,7 +2596,109 @@ function hasVisibleMarkerInfo(player: LifePlayerSlot) {
         <button className="life-start-button" onClick={startMatch}>
           Iniciar Partida
         </button>
+        <button
+          className="life-transfer-list-button"
+          type="button"
+          onClick={() => { void loadTransferList(); }}
+          aria-label="Partidas salvas — trocar de celular"
+          title="Partidas salvas"
+        >
+          <i className="ss ss-mb1 ss-mythic" aria-hidden="true" />
+        </button>
       </section>
+
+      {transferListOpen ? (
+        <div className="life-transfer-backdrop" onClick={() => setTransferListOpen(false)}>
+          <section
+            className="life-transfer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="life-transfer-modal-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <header className="life-transfer-heading">
+              <div className="life-transfer-heading-icon" aria-hidden="true">
+                <i className="ss ss-mb1 ss-mythic" />
+              </div>
+              <div className="life-transfer-heading-text">
+                <span>Trocar de celular</span>
+                <h2 id="life-transfer-modal-title">Partidas salvas</h2>
+                <p>Escolha uma partida para continuar de onde parou.</p>
+              </div>
+              <button
+                className="life-transfer-close"
+                type="button"
+                onClick={() => setTransferListOpen(false)}
+                aria-label="Fechar partidas salvas"
+              >×</button>
+            </header>
+            <div className="life-transfer-toolbar">
+              <span>Partidas disponíveis</span>
+              <button
+                type="button"
+                className="life-transfer-refresh"
+                onClick={() => { void loadTransferList(); }}
+                disabled={transferListLoading}
+              >
+                <span aria-hidden="true">↻</span> Atualizar
+              </button>
+            </div>
+            {transferListError ? <p className="life-transfer-error" role="alert">{transferListError}</p> : null}
+            {transferListLoading ? (
+              <p className="life-transfer-empty" role="status">Buscando partidas salvas...</p>
+            ) : !transferSessions.length ? (
+              <div className="life-transfer-empty">
+                <i className="ss ss-mb1 ss-mythic" aria-hidden="true" />
+                <strong>Nenhuma partida salva</strong>
+                <span>Use “Trocar de Celular” durante uma partida para salvá-la aqui.</span>
+              </div>
+            ) : null}
+            {!transferListLoading ? (
+              <div className="life-transfer-items">
+                {transferSessions.map(session => (
+                  <article className="life-transfer-item" key={session.id}>
+                    <div className="life-transfer-details">
+                      <div className="life-transfer-item-meta">
+                        <strong>{session.playerCount} jogadores</strong>
+                        <time dateTime={session.updatedAt}>
+                          {new Date(session.updatedAt).toLocaleString("pt-BR")}
+                        </time>
+                      </div>
+                      <div className="life-transfer-item-players">
+                        {session.players.map((player, index) => (
+                          <div
+                            className={`life-transfer-player${player.eliminated ? " life-transfer-player-out" : ""}`}
+                            key={`${session.id}-${index}`}
+                          >
+                            <span>{player.name || `Jogador ${index + 1}`}{player.eliminated ? " †" : ""}</span>
+                            {player.deck ? <small>{player.deck}</small> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="life-transfer-item-actions">
+                      <button
+                        type="button"
+                        className="life-transfer-continue"
+                        disabled={transferBusy}
+                        onClick={() => { void continueTransfer(session.id); }}
+                      >
+                        {transferBusy ? "Abrindo..." : "Continuar partida"}
+                      </button>
+                      <button
+                        type="button"
+                        className="life-transfer-delete"
+                        disabled={transferBusy}
+                        onClick={() => { void removeTransfer(session.id); }}
+                      >Excluir</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
