@@ -1,0 +1,85 @@
+.player-paio-box{flex:0 0 186px}
+.player-paio-modal{width:min(810px,100%);max-height:min(88dvh,900px);overflow:auto}
+.player-paio-modal-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.player-paio-hero{margin:18px 0 23px;padding:16px 18px;border-radius:16px;background:linear-gradient(120deg,var(--paio-tint),rgba(8,10,20,.82));border:1px solid color-mix(in srgb,var(--paio-tone) 35%,transparent)}
+.player-paio-hero .paio-dialog-total{margin:0;flex-wrap:wrap}
+.player-paio-hero .paio-dialog-total strong{font-size:clamp(2rem,5vw,3.25rem)}
+.player-paio-hero>p{margin:10px 0 0;font-size:.79rem;color:#cbd5e1}
+.player-paio-section{margin-top:24px}
+.player-paio-section-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:9px;margin-bottom:11px}
+.player-paio-section-head h3{font-size:1.07rem;color:#f8fafc;margin:0}
+.player-paio-section-head>span{font-size:.74rem;color:#aab3c6}
+.player-paio-decks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.player-paio-deck{width:100%;min-width:0;display:flex;align-items:center;text-align:left;gap:10px;padding:10px;border:1px solid #36394a;background:linear-gradient(135deg,#25263a,#191a29);border-radius:13px;color:#f8fafc;cursor:pointer;transition:border-color .15s,transform .15s}
+.player-paio-deck:hover,.player-paio-deck:focus-visible{border-color:#b0a2f1;transform:translateY(-1px)}
+.player-paio-deck>img,.player-paio-deck-placeholder{width:43px;height:58px;object-fit:cover;flex:0 0 43px;border-radius:6px}
+.player-paio-deck-placeholder{display:grid;place-items:center;color:#d8b4fe;background:#383044;font-size:.7rem;font-weight:800}
+.player-paio-deck-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.player-paio-deck-main strong{font-size:.82rem;overflow-wrap:anywhere}
+.player-paio-deck-main small{font-size:.69rem;color:#aeb6c7;overflow-wrap:anywhere}
+.player-paio-deck-points{color:var(--paio-tone);font-size:.82rem;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.player-paio-frequencies{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.player-paio-frequency{min-width:0;display:flex;align-items:center;gap:9px;background:#202233;border:1px solid #34374a;border-radius:12px;padding:8px 10px}
+.player-paio-position{width:22px;flex:0 0 22px;color:#a4acc1;font-size:.72rem;font-weight:800}
+.player-paio-art{flex:0 0 43px;width:43px;height:59px;overflow:hidden;border-radius:6px;background:#33334b;display:grid;place-items:center}
+.player-paio-art img{width:100%;height:100%;object-fit:cover}
+.player-paio-art span{color:#c4b5fd;text-align:center;font-size:.58rem;padding:3px}
+.player-paio-frequency-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.player-paio-frequency-main strong{font-size:.82rem;overflow-wrap:anywhere}
+.player-paio-frequency-main small{font-size:.69rem;color:#abb3c6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.player-paio-frequency-count{display:flex;flex-direction:column;align-items:center;color:#e9d5ff;min-width:35px}
+.player-paio-frequency-count strong{font-size:1.1rem;font-variant-numeric:tabular-nums}
+.player-paio-frequency-count small{font-size:.65rem;color:#b7acc9}
+@media (max-width:670px){
+  .player-paio-modal{padding:16px;width:100%;max-height:92dvh}
+  .player-paio-decks,.player-paio-frequencies{grid-template-columns:minmax(0,1fr)}
+  .player-paio-modal-actions{justify-content:flex-start}
+  .player-paio-hero{margin-top:12px}
+  .player-paio-box{flex:1 1 160px}
+}
+
+/* Navegacao das cartas/familias mais recorrentes no Paiometro de jogador. */
+.player-paio-frequency-button{width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.player-paio-frequency-button:hover,.player-paio-frequency-button:focus-visible{border-color:#aa9aed;background:#2a2940;transform:translateY(-1px)}
+.player-paio-frequency-chevron{flex:0 0 auto;color:#aaa1d9}
+.player-paio-detail-backdrop{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(2,3,10,.82);backdrop-filter:blur(5px)}
+.player-paio-detail-modal{width:min(940px,100%);max-height:min(90dvh,940px);overflow-y:auto;overscroll-behavior:contain;padding:22px}
+.player-paio-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.player-paio-detail-back,.player-paio-detail-close{display:flex;align-items:center;justify-content:center;gap:7px;border:0;background:#2b2c42;color:#ded8fe;cursor:pointer;padding:10px 12px;border-radius:12px}
+.player-paio-detail-back:hover,.player-paio-detail-close:hover{background:#3c3a5c}
+.player-paio-detail-modal>h2{margin:5px 0 0;font-size:clamp(1.4rem,4vw,2.1rem);color:#fff;overflow-wrap:anywhere}
+.player-paio-detail-subtitle{font-size:.85rem;color:#b9c0d4;margin:6px 0 20px}
+.player-paio-detail-section{margin-top:24px}
+.player-paio-detail-section h3{margin:0 0 12px;font-size:1rem;color:#f4f2ff}
+.player-paio-detail-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.player-paio-detail-card{display:flex;align-items:flex-start;gap:11px;min-width:0;border:1px solid #3b3b54;background:#222338;border-radius:13px;padding:11px}
+.player-paio-detail-art{flex:0 0 68px;width:68px;min-height:94px;display:grid;place-items:center;border-radius:7px;overflow:hidden;background:#343147;color:#d7cef9;text-decoration:none}
+.player-paio-detail-art img{width:100%;height:auto;aspect-ratio:5/7;object-fit:cover}
+.player-paio-detail-card-content{min-width:0;display:flex;flex-direction:column;gap:5px}
+.player-paio-detail-card-content>a{display:inline-flex;align-items:center;gap:4px;color:#f6f2ff;font-size:.83rem;font-weight:750;text-decoration:none;overflow-wrap:anywhere}
+.player-paio-detail-card-content>a:hover{text-decoration:underline}
+.player-paio-detail-card-content>small{font-size:.7rem;color:#bdb9d7}
+.player-paio-detail-deck-links{display:flex;gap:6px;flex-wrap:wrap}
+.player-paio-detail-deck-links button{border:1px solid #6b5f9c;background:#34304d;color:#e9e2ff;border-radius:9px;padding:5px 8px;font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;text-align:left}
+.player-paio-detail-deck-links button:hover{background:#51446e;border-color:#cab2fa}
+.player-paio-detail-decks{display:grid;gap:8px}
+.player-paio-detail-deck{width:100%;min-width:0;display:flex;align-items:center;gap:11px;text-align:left;background:#202234;color:#fff;border:1px solid #3a3a55;border-radius:12px;padding:10px;cursor:pointer}
+.player-paio-detail-deck:hover{border-color:#aea1ea;background:#2a2b43}
+.player-paio-detail-deck>img{width:36px;height:48px;object-fit:cover;border-radius:5px}
+.player-paio-detail-deck>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.player-paio-detail-deck strong{font-size:.84rem;overflow-wrap:anywhere}
+.player-paio-detail-deck small{font-size:.7rem;line-height:1.35;color:#c0bfd3;overflow-wrap:anywhere}
+.player-paio-detail-deck>b{font-size:.78rem;color:#e9ba68;white-space:nowrap}
+.player-paio-detail-pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.player-paio-detail-pair{min-width:0;border:1px solid #403b57;border-radius:13px;background:#242339;padding:12px;display:flex;flex-direction:column;gap:11px}
+.player-paio-detail-pair-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.player-paio-detail-pair-cards>a{min-width:0;display:flex;align-items:center;gap:8px;color:#f4edff;text-decoration:none;font-size:.76rem;font-weight:700;overflow-wrap:anywhere}
+.player-paio-detail-pair-cards img{width:44px;aspect-ratio:5/7;object-fit:cover;border-radius:5px;flex:0 0 44px}
+.player-paio-detail-pair-cards span{display:flex;align-items:center;gap:4px;min-width:0}
+@media(max-width:700px){
+  .player-paio-detail-backdrop{padding:8px;align-items:center}
+  .player-paio-detail-modal{padding:15px;max-height:94dvh}
+  .player-paio-detail-cards,.player-paio-detail-pairs{grid-template-columns:minmax(0,1fr)}
+  .player-paio-detail-art{width:58px;flex-basis:58px;min-height:81px}
+  .player-paio-detail-pair-cards img{width:38px;flex-basis:38px}
+}

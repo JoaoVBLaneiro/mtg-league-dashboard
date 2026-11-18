@@ -307,7 +307,6 @@ export function calculatePaio(
     const names = [...new Map(pairs.flat().map((name) => [normalizePaioName(name), name])).values()];
     items.push({ name: comboRating.name, average: comboRating.average, points: roundPaio(comboRating.average),
       origin: comboHasManual ? "manual" : "automatic", matchedCards: names, instances: pairs.length, comboPairs: pairs });
-    for (const name of names) coveredByConcept.add(normalizePaioName(name.split(/\s+\/\/\s+/)[0]));
   }
 
   // Tags são independentes de pontuação individual: a categoria mede a densidade do deck.

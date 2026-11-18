@@ -4,6 +4,7 @@ import "./cardRatings.css";
 import PaioUsageBrowser, { type PaioBrowseItem } from "./PaioUsageBrowser";
 import type { PaioUsageDeck } from "./paioDeckUsage";
 import PaioDeckRanking from "./PaioDeckRanking";
+import PaioPlayerRanking, { type PaioRankingPlayer } from "./PaioPlayerRanking";
 import { fetchDeckPaioVisuals, fetchDeckPaioGameChangers, readCachedPaioVisuals, type PaioCardVisual } from "./deckPaioScryfall";
 import { normalizePaioName, fetchPaioRanking, type PaioRankingResponse } from "./paiometroDeck";
 import { EMPTY_PAIO_CONFIG, fetchPaioConfig, catalogEntry, paioThresholds, normalizePaioKey, type PaioConfig } from "./paioConfig";
@@ -127,15 +128,15 @@ function expandDisplayCards(cards: CardRating[], config: PaioConfig) {
   });
 }
 
-export default function CardRatingsPanel<T extends PaioUsageDeck>({ decks, dashboardLoading, dashboardFailed, profileOpen, onOpenDeck }: {
-  decks: T[]; dashboardLoading: boolean; dashboardFailed: boolean; profileOpen: boolean; onOpenDeck: (deck: T) => void;
+export default function CardRatingsPanel<T extends PaioUsageDeck, P extends PaioRankingPlayer>({ decks, players, dashboardLoading, dashboardFailed, profileOpen, onOpenDeck, onOpenPlayer }: {
+  decks: T[]; players: P[]; dashboardLoading: boolean; dashboardFailed: boolean; profileOpen: boolean; onOpenDeck: (deck: T) => void; onOpenPlayer: (player: P) => void;
 }) {
   const [data, setData] = useState<PaioRankingResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"cards" | "decks">("cards");
+  const [view, setView] = useState<"cards" | "decks" | "players">("cards");
   const [visualsByLookupName, setVisualsByLookupName] = useState<Record<string, CardVisual>>({});
   const [gameChangers, setGameChangers] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<PaioConfig>(EMPTY_PAIO_CONFIG);
@@ -258,6 +259,7 @@ export default function CardRatingsPanel<T extends PaioUsageDeck>({ decks, dashb
       <div className="card-ratings-subtabs" role="group" aria-label="Visualização do Paiômetro">
         <button type="button" aria-pressed={view === "cards"} onClick={() => setView("cards")}>Cartas e conceitos</button>
         <button type="button" aria-pressed={view === "decks"} onClick={() => setView("decks")}>Ranking de decks</button>
+        <button type="button" aria-pressed={view === "players"} onClick={() => setView("players")}>Ranking de jogadores</button>
       </div>
       {data?.stale ? (
         <p className="card-ratings-warning">Exibindo a última consulta disponível. Não foi possível obter uma atualização recente.</p>
@@ -268,6 +270,7 @@ export default function CardRatingsPanel<T extends PaioUsageDeck>({ decks, dashb
 
       {data && !configReady ? <p className="card-ratings-message">{configError ? "Configuração das famílias indisponível. Aguardando nova tentativa..." : "Carregando classificação das cartas..."}</p> : null}
       {data && view === "decks" ? (configReady ? <PaioDeckRanking decks={decks} ratings={data.cards} config={config} loading={dashboardLoading} failed={dashboardFailed} onOpenDeck={onOpenDeck} /> : null) : null}
+      {data && view === "players" ? (configReady ? <PaioPlayerRanking players={players} decks={decks} ratings={data.cards} config={config} loading={dashboardLoading} failed={dashboardFailed} onOpenPlayer={onOpenPlayer} /> : null) : null}
       {data && view === "cards" ? (
         <>
           <div className="card-ratings-toolbar">

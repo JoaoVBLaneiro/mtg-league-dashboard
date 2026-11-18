@@ -236,11 +236,12 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
     [decklistTexto, assignments, ratings, commander, secondaryCommander, config],
   );
   const known = ratings !== null && (summary.hasDecklist || summary.items.length > 0);
+  const visibleItems = useMemo(() => summary.items.filter((entry) => entry.points > 0), [summary.items]);
 
-  const visualNames = useMemo(() => [...new Set(summary.items.flatMap((item) => [
+  const visualNames = useMemo(() => [...new Set(visibleItems.flatMap((item) => [
     ...(item.matchedCards?.length ? item.matchedCards : item.origin === "manual" ? paioVisualNames(item.detail ?? "") : [item.name]),
     catalogEntry(config, item.name)?.artCard ?? "",
-  ].filter(Boolean)))], [summary.items, config]);
+  ].filter(Boolean)))], [visibleItems, config]);
 
   useEffect(() => {
     if (!isOpen || !visualNames.length) return;
@@ -269,7 +270,7 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
       >
         <span>Paiômetro</span>
         <strong>{ratings ? (known ? `${summary.total} pts` : "—") : "..."}</strong>
-        <small>{known ? `${summary.items.length} item${summary.items.length === 1 ? "" : "s"} pontuado${summary.items.length === 1 ? "" : "s"}` : "Ver detalhes"}</small>
+        <small>{known ? `${visibleItems.length} item${visibleItems.length === 1 ? "" : "s"} pontuado${visibleItems.length === 1 ? "" : "s"}` : "Ver detalhes"}</small>
       </button>
 
       {isOpen ? createPortal(
@@ -287,15 +288,15 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
               <>
                 <div className="paio-dialog-total"><strong>{known ? summary.total : "—"}</strong><span>pontos de paia</span></div>
                 <p className="paio-dialog-guidance">Um deck saudável e pouco paia costuma ter até 10 pontos no Paiômetro.</p>
-                {!summary.hasDecklist ? <p className="paio-dialog-warning">Este deck não tem decklist em texto cadastrada. O resultado é {summary.items.length ? "parcial: considera apenas comandantes identificados e atribuições manuais." : "indisponível até o cadastro da decklist."}</p> : null}
-                {summary.items.length ? (
+                {!summary.hasDecklist ? <p className="paio-dialog-warning">Este deck não tem decklist em texto cadastrada. O resultado é {visibleItems.length ? "parcial: considera apenas comandantes identificados e atribuições manuais." : "indisponível até o cadastro da decklist."}</p> : null}
+                {visibleItems.length ? (
                   <section className="paio-dialog-groups" aria-label="Cartas e conceitos do deck">
                     <div className="paio-dialog-group-heading">
                       <h3>Cartas e conceitos</h3>
-                      <small>{summary.items.length} {summary.items.length === 1 ? "ocorrência" : "ocorrências"} · ordenadas por pontos</small>
+                      <small>{visibleItems.length} {visibleItems.length === 1 ? "ocorrência" : "ocorrências"} · ordenadas por pontos</small>
                     </div>
                     <div className="paio-dialog-art-grid">
-                      {summary.items.map((entry, index) => <DeckPaioCard
+                      {visibleItems.map((entry, index) => <DeckPaioCard
                         key={`${entry.origin}:${entry.name}:${entry.detail ?? index}`}
                         item={entry}
                         visuals={visuals}

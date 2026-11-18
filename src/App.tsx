@@ -35,6 +35,7 @@ import { fetchDecklistMetadata } from "./decklistMetadataBatch";
 import "./deckProfileLayout.css";
 import LifeTrackerApp from "./LifeTracker";
 import DeckPaiometro from "./DeckPaiometro";
+import PlayerPaiometro from "./PlayerPaiometro";
 import CardRatingsPanel from "./CardRatingsPanel";
 import { DEFAULT_VISIBILITY, fetchVisibilityConfig, passesVisibilityRule, type VisibilityConfig } from "./leaderboardVisibility";
 import PlayerEditorApp from "./PlayerEditor";
@@ -5513,6 +5514,11 @@ function ProfileModal({
               </div>
             ) : null}
 
+            {isPlayer ? (
+              <div className="deck-score-widgets">
+                <PlayerPaiometro player={item as Player} decks={decks} onSelectDeck={onSelectDeck} isTopProfile={isTopProfile} />
+              </div>
+            ) : null}
             {!isPlayer ? (
               <div className="deck-score-widgets">
                 <DeckPowerInfoCard deck={item as Deck} />
@@ -9665,6 +9671,13 @@ const playerSectionSubtitle = isPlayerTrophyRanking
     [activeLeaderboard.players, leaderboardSortMode, playerTrophyMap]
   );
 
+  const paioPlayers = useMemo(
+    () => normalizePlayers(data.leaderboards.geral.players).map((player) => ({
+      ...player,
+      trophy: playerTrophyMap[normalizeNameKey(player.name)] || emptyPlayerTrophyInfo,
+    })),
+    [data.leaderboards.geral.players, playerTrophyMap],
+  );
   const decks = useMemo(
     () => normalizeDecks(activeLeaderboard.decks, leaderboardSortMode),
     [activeLeaderboard.decks, leaderboardSortMode]
@@ -9856,8 +9869,9 @@ const playerSectionSubtitle = isPlayerTrophyRanking
         ) : null}
 
         {activeView === "cards" ? (
-          <CardRatingsPanel decks={allDecks} dashboardLoading={loading} dashboardFailed={Boolean(error)}
-            profileOpen={selectedProfile !== null} onOpenDeck={deck => setSelectedProfile({ type: "deck", item: deck })} />
+          <CardRatingsPanel decks={allDecks} players={paioPlayers} dashboardLoading={loading} dashboardFailed={Boolean(error)}
+            profileOpen={selectedProfile !== null} onOpenDeck={deck => setSelectedProfile({ type: "deck", item: deck })}
+            onOpenPlayer={player => setSelectedProfile({ type: "player", item: player })} />
         ) : loading && !players.length && !decks.length ? (
           <div className="loading-box">Carregando dados da liga...</div>
         ) : activeView === "activity" ? (
