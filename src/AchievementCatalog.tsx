@@ -1,0 +1,252 @@
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, BookOpen, Crown, Search, Star, Trophy, Users, X } from 'lucide-react';
+import { AchievementDialog } from './AchievementBrowser';
+import {
+  ACHIEVEMENT_TIERS,
+  TIER_LABELS,
+  type AchievementDirectory,
+  type AchievementTier,
+} from './achievementDirectory';
+import './achievementCatalog.css';
+
+type CatalogAchievement = {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  tier: AchievementTier;
+  unlocked: boolean;
+  manual?: boolean;
+};
+
+type CatalogPlayer = {
+  name: string;
+  displayName: string;
+  photoUrl?: string;
+  iconeKeyrune?: string;
+  achievements: CatalogAchievement[];
+};
+
+type Holder = {
+  id: string;
+  name: string;
+  photoUrl?: string;
+  keyruneClass?: string;
+  tier: AchievementTier;
+};
+
+type CatalogEntry = {
+  id: string;
+  name: string;
+  description: string;
+  manual: boolean;
+  rarity: AchievementTier;
+  holders: Holder[];
+};
+
+type Order = 'alphabetical' | 'rarity' | 'holders';
+
+const tierRank = (tier: AchievementTier) => ACHIEVEMENT_TIERS.indexOf(tier);
+const alphabetical = (a: CatalogEntry, b: CatalogEntry) =>
+  a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+const normalized = (text: string) =>
+  text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+
+function assembleCatalog(players: CatalogPlayer[], directory?: AchievementDirectory): CatalogEntry[] {
+  const entries = new Map<string, CatalogEntry>();
+  const fallbackHolders = new Map<string, Map<string, Holder>>();
+
+  function ensure(id: string, name: string, description: string, manual: boolean, rarity: AchievementTier) {
+    const existing = entries.get(id);
+    if (existing) {
+      if ((!existing.name || existing.name === id) && name) existing.name = name;
+      if (!existing.description && description) existing.description = description;
+      existing.manual = existing.manual || manual;
+      if (tierRank(rarity) > tierRank(existing.rarity)) existing.rarity = rarity;
+      return existing;
+    }
+    const item: CatalogEntry = { id, name: name || id, description, manual, rarity, holders: [] };
+    entries.set(id, item);
+    return item;
+  }
+
+  for (const player of players) {
+    for (const achievement of player.achievements || []) {
+      if (!achievement?.id) continue;
+      ensure(
+        achievement.id, achievement.name, achievement.description,
+        Boolean(achievement.manual), achievement.tier,
+      );
+      if (achievement.unlocked) {
+        if (!fallbackHolders.has(achievement.id)) fallbackHolders.set(achievement.id, new Map());
+        fallbackHolders.get(achievement.id)!.set(player.name, {
+          id: player.name,
+          name: player.displayName || player.name,
+          photoUrl: player.photoUrl,
+          keyruneClass: player.iconeKeyrune,
+          tier: achievement.tier,
+        });
+      }
+    }
+  }
+
+  for (const template of directory?.manualCatalog || []) {
+    const rarity = [...ACHIEVEMENT_TIERS].reverse()
+      .find(tier => Number(template.thresholds[tier]) > 0) || 'common';
+    ensure(template.id, template.name, template.description, true, rarity);
+  }
+
+  // O diretorio global e a mesma fonte usada pelo modal "Ver jogadores que possuem".
+  // Nao somamos as duas fontes: isso evitaria mostrar jogadores duplicados ou divergentes.
+  if (directory?.players) {
+    const byId = new Map<string, Map<string, Holder>>();
+    for (const player of directory.players) {
+      for (const achievement of player.achievements) {
+        if (!achievement.id || !achievement.unlocked) continue;
+        const entry = ensure(achievement.id, achievement.id, '', achievement.manual, achievement.tier);
+        if (tierRank(achievement.tier) > tierRank(entry.rarity)) entry.rarity = achievement.tier;
+        if (!byId.has(achievement.id)) byId.set(achievement.id, new Map());
+        byId.get(achievement.id)!.set(player.id, {
+          id: player.id,
+          name: player.displayName || player.id,
+          photoUrl: player.photoUrl,
+          keyruneClass: player.keyruneClass,
+          tier: achievement.tier,
+        });
+      }
+    }
+    for (const entry of entries.values()) {
+      entry.holders = [...(byId.get(entry.id)?.values() || [])];
+    }
+  } else {
+    for (const entry of entries.values()) {
+      entry.holders = [...(fallbackHolders.get(entry.id)?.values() || [])];
+    }
+  }
+
+  for (const entry of entries.values()) {
+    entry.holders.sort((a, b) => tierRank(b.tier) - tierRank(a.tier)
+      || a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
+  }
+  return [...entries.values()].sort(alphabetical);
+}
+
+export default function AchievementCatalog({
+  players,
+  directory,
+  onClose,
+  onPlayerSelect,
+}: {
+  players: CatalogPlayer[];
+  directory?: AchievementDirectory;
+  onClose: () => void;
+  onPlayerSelect: (playerId: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [order, setOrder] = useState<Order>('holders');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const catalogScrollRef = useRef(0);
+
+  function openAchievement(id: string) {
+    catalogScrollRef.current = sectionRef.current?.closest('dialog')?.scrollTop ?? 0;
+    setSelectedId(id);
+  }
+
+  function backToCatalog() {
+    setSelectedId(null);
+  }
+
+  useLayoutEffect(() => {
+    const dialog = sectionRef.current?.closest('dialog');
+    if (dialog) dialog.scrollTop = selectedId ? 0 : catalogScrollRef.current;
+  }, [selectedId]);
+  const catalog = useMemo(() => assembleCatalog(players, directory), [players, directory]);
+  const selected = catalog.find(entry => entry.id === selectedId);
+  const filtered = useMemo(() => {
+    const words = normalized(query).trim().split(/\s+/).filter(Boolean);
+    return catalog.filter(entry => words.every(word =>
+      normalized(`${entry.name} ${entry.description} ${entry.id}`).includes(word)
+    )).sort((a, b) => {
+      if (order === 'holders') return (a.holders.length === 0 ? 1 : 0) - (b.holders.length === 0 ? 1 : 0) || a.holders.length - b.holders.length || alphabetical(a, b);
+      if (order === 'rarity') return tierRank(b.rarity) - tierRank(a.rarity) || alphabetical(a, b);
+      return alphabetical(a, b);
+    });
+  }, [catalog, query, order]);
+
+  return <AchievementDialog label="Catálogo completo de conquistas" onClose={onClose} onBack={selected ? backToCatalog : undefined} wide>
+    <section className="pina-all-achievements" ref={sectionRef}>
+      <button type="button" className="pina-all-achievements-close" aria-label="Fechar conquistas" onClick={onClose}>
+        <X size={20} />
+      </button>
+      {selected ? <>
+        <button type="button" className="pina-all-achievements-back" onClick={backToCatalog}>
+          <ArrowLeft size={17} /> Todas as conquistas
+        </button>
+        <header className="pina-all-achievements-detail-heading">
+          <div className={`pina-all-achievements-emblem achievement-tier-${selected.rarity}`}>
+            <Trophy size={30} />
+          </div>
+          <div>
+            <span className="pina-all-achievements-eyebrow">{selected.manual ? 'Conquista manual' : 'Conquista'} · {TIER_LABELS[selected.rarity]}</span>
+            <h2>{selected.name}</h2>
+            <p>{selected.description}</p>
+          </div>
+        </header>
+        <div className="pina-all-achievements-detail-count"><Users size={19} />
+          <strong>{selected.holders.length}</strong> {selected.holders.length === 1 ? 'jogador possui' : 'jogadores possuem'} esta conquista
+        </div>
+        {selected.holders.length ? (
+          <div className="pina-all-achievements-holders">
+            {selected.holders.map(holder => <button type="button" key={holder.id} className="pina-all-achievements-holder" onClick={() => onPlayerSelect(holder.id)} aria-label={`Abrir perfil de ${holder.name}`}>
+              {holder.photoUrl ? <img src={holder.photoUrl} alt="" loading="lazy" /> : <span className="pina-all-achievements-holder-fallback"><Users size={21} /></span>}
+              <div className="pina-all-achievements-holder-name">
+                <strong>{holder.name}</strong>
+                {holder.name !== holder.id ? <small>{holder.id}</small> : null}
+              </div>
+              {holder.keyruneClass ? <i className={holder.keyruneClass} aria-hidden="true" /> : null}
+              <span className={`pina-all-achievements-rarity achievement-tier-${holder.tier}`}>{TIER_LABELS[holder.tier]}</span>
+            </button>)}
+          </div>
+        ) : <p className="pina-all-achievements-empty">Nenhum jogador desbloqueou esta conquista ainda.</p>}
+      </> : <>
+        <header className="pina-all-achievements-heading">
+          <div className="pina-all-achievements-icon"><BookOpen size={28} /></div>
+          <div><span className="pina-all-achievements-eyebrow">LIGA COMMANDER</span>
+            <h2>Conquistas</h2>
+            <p>Explore todas as conquistas e descubra quem já as desbloqueou.</p>
+          </div>
+        </header>
+        <div className="pina-all-achievements-tools">
+          <label className="pina-all-achievements-search"><Search size={18} />
+            <input type="search" placeholder="Buscar conquista..." value={query} onChange={event => setQuery(event.target.value)} aria-label="Buscar conquistas" />
+          </label>
+          <label className="pina-all-achievements-sort"><span>Ordenar por</span>
+            <select value={order} onChange={event => setOrder(event.target.value as Order)}>
+              <option value="alphabetical">Ordem alfabética (A–Z)</option>
+              <option value="rarity">Raridade (maior primeiro)</option>
+              <option value="holders">Nº de jogadores (menor primeiro · 0 no final)</option>
+            </select>
+          </label>
+        </div>
+        <div className="pina-all-achievements-counter">
+          <span>{filtered.length} de {catalog.length} conquistas</span>
+          <span><Crown size={15} /> {catalog.filter(entry => entry.holders.length > 0).length} já desbloqueadas por alguém</span>
+        </div>
+        {filtered.length ? <div className="pina-all-achievements-grid">
+          {filtered.map(entry => <button type="button" key={entry.id}
+            className="pina-all-achievements-card" onClick={() => openAchievement(entry.id)}
+            aria-label={`${entry.name}, ${entry.holders.length} jogadores possuem, raridade ${TIER_LABELS[entry.rarity]}`}>
+            <div className={`pina-all-achievements-card-icon achievement-tier-${entry.rarity}`}><Star size={22} /></div>
+            <div className="pina-all-achievements-card-content">
+              <span className={`pina-all-achievements-rarity achievement-tier-${entry.rarity}`}>{TIER_LABELS[entry.rarity]}{entry.manual ? ' · Manual' : ''}</span>
+              <strong>{entry.name}</strong>
+              <p>{entry.description}</p>
+              <span className="pina-all-achievements-card-owners"><Users size={14} /> {entry.holders.length} {entry.holders.length === 1 ? 'jogador' : 'jogadores'}</span>
+            </div>
+          </button>)}
+        </div> : <p className="pina-all-achievements-empty">Nenhuma conquista encontrada.</p>}
+      </>}
+    </section>
+  </AchievementDialog>;
+}

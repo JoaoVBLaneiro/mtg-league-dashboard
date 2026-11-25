@@ -44,6 +44,7 @@ import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBad
 import { PlanarOriginBadges, rareKeyrune, type PlanarOriginDefinition } from "./PlanarOrigins";
 import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
+import AchievementCatalog from './AchievementCatalog';
 import type { AchievementDirectory } from "./achievementDirectory";
 
 import { fetchLeagueDashboard, readDashboardCache } from "./dashboardLoader";
@@ -5271,7 +5272,10 @@ function ProfileModal({
   if (!selected) return null;
 
   const isPlayer = selected.type === "player";
-  const item = selected.item;
+  // Atualiza a selecao quando chega um dashboard mais recente (cache -> API).
+  const item = selected.type === "player"
+    ? (players.find((player) => player.name === selected.item.name) ?? selected.item)
+    : (decks.find((deck) => deck.name === selected.item.name) ?? selected.item);
   const visibleName = isPlayer
     ? getPlayerDisplayName(item as Player)
     : getDeckDisplayName(item as Deck);
@@ -5793,7 +5797,9 @@ function ProfileModal({
         {isTopProfile && selectedAchievement ? (
           <AchievementDetailsModal
             key={selectedAchievement.id}
-            achievement={selectedAchievement}
+            achievement={isPlayer
+              ? ((item as Player).achievements.find((entry) => entry.id === selectedAchievement.id) ?? selectedAchievement)
+              : selectedAchievement}
             directory={achievementDirectory}
             allAchievements={isPlayer ? (item as Player).achievements : []}
             onAchievementClick={setSelectedAchievement}
@@ -9483,6 +9489,7 @@ function DashboardApp() {
   const [selectedCategory, setSelectedCategory] = useState<DeckTagSelection | null>(null);
   const [selectedPlanarOrigin, setSelectedPlanarOrigin] = useState<PlanarOriginDefinition | null>(null);
   const [manualCatalogPlayer, setManualCatalogPlayer] = useState<string | null>(null);
+  const [showAchievementCatalog, setShowAchievementCatalog] = useState(false);
   const [manualAchievement, setManualAchievement] = useState<PlayerAchievement | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<Player | null>(null);
 
@@ -9814,9 +9821,7 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           </div>
 
           <div className="hero-actions">
-            <button type="button" className="achievement-browser-button" onClick={() => setManualCatalogPlayer('')}>
-              <BookOpen size={17} /> Conquistas manuais
-            </button>
+            <button type="button" className="achievement-browser-button" onClick={() => setShowAchievementCatalog(true)}><BookOpen size={17} /> Conquistas</button>
             <a className="player-editor-link" href="#editor">
               <UserRoundCog size={17} />
               Área do jogador
@@ -10060,6 +10065,29 @@ const playerSectionSubtitle = isPlayerTrophyRanking
       </div>
       ))}
 
+            {showAchievementCatalog ? <AchievementCatalog
+        directory={data.achievementDirectory}
+        players={normalizePlayers([
+          ...(data.catalog?.players || []),
+          ...(data.leaderboards.geral.players || []),
+        ])}
+        onClose={() => setShowAchievementCatalog(false)}
+        onPlayerSelect={(playerId) => {
+          const possiblePlayers = normalizePlayers([
+            ...(data.catalog?.players || []),
+            ...(data.leaderboards.geral.players || []),
+          ]);
+          const player = possiblePlayers.find((item) =>
+            normalizeNameKey(item.name) === normalizeNameKey(playerId)
+          ) || possiblePlayers.find((item) =>
+            normalizeNameKey(getPlayerDisplayName(item)) === normalizeNameKey(playerId)
+          );
+          if (player) {
+            setShowAchievementCatalog(false);
+            setSelectedProfile({ type: 'player', item: player });
+          }
+        }}
+      /> : null}
       {manualCatalogPlayer !== null ? <ManualAchievementCatalog
           directory={data.achievementDirectory}
           initialPlayerId={manualCatalogPlayer}

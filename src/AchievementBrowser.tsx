@@ -4,8 +4,8 @@ import { ACHIEVEMENT_TIERS, TIER_LABELS, achievementHolders, filterManualAchieve
   type AchievementDirectory, type ManualAchievementView } from './achievementDirectory';
 import './achievementBrowser.css';
 
-export function AchievementDialog({ label, children, onClose, wide = false }: {
-  label: string; children: ReactNode; onClose: () => void; wide?: boolean;
+export function AchievementDialog({ label, children, onClose, onBack, wide = false }: {
+  label: string; children: ReactNode; onClose: () => void; onBack?: () => void; wide?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -16,7 +16,7 @@ export function AchievementDialog({ label, children, onClose, wide = false }: {
   return <dialog ref={ref} className={`achievement-native-dialog${wide ? ' achievement-native-dialog-wide' : ''}`}
     aria-label={label}
     onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}
-    onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }}
+    onCancel={event => { event.preventDefault(); event.stopPropagation(); onBack ? onBack() : onClose(); }}
     onClick={event => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
     {children}
   </dialog>;
