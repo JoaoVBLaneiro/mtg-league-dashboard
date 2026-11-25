@@ -6,11 +6,21 @@ import type { KeyruneUsage } from "./keyruneSymbols";
 
 const API_BASE_URL = "https://api.corneliomove.com.br/mtg-api";
 
+type PlanarOriginClass = "magic" | "beyond" | "far_beyond" | "unclassified";
+
+const ORIGIN_CLASSES: Array<{ value: PlanarOriginClass; label: string }> = [
+  { value: "unclassified", label: "Não classificada (revisar)" },
+  { value: "magic", label: "Magic The Gathering" },
+  { value: "beyond", label: "Universes Beyond oficial" },
+  { value: "far_beyond", label: "Universes Far Beyond (fanmade / IP não oficial)" },
+];
+
 type AdminPlanarOrigin = {
   slug: string;
   label: string;
   keyruneClass: string;
   kind: PlanarOriginKind;
+  originClass: PlanarOriginClass;
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
@@ -37,6 +47,7 @@ type Draft = {
   label: string;
   keyruneClass: string;
   kind: PlanarOriginKind;
+  originClass: PlanarOriginClass;
   displayOrder: number;
   isActive: boolean;
   isSystem: boolean;
@@ -75,6 +86,7 @@ function draftFrom(origin: AdminPlanarOrigin, decks: AdminPlanarDeck[]): Draft {
     label: origin.label,
     keyruneClass: origin.keyruneClass,
     kind: origin.kind,
+    originClass: origin.originClass ?? "unclassified",
     displayOrder: origin.displayOrder,
     isActive: origin.isActive,
     isSystem: origin.isSystem,
@@ -88,6 +100,7 @@ function newDraft(): Draft {
     label: "",
     keyruneClass: "ss ss-cmd",
     kind: "origin",
+    originClass: "unclassified",
     displayOrder: 100,
     isActive: true,
     isSystem: false,
@@ -142,7 +155,7 @@ export default function AdminPlanarOriginsPanel({
   const filteredOrigins = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("pt-BR");
     if (!needle) return origins;
-    return origins.filter((origin) => `${origin.label} ${origin.slug} ${origin.kind}`.toLocaleLowerCase("pt-BR").includes(needle));
+    return origins.filter((origin) => `${origin.label} ${origin.slug} ${origin.kind} ${origin.originClass}`.toLocaleLowerCase("pt-BR").includes(needle));
   }, [origins, query]);
 
   const filteredDecks = useMemo(() => {
@@ -181,6 +194,7 @@ export default function AdminPlanarOriginsPanel({
         label: draft.label,
         keyruneClass: draft.keyruneClass,
         kind: draft.kind,
+        originClass: draft.kind === "universe" ? "unclassified" : draft.originClass,
         displayOrder: draft.displayOrder,
         isActive: draft.isActive,
       };
@@ -225,7 +239,7 @@ export default function AdminPlanarOriginsPanel({
         <div>
           <span>Administração JBL</span>
           <h1>Origens Planares</h1>
-          <p>Universos podem ser combinados no mesmo deck; planos e franquias também podem ser múltiplos. Todo Keyrune é exibido com acabamento Raro.</p>
+          <p>Classifique cada plano ou franquia por origem. Magic e Beyond podem coexistir num deck; Far Beyond representa uma franquia não oficial. Ícones exibidos como Raro.</p>
         </div>
         <button className="editor-primary-button" type="button" disabled={disabled || saving} onClick={() => setDraft(newDraft())}>
           <Plus size={17} /> Nova origem
@@ -239,6 +253,9 @@ export default function AdminPlanarOriginsPanel({
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ravnica, Marvel..." />
           </label>
 
+          <p className="editor-field-hint" role="status">
+            {origins.filter((origin) => origin.kind === "origin" && origin.originClass === "unclassified").length} plano(s)/franquia(s) aguardando classificação.
+          </p>
           <div className="editor-admin-planar-list">
             {loading && !origins.length ? <p className="editor-field-hint">Carregando...</p> : null}
             {filteredOrigins.map((origin) => (
@@ -251,7 +268,7 @@ export default function AdminPlanarOriginsPanel({
                 <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
                 <span>
                   <strong>{origin.label}</strong>
-                  <small>{origin.kind === "universe" ? "Universo" : "Plano / franquia"} · {origin.deckCount} deck{origin.deckCount === 1 ? "" : "s"}{origin.isSystem ? " · sistema" : ""}{!origin.isActive ? " · inativa" : ""}</small>
+                  <small>{origin.kind === "universe" ? "Universo" : ORIGIN_CLASSES.find((item) => item.value === origin.originClass)?.label || "Não classificada"} · {origin.deckCount} deck{origin.deckCount === 1 ? "" : "s"}{origin.isSystem ? " · sistema" : ""}{!origin.isActive ? " · inativa" : ""}</small>
                 </span>
               </button>
             ))}
@@ -278,7 +295,7 @@ export default function AdminPlanarOriginsPanel({
                   <i className={rareKeyrune(draft.keyruneClass)} aria-hidden="true" />
                   <div>
                     <strong>{draft.label || "Nova origem"}</strong>
-                    <small>Acabamento Raro · {draft.kind === "universe" ? "Universo" : "Plano / franquia"}</small>
+                    <small>Acabamento Raro · {draft.kind === "universe" ? "Universo" : ORIGIN_CLASSES.find((item) => item.value === draft.originClass)?.label}</small>
                   </div>
                 </div>
 
@@ -295,6 +312,16 @@ export default function AdminPlanarOriginsPanel({
                       <option value="universe">Universo</option>
                     </select>
                   </label>
+
+                  {draft.kind === "origin" ? (
+                    <label className="editor-field">
+                      <span>Categoria da origem</span>
+                      <select value={draft.originClass} onChange={(event) => setDraft({ ...draft, originClass: event.target.value as PlanarOriginClass })}>
+                        {ORIGIN_CLASSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </select>
+                      <small className="editor-field-hint">Deltarune → Far Beyond; Vocaloid/Miku → Beyond; Dominaria → Magic. Uma mesma lista de deck pode conter origens de diferentes categorias.</small>
+                    </label>
+                  ) : null}
 
                   <label className="editor-field">
                     <span>Ordem</span>

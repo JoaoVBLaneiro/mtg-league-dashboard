@@ -1997,3 +1997,24 @@
 .editor-dynamic-tag-error {
   color: #fca5a5 !important;
 }
+
+/* PINA_ORIGENS_EDITOR_V2 */
+.editor-deck-heading-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 10px;
+}
+.editor-deck-heading-badges .mtg-deck-labels,
+.editor-deck-heading-badges .planar-origin-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.editor-deck-heading-badges .planar-origin-badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+}

@@ -6,12 +6,14 @@ import "./planarOrigins.css";
 const API_URL = "https://api.corneliomove.com.br/mtg-api/api/planar-origins";
 
 export type PlanarOriginKind = "universe" | "origin";
+export type PlanarOriginClass = "magic" | "beyond" | "far_beyond" | "unclassified";
 
 export type PlanarOriginDefinition = {
   slug: string;
   label: string;
   keyruneClass: string;
   kind: PlanarOriginKind;
+  originClass?: PlanarOriginClass;
   displayOrder: number;
 };
 
@@ -173,6 +175,12 @@ export function PlanarOriginSelector({
   const selected = useMemo(() => readPlanarOriginSlugs(value), [value]);
   const universes = origins.filter((origin) => origin.kind === "universe");
   const specificOrigins = origins.filter((origin) => origin.kind === "origin");
+  const originClassNames: Record<PlanarOriginClass, string> = {
+    magic: "Magic The Gathering",
+    beyond: "Universes Beyond oficial",
+    far_beyond: "Universes Far Beyond",
+    unclassified: "Origem não classificada",
+  };
 
   function toggleUniverse(slug: string) {
     const activeUniverseCount = universes.filter((origin) => selected.includes(origin.slug)).length;
@@ -192,7 +200,13 @@ export function PlanarOriginSelector({
     const next = selected.includes(slug)
       ? selected.filter((item) => item !== slug)
       : [...selected, slug];
-    onChange(JSON.stringify(next));
+    const chosen = origins.find((origin) => origin.slug === slug);
+    if (next.includes(slug) && chosen) {
+      if (chosen.originClass === "magic" && !next.includes("magic-the-gathering")) next.push("magic-the-gathering");
+      if (["beyond", "far_beyond"].includes(chosen.originClass ?? "") && !next.includes("universes-beyond")) next.push("universes-beyond");
+    }
+    // Não remove classificações explícitas anteriores, pois origens mistas são válidas.
+    onChange(JSON.stringify([...new Set(next)]));
   }
 
   return (
@@ -200,7 +214,7 @@ export function PlanarOriginSelector({
       <div className="editor-section-heading editor-planar-origin-title">
         <div>
           <h3>Origem Planar</h3>
-          <p>Marque um ou mais universos e quantos planos/franquias forem necessários. Magic The Gathering e Universes Beyond podem coexistir. Todos os símbolos usam acabamento Raro.</p>
+          <p>Selecione uma ou mais origens. Cada plano/franquia tem uma categoria definida pelo ADM; Magic e Beyond podem coexistir, inclusive em versões alternativas de cartas.</p>
         </div>
         {loading ? <LoaderCircle size={18} className="spin" /> : null}
       </div>
@@ -247,6 +261,7 @@ export function PlanarOriginSelector({
                 >
                   <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
                   <span>{origin.label}</span>
+                  <small title="Categoria da origem">{originClassNames[origin.originClass ?? "unclassified"]}</small>
                   {active ? <Check size={15} aria-hidden="true" /> : null}
                 </button>
               );

@@ -50,7 +50,8 @@ import AdminPaiometroPanel from "./AdminPaiometroPanel";
 import AdminLeaderboardVisibilityPanel from "./AdminLeaderboardVisibilityPanel";
 import { mythicKeyrune, type KeyruneUsage } from "./keyruneSymbols";
 
-import { DeckLabels, InactiveDeckIcon } from "./DeckLabels";
+import { InactiveDeckIcon } from "./DeckLabels";
+import EditorDeckMetadataBadges from "./EditorDeckMetadataBadges";
 import "./playerEditor.css";
 
 const API_BASE_URL = "https://api.corneliomove.com.br/mtg-api";
@@ -1130,6 +1131,7 @@ function AdminDecksPanel({
                 <div>
                   <span>{activeDeck.isDeleted ? "Deck excluído" : "Deck cadastrado"}</span>
                   <h2>{stringValue(currentFields["Nome de Exibição"]) || activeDeck.id}</h2>
+                  <EditorDeckMetadataBadges categories={currentFields.Categorias} origins={currentFields["Origens Planares"]} inactive={stringValue(currentFields.Status) === "Inativo"} deleted={activeDeck.isDeleted} />
                   <p>O nome/ID histórico do deck não é renomeado por esta tela.</p>
                 </div>
                 <div className="editor-heading-actions">
@@ -2234,7 +2236,7 @@ export default function PlayerEditorApp() {
                         <div>
                           <span>{isCreatingDeck ? "Novo cadastro" : "Deck cadastrado"}</span>
                           <h2>{isCreatingDeck ? "Monte o perfil do seu deck" : stringValue(currentDeckFields["Nome de Exibição"]) || activeDeck.id}</h2>
-                          <DeckLabels categories={currentDeckFields.Categorias} inactive={currentDeckFields.Status === "Inativo"} />
+                          <EditorDeckMetadataBadges categories={currentDeckFields.Categorias} origins={currentDeckFields["Origens Planares"]} inactive={currentDeckFields.Status === "Inativo"} />
                           {isCreatingDeck ? <p>Nome e comandante são obrigatórios. Você pode completar o restante depois.</p> : null}
                         </div>
                         <div className="editor-heading-actions">
