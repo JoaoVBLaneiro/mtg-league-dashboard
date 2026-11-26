@@ -24,9 +24,9 @@ export function DeckLabels({ categories, inactive, deleted, compact = false, sta
         <Archive size={14} aria-hidden="true" /> Excluído
       </span> : inactive ? <span
         className={`mtg-deck-label mtg-deck-inactive${statusIconOnly ? " mtg-deck-status-icon" : ""}`}
-        title="Inativo — não é exigido em Slayer ou Combobreaker (Ice Age)"
-        aria-label="Inativo — não é exigido em Slayer ou Combobreaker (Ice Age)"
-        role="img" tabIndex={statusIconOnly ? 0 : undefined} data-tooltip="Inativo · Ice Age">
+        title="Inativo"
+        aria-label="Inativo"
+        role="img" tabIndex={statusIconOnly ? 0 : undefined} data-tooltip="Inativo">
         <InactiveDeckIcon size={statusIconOnly ? 20 : 14} />
         {!statusIconOnly ? <span>Inativo</span> : null}
       </span> : null}

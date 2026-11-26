@@ -124,6 +124,5 @@ export default function PaioUsageBrowser<T extends PaioUsageDeck>({ item, config
       const matches = thresholdUsage(index, rule, config);
       return <><p className="paio-usage-muted">{view.points} pontos · mínimo de {rule.minimum} cartas · {matches.length} decks atingem o requisito.</p>{status || <DeckRows matches={matches} showCount onSelect={match => setStack(prev => [...prev, { kind: "tagDeck", name: match.deck.displayName, match, rule }])} />}</>;
     })() : <><p className="paio-usage-muted">{view.rule.concept} · {view.match.count} cartas da tag · mínimo de {view.rule.minimum}</p><button className="paio-usage-open-deck" type="button" onClick={() => onOpenDeck(view.match.deck)}>Abrir perfil do deck <ChevronRight size={18}/></button><div className="paio-usage-grid">{view.match.cards.map(name => <Art key={name} name={name} visual={art(name)} isGameChanger={gameChangers.has(normalizePaioName(name))} onClick={() => openCard(name)} />)}</div></>}
-    <p className="paio-usage-footnote">Considera decklists em texto e comandantes cadastrados. Atribuições manuais não confirmadas são sinalizadas e não contam para o mínimo de tags nem para combos completos. Decks excluídos e sideboards não entram na busca da decklist. Listas externas não importadas podem estar incompletas.</p>
   </Layer>)}</>, document.body);
 }

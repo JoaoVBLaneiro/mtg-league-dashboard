@@ -2225,7 +2225,7 @@ export default function PlayerEditorApp() {
                         onClick={() => { setIsCreatingDeck(false); setActiveDeckId(deck.id); }}
                       >
                         {stringValue(deck.fields["Nome de Exibição"]) || deck.id}
-                        {deck.fields.Status === "Inativo" ? <span role="img" aria-label="Inativo" title="Inativo · Ice Age"><InactiveDeckIcon size={14} /></span> : null}
+                        {deck.fields.Status === "Inativo" ? <span role="img" aria-label="Inativo" title="Inativo"><InactiveDeckIcon size={14} /></span> : null}
                       </button>
                     ))}
                   </div>
@@ -2284,7 +2284,6 @@ export default function PlayerEditorApp() {
                       <div className="editor-form-section">
                         <div className="editor-section-heading">
                           <h2>Status e categorias</h2>
-                          <p>Inativo recebe Ice Age e deixa de ser obrigatório em “Fulano Slayer” e Combobreaker. Se já foi derrotado, aparece como histórico da conquista. Reativar volta a exigi-lo, aproveitando as vitórias antigas. Listas, partidas e rankings são preservados.</p>
                         </div>
                         <label className="editor-field editor-origin-field"><span>Origem do deck</span>
                           <select value={stringValue(currentDeckFields.Origem) || 'Fora'}

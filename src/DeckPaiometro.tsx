@@ -315,7 +315,6 @@ export default function DeckPaiometro({ name, decklistTexto, paiometroConceitos,
                   loading={loadingArts}
                   onClose={() => setActiveFamily(null)}
                 /> : null}
-                <small className="paio-dialog-footnote">Clique nas artes para abrir as cartas no Scryfall. Cada carta individual conta uma vez. Famílias, inclusive combos de duas cartas, pontuam uma única vez. Categorias por tags exigem o mínimo de cartas indicado. Clique numa família para conferir as artes. Médias arredondadas com .50 para baixo e acima de .50 para cima.</small>
               </>
             )}
           </div>

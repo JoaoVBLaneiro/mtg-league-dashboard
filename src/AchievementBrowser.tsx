@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, Check, Copy, Minus, Plus, Save, Users, X } from 'lucide-react';
 import { ACHIEVEMENT_TIERS, TIER_LABELS, achievementHolders, filterManualAchievements, manualAchievementView,
   type AchievementDirectory, type ManualAchievementView } from './achievementDirectory';
+import { ManualAchievementDeckEditor } from './ManualAchievementDeckLinks';
 import './achievementBrowser.css';
 
 export function AchievementDialog({ label, children, onClose, onBack, wide = false }: {
@@ -355,6 +356,9 @@ export function ManualAchievementCatalog({
           })}
         </div>
 
+        {player ? <ManualAchievementDeckEditor playerId={player.id} achievements={catalog.map(template => ({
+          id: template.id, name: template.name, unlocked: manualAchievementView(template, player).unlocked
+        }))} /> : null}
         {!visible.length ? <p>Nenhuma conquista corresponde aos filtros.</p> : null}
       </>}
     </section>

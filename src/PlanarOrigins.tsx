@@ -175,12 +175,6 @@ export function PlanarOriginSelector({
   const selected = useMemo(() => readPlanarOriginSlugs(value), [value]);
   const universes = origins.filter((origin) => origin.kind === "universe");
   const specificOrigins = origins.filter((origin) => origin.kind === "origin");
-  const originClassNames: Record<PlanarOriginClass, string> = {
-    magic: "Magic The Gathering",
-    beyond: "Universes Beyond oficial",
-    far_beyond: "Universes Far Beyond",
-    unclassified: "Origem não classificada",
-  };
 
   function toggleUniverse(slug: string) {
     const activeUniverseCount = universes.filter((origin) => selected.includes(origin.slug)).length;
@@ -261,7 +255,6 @@ export function PlanarOriginSelector({
                 >
                   <i className={rareKeyrune(origin.keyruneClass)} aria-hidden="true" />
                   <span>{origin.label}</span>
-                  <small title="Categoria da origem">{originClassNames[origin.originClass ?? "unclassified"]}</small>
                   {active ? <Check size={15} aria-hidden="true" /> : null}
                 </button>
               );

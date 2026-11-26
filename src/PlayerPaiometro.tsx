@@ -410,7 +410,6 @@ export default function PlayerPaiometro<T extends PlayerPaioDeck>({
                     })}
                   </div>
                 </section>
-                <small className="paio-dialog-footnote">As cartas são agrupadas por deck. Cada família pontua somente uma vez por deck, mesmo com várias cartas da categoria. Cartas com vínculo manual seguem o cadastro do Paiômetro.</small>
               </div>
             </div>
           ) : null}

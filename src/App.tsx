@@ -44,6 +44,7 @@ import DynamicDeckTagBadges, { type DeckTagSelection } from "./DynamicDeckTagBad
 import { PlanarOriginBadges, rareKeyrune, type PlanarOriginDefinition } from "./PlanarOrigins";
 import { DECK_CATEGORIES, getDeckDisplayImage, isAvailableDeck, readDeckTags } from "./deckMetadata";
 import { AchievementDialog, AchievementHolders, ManualAchievementCatalog } from "./AchievementBrowser";
+import { ManualAchievementDeckEvidence } from "./ManualAchievementDeckLinks";
 import AchievementCatalog from './AchievementCatalog';
 import type { AchievementDirectory } from "./achievementDirectory";
 
@@ -1809,8 +1810,10 @@ function AchievementDetailsModal({
   onDeckClick,
   onPlayerClick,
   onClose,
+  playerId = "",
 }: {
   achievement: PlayerAchievement;
+  playerId?: string;
   allAchievements: PlayerAchievement[];
   directory?: AchievementDirectory;
   onAchievementClick: (achievement: PlayerAchievement) => void;
@@ -1910,6 +1913,9 @@ function AchievementDetailsModal({
           ) : null}
 
           <AchievementHolders directory={directory} achievementId={achievement.id} />
+          {achievement.manual && achievement.unlocked && playerId ? <ManualAchievementDeckEvidence
+            playerId={playerId} achievementId={achievement.id} onDeckClick={onDeckClick}
+          /> : null}
 
           {achievement.note ? (
             <p className="achievement-details-note">
@@ -5801,6 +5807,7 @@ function ProfileModal({
               ? ((item as Player).achievements.find((entry) => entry.id === selectedAchievement.id) ?? selectedAchievement)
               : selectedAchievement}
             directory={achievementDirectory}
+            playerId={isPlayer ? (item as Player).name : ""}
             allAchievements={isPlayer ? (item as Player).achievements : []}
             onAchievementClick={setSelectedAchievement}
             onDeckClick={(deckName) => {
@@ -9813,11 +9820,6 @@ const playerSectionSubtitle = isPlayerTrophyRanking
 
             <h1>Leaderboard - Formato Pina</h1>
 
-            <p>
-              {activeView === "cards"
-                ? "Pontuação média atribuída às cartas pelos jogadores do Formato Pina."
-                : "Ranking automático por winrate. Em caso de empate, vence quem tem mais partidas registradas."}
-            </p>
           </div>
 
           <div className="hero-actions">
@@ -10100,8 +10102,15 @@ const playerSectionSubtitle = isPlayerTrophyRanking
           }}
         /> : null}
       {manualAchievement ? <AchievementDetailsModal key={manualAchievement.id} achievement={manualAchievement}
-        directory={data.achievementDirectory} allAchievements={[]} onAchievementClick={setManualAchievement}
-        onDeckClick={() => {}} onPlayerClick={() => {}} onClose={() => setManualAchievement(null)} /> : null}
+        directory={data.achievementDirectory} playerId={manualCatalogPlayer ?? ""} allAchievements={[]} onAchievementClick={setManualAchievement}
+        onDeckClick={(deckName) => {
+          const deck = allDecks.find(item => normalizeNameKey(item.name) === normalizeNameKey(deckName) || normalizeNameKey(item.displayName) === normalizeNameKey(deckName));
+          if (deck) {
+            setManualAchievement(null);
+            setManualCatalogPlayer(null);
+            setSelectedProfile({ type: "deck", item: deck });
+          }
+        }} onPlayerClick={() => {}} onClose={() => setManualAchievement(null)} /> : null}
 
       {selectedCategory ? <CategoryDecksModal category={selectedCategory} decks={allDecks}
         onClose={() => setSelectedCategory(null)} onSelectDeck={(deck) => {
